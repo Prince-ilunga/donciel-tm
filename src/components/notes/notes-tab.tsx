@@ -293,7 +293,7 @@ function NoteDialog({
               onChange={(e) => setContent(e.target.value)}
               placeholder={language === "fr" ? "Écrivez votre préparation ici..." : "Write your preparation here..."}
               rows={8}
-              className="resize-y"
+              className="resize-y !field-sizing-fixed overflow-y-auto break-words"
             />
           </div>
         </div>
