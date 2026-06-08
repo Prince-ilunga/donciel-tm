@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type TabId = 'dashboard' | 'journal' | 'distribution' | 'timing' | 'videos' | 'notes' | 'admin' | 'roles';
+export type TabId = 'execution' | 'setup' | 'dashboard' | 'journal' | 'distribution' | 'timing' | 'videos' | 'notes' | 'admin' | 'roles';
 
 interface AppState {
   // Auth
@@ -45,7 +45,7 @@ export const useAppStore = create<AppState>((set) => ({
   isAuthenticated: false,
   authLoading: true,
   authStatus: 'idle',
-  activeTab: 'dashboard',
+  activeTab: 'execution',
   language: 'fr',
   showTradeForm: false,
   editingTradeId: null,
@@ -63,5 +63,5 @@ export const useAppStore = create<AppState>((set) => ({
   setSelectedTradeId: (selectedTradeId) => set({ selectedTradeId }),
   setShowTradeDetail: (showTradeDetail) => set({ showTradeDetail }),
   setScreenshotViewerUrl: (screenshotViewerUrl) => set({ screenshotViewerUrl }),
-  logout: () => set({ user: null, isAuthenticated: false, authLoading: false, activeTab: 'dashboard' }),
+  logout: () => set({ user: null, isAuthenticated: false, authLoading: false, activeTab: 'execution' }),
 }));

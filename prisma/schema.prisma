@@ -34,6 +34,9 @@ model Trade {
   marketCondition String   // CONTINUATION, RETRACEMENT
   timeframe       String   // M1, M5, M15, M30, H1, H4, D1, W1
   setup           String?  // Setup type
+  structure       String?  // HAUSSIÈRE, BAISSIÈRE, RANGE
+  entryModel      String?  // ANGLOBANTE, LOT_3_BOUGIES, MARKET_SHIFT
+  amountToWin     Float?   // Montant à gagner par trade
   entryPrice      Float
   stopLoss        Float
   takeProfit      Float

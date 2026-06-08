@@ -5,6 +5,8 @@ export const translations = {
     appTagline: "Journal de Trading Professionnel",
     
     // Navigation
+    executionDonciel: "Exécution DONCIEL",
+    setupTab: "Setup",
     dashboard: "Tableau de Bord",
     journal: "Journal de Trading",
     distributionRR: "Distribution RR",
@@ -193,6 +195,54 @@ export const translations = {
     previous: "Précédent",
     profit: "Profit",
     loss_label: "Perte",
+    
+    // Exécution DONCIEL
+    progressionTotal: "Progression Totale",
+    tradesTarget: "trades",
+    cyclesValide: "Cycles Validés",
+    rrCumule: "RR Cumulé",
+    montantGagne: "Montant Gagné",
+    rrMoyen: "RR Moyen",
+    phaseInitiale: "PHASE INITIALE",
+    videosDuSetup: "Vidéos du Setup",
+    evolutionApprentissage: "Évolution d'apprentissage",
+    phase1: "PHASE 1",
+    phase2: "PHASE 2",
+    tradesPerCycle: "trades par cycle",
+    cycle: "Cycle",
+    
+    // Setup Tab
+    setupDescription: "Gérez vos données DONCIEL et vos trades personnels.",
+    doncielSetup: "DONCIEL SETUP",
+    setupPersonnalise: "SETUP PERSONNALISÉ",
+    baseDonnees: "Base des données, de référence et saisie de trade",
+    doncielSetupVerification: "DONCIEL SETUP VÉRIFICATION",
+    saisieDesTrades: "SAISIE DES TRADES",
+    nombreTrades: "Nombre de trades",
+    nombreLongShort: "Long / Short",
+    filtres: "Filtres",
+    condition: "Condition",
+    modelEntree: "Modèle d'entrée",
+    structure: "Structure",
+    timing: "Timing",
+    
+    // New trade fields
+    structureField: "Structure",
+    haussiere: "HAUSSIÈRE",
+    baissiere: "BAISSIÈRE",
+    range: "RANGE",
+    entryModelField: "Modèle d'entrée",
+    anglobante: "Anglobante",
+    lot3Bougies: "Lot à 3 bougies",
+    marketShift: "Market Shift",
+    amountToWin: "Montant à gagner",
+    
+    // Trade Detail Charts
+    rrParTrade: "RR PAR TRADE",
+    cumuleIsole: "CUMULÉ ISOLÉ",
+    cumuleTotalRR: "CUMULÉ TOTAL DE RR",
+    derniersTrades: "10 derniers trades",
+    depuisPremierTrade: "depuis le premier trade",
   },
   en: {
     // App
@@ -200,6 +250,8 @@ export const translations = {
     appTagline: "Professional Trading Journal",
     
     // Navigation
+    executionDonciel: "DONCIEL Execution",
+    setupTab: "Setup",
     dashboard: "Dashboard",
     journal: "Trading Journal",
     distributionRR: "RR Distribution",
@@ -388,6 +440,54 @@ export const translations = {
     previous: "Previous",
     profit: "Profit",
     loss_label: "Loss",
+    
+    // Exécution DONCIEL
+    progressionTotal: "Total Progression",
+    tradesTarget: "trades",
+    cyclesValide: "Validated Cycles",
+    rrCumule: "Cumulative RR",
+    montantGagne: "Amount Won",
+    rrMoyen: "Average RR",
+    phaseInitiale: "INITIAL PHASE",
+    videosDuSetup: "Setup Videos",
+    evolutionApprentissage: "Learning Evolution",
+    phase1: "PHASE 1",
+    phase2: "PHASE 2",
+    tradesPerCycle: "trades per cycle",
+    cycle: "Cycle",
+    
+    // Setup Tab
+    setupDescription: "Manage your DONCIEL data and personal trades.",
+    doncielSetup: "DONCIEL SETUP",
+    setupPersonnalise: "CUSTOM SETUP",
+    baseDonnees: "Database, reference and trade entry",
+    doncielSetupVerification: "DONCIEL SETUP VERIFICATION",
+    saisieDesTrades: "TRADE ENTRY",
+    nombreTrades: "Number of trades",
+    nombreLongShort: "Long / Short",
+    filtres: "Filters",
+    condition: "Condition",
+    modelEntree: "Entry Model",
+    structure: "Structure",
+    timing: "Timing",
+    
+    // New trade fields
+    structureField: "Structure",
+    haussiere: "BULLISH",
+    baissiere: "BEARISH",
+    range: "RANGE",
+    entryModelField: "Entry Model",
+    anglobante: "Engulfing",
+    lot3Bougies: "3-Candle Lot",
+    marketShift: "Market Shift",
+    amountToWin: "Amount to Win",
+    
+    // Trade Detail Charts
+    rrParTrade: "RR PER TRADE",
+    cumuleIsole: "ISOLATED CUMULATIVE",
+    cumuleTotalRR: "TOTAL CUMULATIVE RR",
+    derniersTrades: "Last 10 trades",
+    depuisPremierTrade: "since the first trade",
   }
 } as const;
 

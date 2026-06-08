@@ -12,6 +12,9 @@ interface Trade {
   marketCondition: string;
   timeframe: string;
   setup: string | null;
+  structure: string | null;
+  entryModel: string | null;
+  amountToWin: number | null;
   entryPrice: number;
   stopLoss: number;
   takeProfit: number;
