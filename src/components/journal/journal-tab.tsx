@@ -881,7 +881,7 @@ function TradeCard({
                     return (
                     <button
                       key={screenshot.id}
-                      onClick={() => onScreenshotClick(imgSrc)}
+                      onClick={(e) => { e.stopPropagation(); onScreenshotClick(imgSrc); }}
                       className="group relative aspect-video rounded-lg overflow-hidden border border-border hover:border-primary/30 transition-colors"
                     >
                       <img

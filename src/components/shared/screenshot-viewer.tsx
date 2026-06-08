@@ -2,33 +2,55 @@
 
 import { useAppStore } from "@/stores/app-store";
 import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useEffect } from "react";
 
 export function ScreenshotViewer() {
   const { screenshotViewerUrl, setScreenshotViewerUrl } = useAppStore();
 
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && screenshotViewerUrl) {
+        e.preventDefault();
+        e.stopPropagation();
+        setScreenshotViewerUrl(null);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
+  }, [screenshotViewerUrl, setScreenshotViewerUrl]);
+
+  // Prevent body scroll when viewer is open
+  useEffect(() => {
+    if (screenshotViewerUrl) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [screenshotViewerUrl]);
+
+  if (!screenshotViewerUrl) return null;
+
   return (
-    <Dialog open={!!screenshotViewerUrl} onOpenChange={() => setScreenshotViewerUrl(null)}>
-      <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black border-border">
-        <div className="relative">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setScreenshotViewerUrl(null)}
-            className="absolute top-2 right-2 z-10 bg-black/50 text-white hover:bg-black/70"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-          {screenshotViewerUrl && (
-            <img
-              src={screenshotViewerUrl}
-              alt="Screenshot"
-              className="w-full h-auto max-h-[80vh] object-contain"
-            />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm animate-in fade-in duration-200"
+      onClick={() => setScreenshotViewerUrl(null)}
+    >
+      <button
+        onClick={() => setScreenshotViewerUrl(null)}
+        className="absolute top-4 right-4 z-10 bg-black/60 text-white hover:bg-black/80 rounded-full p-2 transition-colors"
+      >
+        <X className="w-5 h-5" />
+      </button>
+      <img
+        src={screenshotViewerUrl}
+        alt="Screenshot"
+        className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>
   );
 }

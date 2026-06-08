@@ -420,7 +420,10 @@ export function TradeDetailDialog() {
                         return (
                         <button
                           key={screenshot.id}
-                          onClick={() => setScreenshotViewerUrl(imgSrc)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setScreenshotViewerUrl(imgSrc);
+                          }}
                           className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200"
                         >
                           <img
