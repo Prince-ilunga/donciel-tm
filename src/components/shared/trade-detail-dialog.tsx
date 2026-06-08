@@ -132,7 +132,7 @@ export function TradeDetailDialog() {
 
   return (
     <Dialog open={showTradeDetail} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] p-0 gap-0 overflow-hidden">
         {/* Header */}
         {loading ? (
           <div className="p-6 space-y-4">

@@ -695,7 +695,7 @@ function TradeFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
         <div className="p-6 border-b border-border shrink-0">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
