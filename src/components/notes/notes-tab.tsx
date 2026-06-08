@@ -53,6 +53,7 @@ export function NotesTab() {
   React.useEffect(() => { refetch(); }, [refetch]);
   const [showDialog, setShowDialog] = useState(false);
   const [editingNote, setEditingNote] = useState<any>(null);
+  const [viewingNote, setViewingNote] = useState<any>(null);
 
   const handleDelete = async (id: string) => {
     if (!confirm(language === "fr" ? "Supprimer cette note ?" : "Delete this note?")) return;
@@ -144,7 +145,7 @@ export function NotesTab() {
             .filter((n: any) => n.type === activeType)
             .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
             .map((note: any) => (
-              <Card key={note.id} className="p-4 hover:border-primary/30 transition-colors">
+              <Card key={note.id} className="p-4 hover:border-primary/30 transition-colors cursor-pointer" onClick={() => setViewingNote(note)}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -168,6 +169,28 @@ export function NotesTab() {
             ))}
         </div>
       )}
+
+      {/* View Note Dialog */}
+      <Dialog open={!!viewingNote} onOpenChange={(open) => { if (!open) setViewingNote(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <StickyNote className="w-5 h-5 text-primary" />
+              {viewingNote?.title}
+            </DialogTitle>
+            <DialogDescription>
+              {viewingNote?.date && new Date(viewingNote.date).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            <p className="text-sm whitespace-pre-wrap break-words">{viewingNote?.content}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingNote(null)}>{language === "fr" ? "Fermer" : "Close"}</Button>
+            <Button onClick={() => { const n = viewingNote; setViewingNote(null); handleEdit(n); }}>{language === "fr" ? "Modifier" : "Edit"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add/Edit Note Dialog */}
       <NoteDialog
