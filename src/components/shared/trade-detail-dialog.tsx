@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { t } from "@/lib/i18n";
+import { useTrades } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,9 @@ interface TradeDetail {
   marketCondition: string;
   timeframe: string;
   setup: string | null;
+  structure: string | null;
+  entryModel: string | null;
+  amountToWin: number | null;
   entryPrice: number;
   stopLoss: number;
   takeProfit: number;
@@ -71,11 +75,11 @@ interface TradeDetail {
 
 export function TradeDetailDialog() {
   const { selectedTradeId, showTradeDetail, setShowTradeDetail, language, setScreenshotViewerUrl } = useAppStore();
+  const { trades: allTrades, refetch: refetchTrades } = useTrades();
   const [trade, setTrade] = useState<TradeDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const prevTradeIdRef = useRef<string | null>(null);
 
-  // Fetch trade data when dialog opens with a specific trade ID
   const fetchTrade = useCallback(async (id: string) => {
     setLoading(true);
     try {
@@ -89,7 +93,6 @@ export function TradeDetailDialog() {
     }
   }, []);
 
-  // Handle dialog state changes
   const handleOpenChange = useCallback((open: boolean) => {
     if (!open) {
       setShowTradeDetail(false);
@@ -98,7 +101,6 @@ export function TradeDetailDialog() {
     }
   }, [setShowTradeDetail]);
 
-  // Sync: when dialog opens with a new trade ID, trigger fetch
   useEffect(() => {
     if (showTradeDetail && selectedTradeId && selectedTradeId !== prevTradeIdRef.current) {
       prevTradeIdRef.current = selectedTradeId;
@@ -126,9 +128,113 @@ export function TradeDetailDialog() {
     const efficiency = trade.pnl !== null && trade.lotSize && trade.rr
       ? trade.rr > 0 ? ((trade.pnl / (reward * trade.lotSize)) * 100).toFixed(0) : "—"
       : "—";
-
     return { riskRewardRatio, riskAmount, rewardAmount, efficiency };
   }, [trade]);
+
+  // Get surrounding trades for charts (last 10 trades around this one)
+  const chartData = useMemo(() => {
+    if (!trade || !allTrades.length) return { last10RR: [], last10Cumulative: [], totalCumulativeRR: 0 };
+
+    // Sort trades by date then createdAt
+    const sorted = [...allTrades].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      if (dateA !== dateB) return dateA - dateB;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+    // Find the index of current trade
+    const currentIdx = sorted.findIndex(t => t.id === trade.id);
+    // Take up to 10 trades ending at or including this trade
+    const startIdx = Math.max(0, (currentIdx >= 0 ? currentIdx : sorted.length - 1) - 9);
+    const endIdx = currentIdx >= 0 ? currentIdx + 1 : sorted.length;
+    const last10 = sorted.slice(startIdx, endIdx);
+
+    const last10RR = last10.map((t, i) => ({
+      index: startIdx + i + 1,
+      rr: t.rr ?? 0,
+      result: t.result,
+    }));
+
+    // Cumulative RR for last 10
+    let cumRR = 0;
+    const last10Cumulative = last10.map((t, i) => {
+      cumRR += (t.rr ?? 0);
+      return { index: startIdx + i + 1, cumulativeRR: cumRR };
+    });
+
+    // Total cumulative RR from all trades
+    const totalCumulativeRR = sorted.reduce((s, t) => s + (t.rr ?? 0), 0);
+
+    return { last10RR, last10Cumulative, totalCumulativeRR };
+  }, [trade, allTrades]);
+
+  // Chart dimensions
+  const CHART_W = 300;
+  const CHART_H = 120;
+  const CHART_PAD = 20;
+
+  // Bar chart data for RR PAR TRADE
+  const rrBarChart = useMemo(() => {
+    const data = chartData.last10RR;
+    if (!data.length) return null;
+    const maxRR = Math.max(...data.map(d => Math.abs(d.rr)), 1);
+    const barW = Math.max(4, (CHART_W - CHART_PAD * 2) / data.length - 4);
+    const zeroY = CHART_H / 2;
+
+    return (
+      <svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="overflow-visible">
+        {/* Zero line */}
+        <line x1={CHART_PAD} y1={zeroY} x2={CHART_W - CHART_PAD} y2={zeroY} stroke="currentColor" strokeOpacity={0.15} strokeDasharray="3,3" />
+        {data.map((d, i) => {
+          const x = CHART_PAD + i * ((CHART_W - CHART_PAD * 2) / data.length) + 2;
+          const barHeight = (Math.abs(d.rr) / maxRR) * (zeroY - CHART_PAD);
+          const y = d.rr >= 0 ? zeroY - barHeight : zeroY;
+          const color = d.result === "WIN" ? "var(--color-profit, #22c55e)" : d.result === "LOSS" ? "var(--color-loss, #ef4444)" : "var(--color-gold, #eab308)";
+          return (
+            <g key={i}>
+              <rect x={x} y={y} width={barW} height={barHeight} fill={color} rx={2} opacity={0.8} />
+              <text x={x + barW / 2} y={CHART_H - 2} textAnchor="middle" fontSize={8} fill="currentColor" opacity={0.4}>{d.index}</text>
+            </g>
+          );
+        })}
+      </svg>
+    );
+  }, [chartData.last10RR]);
+
+  // Line chart for CUMULE ISOLÉ
+  const cumulativeLineChart = useMemo(() => {
+    const data = chartData.last10Cumulative;
+    if (!data.length) return null;
+    const values = data.map(d => d.cumulativeRR);
+    const minVal = Math.min(...values, 0);
+    const maxVal = Math.max(...values, 0);
+    const range = maxVal - minVal || 1;
+
+    const points = data.map((d, i) => ({
+      x: CHART_PAD + i * ((CHART_W - CHART_PAD * 2) / (data.length - 1 || 1)),
+      y: CHART_H - CHART_PAD - ((d.cumulativeRR - minVal) / range) * (CHART_H - CHART_PAD * 2),
+    }));
+
+    const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+    const areaD = `${pathD} L ${points[points.length - 1].x} ${CHART_H - CHART_PAD} L ${points[0].x} ${CHART_H - CHART_PAD} Z`;
+
+    // Zero line Y
+    const zeroY = CHART_H - CHART_PAD - ((0 - minVal) / range) * (CHART_H - CHART_PAD * 2);
+
+    return (
+      <svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="overflow-visible">
+        {zeroY > CHART_PAD && zeroY < CHART_H - CHART_PAD && (
+          <line x1={CHART_PAD} y1={zeroY} x2={CHART_W - CHART_PAD} y2={zeroY} stroke="currentColor" strokeOpacity={0.15} strokeDasharray="3,3" />
+        )}
+        <path d={areaD} fill="var(--color-profit, #22c55e)" opacity={0.1} />
+        <path d={pathD} fill="none" stroke="var(--color-profit, #22c55e)" strokeWidth={2} />
+        {points.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={3} fill="var(--color-profit, #22c55e)" />
+        ))}
+      </svg>
+    );
+  }, [chartData.last10Cumulative]);
 
   return (
     <Dialog open={showTradeDetail} onOpenChange={handleOpenChange}>
@@ -151,7 +257,7 @@ export function TradeDetailDialog() {
                   )}>
                     {isLong ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono font-bold text-lg">{trade.pair}</span>
                     <Badge className={cn(
                       "text-xs font-semibold",
@@ -170,31 +276,24 @@ export function TradeDetailDialog() {
                       </Badge>
                     )}
                     {trade.setup && (
-                      <Badge variant="outline" className="text-xs font-mono">
-                        {trade.setup}
-                      </Badge>
+                      <Badge variant="outline" className="text-xs font-mono">{trade.setup}</Badge>
+                    )}
+                    {trade.structure && (
+                      <Badge variant="outline" className="text-xs">{trade.structure}</Badge>
+                    )}
+                    {trade.entryModel && (
+                      <Badge variant="outline" className="text-xs">{trade.entryModel}</Badge>
                     )}
                   </div>
                 </DialogTitle>
               </DialogHeader>
-              <div className="flex items-center gap-3 mt-3">
-                <Badge variant="outline" className="text-xs">
-                  {trade.date}
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  {trade.session}
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  {trade.marketCondition}
-                </Badge>
-                <Badge variant="outline" className="text-xs font-mono">
-                  {trade.timeframe}
-                </Badge>
+              <div className="flex items-center gap-3 mt-3 flex-wrap">
+                <Badge variant="outline" className="text-xs">{trade.date}</Badge>
+                <Badge variant="outline" className="text-xs">{trade.session}</Badge>
+                <Badge variant="outline" className="text-xs">{trade.marketCondition}</Badge>
+                <Badge variant="outline" className="text-xs font-mono">{trade.timeframe}</Badge>
                 {trade.newsEnabled && (
-                  <Badge className="text-xs bg-gold/15 text-gold border-gold/20 gap-1">
-                    <Newspaper className="w-3 h-3" />
-                    News
-                  </Badge>
+                  <Badge className="text-xs bg-gold/15 text-gold border-gold/20 gap-1"><Newspaper className="w-3 h-3" />News</Badge>
                 )}
               </div>
             </div>
@@ -202,70 +301,96 @@ export function TradeDetailDialog() {
             <ScrollArea className="max-h-[calc(90vh-140px)]">
               <div className="p-6 space-y-6">
                 {/* Key Metrics Row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                   {/* RR */}
                   <div className="rounded-xl border border-border p-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1">
-                      <Target className="w-3 h-3" />
-                      RR
-                    </div>
-                    <div className={cn(
-                      "text-2xl font-bold font-mono",
-                      trade.rr !== null && trade.rr >= 1 && "text-profit",
-                      trade.rr !== null && trade.rr < 1 && "text-loss"
-                    )}>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><Target className="w-3 h-3" />RR</div>
+                    <div className={cn("text-2xl font-bold font-mono", trade.rr !== null && trade.rr >= 1 && "text-profit", trade.rr !== null && trade.rr < 1 && "text-loss")}>
                       {trade.rr !== null ? trade.rr.toFixed(2) : "—"}
                     </div>
                   </div>
-
                   {/* P&L */}
                   <div className="rounded-xl border border-border p-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1">
-                      <DollarSign className="w-3 h-3" />
-                      P&L
-                    </div>
-                    <div className={cn(
-                      "text-2xl font-bold font-mono",
-                      trade.pnl !== null && trade.pnl > 0 && "text-profit",
-                      trade.pnl !== null && trade.pnl < 0 && "text-loss",
-                      trade.pnl !== null && trade.pnl === 0 && "text-gold"
-                    )}>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />P&L</div>
+                    <div className={cn("text-2xl font-bold font-mono", trade.pnl !== null && trade.pnl > 0 && "text-profit", trade.pnl !== null && trade.pnl < 0 && "text-loss", trade.pnl !== null && trade.pnl === 0 && "text-gold")}>
                       {trade.pnl !== null ? `${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}` : "—"}
                     </div>
                   </div>
-
                   {/* Result */}
                   <div className="rounded-xl border border-border p-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1">
-                      <BarChart3 className="w-3 h-3" />
-                      {t(language, "result")}
-                    </div>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><BarChart3 className="w-3 h-3" />{t(language, "result")}</div>
                     <div className="flex justify-center mt-1">
                       {trade.result ? (
-                        <Badge className={cn(
-                          "text-sm font-bold px-3 py-1",
-                          trade.result === "WIN" && "bg-profit/15 text-profit border-profit/20",
-                          trade.result === "LOSS" && "bg-loss/15 text-loss border-loss/20",
-                          trade.result === "BE" && "bg-gold/15 text-gold border-gold/20"
-                        )}>
-                          {trade.result}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
+                        <Badge className={cn("text-sm font-bold px-3 py-1", trade.result === "WIN" && "bg-profit/15 text-profit border-profit/20", trade.result === "LOSS" && "bg-loss/15 text-loss border-loss/20", trade.result === "BE" && "bg-gold/15 text-gold border-gold/20")}>{trade.result}</Badge>
+                      ) : <span className="text-muted-foreground">—</span>}
                     </div>
                   </div>
-
                   {/* Duration */}
                   <div className="rounded-xl border border-border p-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {t(language, "duration")}
-                    </div>
-                    <div className="text-lg font-bold font-mono">
-                      {trade.duration || "—"}
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><Clock className="w-3 h-3" />{t(language, "duration")}</div>
+                    <div className="text-lg font-bold font-mono">{trade.duration || "—"}</div>
+                  </div>
+                  {/* Amount to Win */}
+                  <div className="rounded-xl border border-border p-3 text-center">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />{t(language, "amountToWin")}</div>
+                    <div className="text-lg font-bold font-mono text-profit">
+                      {trade.amountToWin !== null ? `${trade.amountToWin.toFixed(2)}$` : "—"}
                     </div>
                   </div>
+                </div>
+
+                {/* ─── Charts Section ──────────────── */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {language === "fr" ? "Graphiques" : "Charts"}
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* RR PAR TRADE - Bar Chart */}
+                    <Card className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
+                          {t(language, "rrParTrade")}
+                        </span>
+                        <Badge variant="outline" className="text-[9px]">{t(language, "derniersTrades")}</Badge>
+                      </div>
+                      {rrBarChart || (
+                        <div className="h-[120px] flex items-center justify-center text-muted-foreground text-sm">
+                          {t(language, "noData")}
+                        </div>
+                      )}
+                    </Card>
+
+                    {/* CUMULE ISOLÉ - Line Chart */}
+                    <Card className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
+                          {t(language, "cumuleIsole")}
+                        </span>
+                        <Badge variant="outline" className="text-[9px]">{t(language, "derniersTrades")}</Badge>
+                      </div>
+                      {cumulativeLineChart || (
+                        <div className="h-[120px] flex items-center justify-center text-muted-foreground text-sm">
+                          {t(language, "noData")}
+                        </div>
+                      )}
+                    </Card>
+                  </div>
+
+                  {/* CUMULE TOTAL DE RR */}
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
+                        {t(language, "cumuleTotalRR")}
+                      </span>
+                      <span className="text-xs text-muted-foreground">{t(language, "depuisPremierTrade")}</span>
+                    </div>
+                    <div className={cn(
+                      "text-3xl font-bold font-mono mt-2",
+                      chartData.totalCumulativeRR >= 0 ? "text-profit" : "text-loss"
+                    )}>
+                      {chartData.totalCumulativeRR >= 0 ? "+" : ""}{chartData.totalCumulativeRR.toFixed(2)} RR
+                    </div>
+                  </Card>
                 </div>
 
                 {/* Price Parameters */}
@@ -274,53 +399,29 @@ export function TradeDetailDialog() {
                     {language === "fr" ? "Paramètres de Prix" : "Price Parameters"}
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <ParamCard
-                      label={t(language, "entryPrice")}
-                      value={trade.entryPrice.toFixed(2)}
-                      mono
-                    />
-                    <ParamCard
-                      label={t(language, "stopLoss")}
-                      value={trade.stopLoss.toFixed(2)}
-                      mono
-                      valueClass="text-loss"
-                    />
-                    <ParamCard
-                      label={t(language, "takeProfit")}
-                      value={trade.takeProfit.toFixed(2)}
-                      mono
-                      valueClass="text-profit"
-                    />
-                    {trade.exitPrice !== null && (
-                      <ParamCard
-                        label={t(language, "exitPrice")}
-                        value={trade.exitPrice.toFixed(2)}
-                        mono
-                      />
-                    )}
-                    {trade.lotSize !== null && (
-                      <ParamCard
-                        label={t(language, "lotSize")}
-                        value={trade.lotSize.toString()}
-                        mono
-                      />
-                    )}
-                    {trade.entryTime && (
-                      <ParamCard
-                        label={t(language, "entryTime")}
-                        value={trade.entryTime}
-                        mono
-                      />
-                    )}
-                    {trade.exitTime && (
-                      <ParamCard
-                        label={t(language, "exitTime")}
-                        value={trade.exitTime}
-                        mono
-                      />
-                    )}
+                    <ParamCard label={t(language, "entryPrice")} value={trade.entryPrice.toFixed(2)} mono />
+                    <ParamCard label={t(language, "stopLoss")} value={trade.stopLoss.toFixed(2)} mono valueClass="text-loss" />
+                    <ParamCard label={t(language, "takeProfit")} value={trade.takeProfit.toFixed(2)} mono valueClass="text-profit" />
+                    {trade.exitPrice !== null && <ParamCard label={t(language, "exitPrice")} value={trade.exitPrice.toFixed(2)} mono />}
+                    {trade.lotSize !== null && <ParamCard label={t(language, "lotSize")} value={trade.lotSize.toString()} mono />}
+                    {trade.amountToWin !== null && <ParamCard label={t(language, "amountToWin")} value={`${trade.amountToWin.toFixed(2)}$`} mono valueClass="text-profit" />}
+                    {trade.entryTime && <ParamCard label={t(language, "entryTime")} value={trade.entryTime} mono />}
+                    {trade.exitTime && <ParamCard label={t(language, "exitTime")} value={trade.exitTime} mono />}
                   </div>
                 </div>
+
+                {/* Trade Context - Structure & Entry Model */}
+                {(trade.structure || trade.entryModel) && (
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      {language === "fr" ? "Contexte du Trade" : "Trade Context"}
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      {trade.structure && <ParamCard label={t(language, "structureField")} value={trade.structure} />}
+                      {trade.entryModel && <ParamCard label={t(language, "entryModelField")} value={trade.entryModel} />}
+                    </div>
+                  </div>
+                )}
 
                 {/* Trade Statistics */}
                 {tradeStats && (
@@ -329,24 +430,10 @@ export function TradeDetailDialog() {
                       {language === "fr" ? "Statistiques du Trade" : "Trade Statistics"}
                     </h4>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <StatCard
-                        label={language === "fr" ? "Ratio Risk/Reward" : "Risk/Reward Ratio"}
-                        value={tradeStats.riskRewardRatio}
-                      />
-                      <StatCard
-                        label={language === "fr" ? "Risque ($)" : "Risk ($)"}
-                        value={tradeStats.riskAmount}
-                        valueClass="text-loss"
-                      />
-                      <StatCard
-                        label={language === "fr" ? "Récompense ($)" : "Reward ($)"}
-                        value={tradeStats.rewardAmount}
-                        valueClass="text-profit"
-                      />
-                      <StatCard
-                        label={language === "fr" ? "Efficacité" : "Efficiency"}
-                        value={tradeStats.efficiency !== "—" ? `${tradeStats.efficiency}%` : "—"}
-                      />
+                      <StatCard label={language === "fr" ? "Ratio Risk/Reward" : "Risk/Reward Ratio"} value={tradeStats.riskRewardRatio} />
+                      <StatCard label={language === "fr" ? "Risque ($)" : "Risk ($)"} value={tradeStats.riskAmount} valueClass="text-loss" />
+                      <StatCard label={language === "fr" ? "Récompense ($)" : "Reward ($)"} value={tradeStats.rewardAmount} valueClass="text-profit" />
+                      <StatCard label={language === "fr" ? "Efficacité" : "Efficiency"} value={tradeStats.efficiency !== "—" ? `${tradeStats.efficiency}%` : "—"} />
                     </div>
                   </div>
                 )}
@@ -358,38 +445,10 @@ export function TradeDetailDialog() {
                       {language === "fr" ? "Données Qualitatives" : "Qualitative Data"}
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {trade.emotions && (
-                        <QualCard
-                          icon={Heart}
-                          label={t(language, "emotions")}
-                          value={trade.emotions}
-                          color="text-pink-400"
-                        />
-                      )}
-                      {trade.confluence && (
-                        <QualCard
-                          icon={Layers}
-                          label={t(language, "confluence")}
-                          value={trade.confluence}
-                          color="text-foreground"
-                        />
-                      )}
-                      {trade.mistakes && (
-                        <QualCard
-                          icon={AlertTriangle}
-                          label={t(language, "mistakes")}
-                          value={trade.mistakes}
-                          color="text-loss"
-                        />
-                      )}
-                      {trade.lessons && (
-                        <QualCard
-                          icon={Lightbulb}
-                          label={t(language, "lessons")}
-                          value={trade.lessons}
-                          color="text-gold"
-                        />
-                      )}
+                      {trade.emotions && <QualCard icon={Heart} label={t(language, "emotions")} value={trade.emotions} color="text-pink-400" />}
+                      {trade.confluence && <QualCard icon={Layers} label={t(language, "confluence")} value={trade.confluence} color="text-foreground" />}
+                      {trade.mistakes && <QualCard icon={AlertTriangle} label={t(language, "mistakes")} value={trade.mistakes} color="text-loss" />}
+                      {trade.lessons && <QualCard icon={Lightbulb} label={t(language, "lessons")} value={trade.lessons} color="text-gold" />}
                     </div>
                   </div>
                 )}
@@ -397,53 +456,33 @@ export function TradeDetailDialog() {
                 {/* Notes */}
                 {trade.notes && (
                   <div className="rounded-xl bg-muted/30 p-4">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
-                      {t(language, "notes")}
-                    </div>
-                    <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">
-                      {trade.notes}
-                    </p>
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t(language, "notes")}</div>
+                    <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{trade.notes}</p>
                   </div>
                 )}
 
                 {/* Screenshots */}
                 {trade.screenshots && trade.screenshots.length > 0 && (
                   <div className="space-y-3">
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      {t(language, "screenshots")}
-                    </h4>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t(language, "screenshots")}</h4>
                     <div className="grid grid-cols-3 gap-3">
                       {trade.screenshots.map((screenshot) => {
                         const imgSrc = screenshot.url.startsWith('upload/screenshots/')
                           ? `/api/screenshots/${screenshot.url.replace('upload/screenshots/', '')}`
                           : screenshot.url;
                         return (
-                        <button
-                          key={screenshot.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setScreenshotViewerUrl(imgSrc);
-                          }}
-                          className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200"
-                        >
-                          <img
-                            src={imgSrc}
-                            alt={`${screenshot.type} screenshot`}
-                            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                            <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
-                            <span className="text-[10px] text-white font-medium uppercase tracking-wider">
-                              {screenshot.type === "analysis"
-                                ? t(language, "analysisScreenshot")
-                                : screenshot.type === "entry"
-                                ? t(language, "entryScreenshot")
-                                : t(language, "exitScreenshot")}
-                            </span>
-                          </div>
-                        </button>
+                          <button key={screenshot.id} onClick={(e) => { e.stopPropagation(); setScreenshotViewerUrl(imgSrc); }}
+                            className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200">
+                            <img src={imgSrc} alt={`${screenshot.type} screenshot`} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                              <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                              <span className="text-[10px] text-white font-medium uppercase tracking-wider">
+                                {screenshot.type === "analysis" ? t(language, "analysisScreenshot") : screenshot.type === "entry" ? t(language, "entryScreenshot") : t(language, "exitScreenshot")}
+                              </span>
+                            </div>
+                          </button>
                         );
                       })}
                     </div>

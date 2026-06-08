@@ -88,6 +88,9 @@ interface TradeFormData {
   timeframeAnalysis: string;
   timeframeEntry: string;
   setup: string;
+  structure: string;
+  entryModel: string;
+  amountToWin: string;
   entryPrice: string;
   stopLoss: string;
   takeProfit: string;
@@ -106,6 +109,9 @@ interface TradeFormData {
   exitFile: File | null;
 }
 
+const STRUCTURES = ["HAUSSIÈRE", "BAISSIÈRE", "RANGE"];
+const ENTRY_MODELS = ["ANGLOBANTE", "LOT À 3 BOUGIES", "MARKET SHIFT"];
+
 const initialFormData: TradeFormData = {
   date: format(new Date(), "yyyy-MM-dd"),
   pair: "",
@@ -116,6 +122,9 @@ const initialFormData: TradeFormData = {
   timeframeAnalysis: "",
   timeframeEntry: "",
   setup: "",
+  structure: "",
+  entryModel: "",
+  amountToWin: "",
   entryPrice: "",
   stopLoss: "",
   takeProfit: "",
@@ -624,6 +633,9 @@ function TradeFormDialog({
         marketCondition: formData.marketCondition,
         timeframe: `${formData.timeframeAnalysis}/${formData.timeframeEntry}`,
         setup: formData.setup || null,
+        structure: formData.structure || null,
+        entryModel: formData.entryModel || null,
+        amountToWin: formData.amountToWin ? parseFloat(formData.amountToWin) : null,
         entryPrice: parseFloat(formData.entryPrice),
         stopLoss: parseFloat(formData.stopLoss),
         takeProfit: parseFloat(formData.takeProfit),
@@ -962,6 +974,40 @@ function TradeFormDialog({
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Structure */}
+              <div className="space-y-1.5 trade-field">
+                <Label className="text-xs font-medium">{t(language, "structureField")}</Label>
+                <Select value={formData.structure} onValueChange={(v) => updateField("structure", v)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STRUCTURES.map((st) => (
+                      <SelectItem key={st} value={st}>
+                        {t(language, st.toLowerCase().replace(/è/g, "e").replace(/é/g, "e") as any) || st}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Entry Model */}
+              <div className="space-y-1.5 trade-field">
+                <Label className="text-xs font-medium">{t(language, "entryModelField")}</Label>
+                <Select value={formData.entryModel} onValueChange={(v) => updateField("entryModel", v)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENTRY_MODELS.map((em) => (
+                      <SelectItem key={em} value={em}>
+                        {em}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <Separator />
@@ -1036,6 +1082,19 @@ function TradeFormDialog({
                     placeholder="0.01"
                     value={formData.lotSize}
                     onChange={(e) => updateField("lotSize", e.target.value)}
+                    className="h-9 font-mono"
+                  />
+                </div>
+
+                {/* Amount to Win */}
+                <div className="space-y-1.5 trade-field">
+                  <Label className="text-xs font-medium">{t(language, "amountToWin")}</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder="0.00"
+                    value={formData.amountToWin}
+                    onChange={(e) => updateField("amountToWin", e.target.value)}
                     className="h-9 font-mono"
                   />
                 </div>

@@ -22,13 +22,16 @@ import {
   Globe,
   Menu,
   X,
-  FileDown,
   PanelLeftClose,
   PanelLeft,
+  Target,
+  FolderOpen,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import React, { useState } from "react";
 import { toast } from "sonner";
+import { ExecutionTab } from "@/components/execution/execution-tab";
+import { SetupTab } from "@/components/setup/setup-tab";
 import { DashboardTab } from "@/components/dashboard/dashboard-tab";
 import { JournalTab } from "@/components/journal/journal-tab";
 import { DistributionTab } from "@/components/distribution/distribution-tab";
@@ -40,7 +43,8 @@ import { RoleManagementTab } from "@/components/admin/role-management-tab";
 import { DoncielLogo } from "@/components/shared/donciel-logo";
 
 const navItems: { id: TabId; icon: typeof LayoutDashboard; key: string; adminOnly?: boolean }[] = [
-  { id: "dashboard", icon: LayoutDashboard, key: "dashboard" },
+  { id: "execution", icon: Target, key: "executionDonciel" },
+  { id: "setup", icon: FolderOpen, key: "setupTab" },
   { id: "journal", icon: Calendar, key: "journal" },
   { id: "distribution", icon: BarChart3, key: "distributionRR" },
   { id: "timing", icon: Clock, key: "timingAnalysis" },
@@ -58,7 +62,6 @@ export function MainApp() {
   const [mounted, setMounted] = useState(false);
   const mountedRef = React.useRef(false);
 
-  // Using requestAnimationFrame to avoid synchronous setState in effect
   React.useEffect(() => {
     if (!mountedRef.current) {
       mountedRef.current = true;
@@ -78,7 +81,6 @@ export function MainApp() {
   const toggleLanguage = () => {
     const newLang = language === "fr" ? "en" : "fr";
     setLanguage(newLang);
-    // Save language preference
     if (user) {
       fetch("/api/auth/me", {
         method: "PUT",
@@ -92,6 +94,8 @@ export function MainApp() {
 
   const renderTab = () => {
     switch (activeTab) {
+      case "execution": return <ExecutionTab />;
+      case "setup": return <SetupTab />;
       case "dashboard": return <DashboardTab />;
       case "journal": return <JournalTab />;
       case "distribution": return <DistributionTab />;
@@ -100,7 +104,7 @@ export function MainApp() {
       case "notes": return <NotesTab />;
       case "admin": return <AdminTab />;
       case "roles": return <RoleManagementTab />;
-      default: return <DashboardTab />;
+      default: return <ExecutionTab />;
     }
   };
 
@@ -136,7 +140,6 @@ export function MainApp() {
           )}
           {!sidebarCollapsed && (
             <div className="ml-auto flex items-center gap-1">
-              {/* Collapse button - desktop only */}
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 className="hidden lg:flex text-sidebar-foreground hover:bg-sidebar-accent rounded-md p-1.5 transition-colors"
@@ -254,8 +257,6 @@ export function MainApp() {
             </Button>
           )}
         </div>
-
-
       </aside>
 
       {/* Main content */}
@@ -269,7 +270,7 @@ export function MainApp() {
             <Menu className="w-5 h-5" />
           </button>
           <h2 className="text-lg font-semibold truncate">
-            {t(language, navItems.find(n => n.id === activeTab)?.key as Parameters<typeof t>[1] || "dashboard")}
+            {t(language, navItems.find(n => n.id === activeTab)?.key as Parameters<typeof t>[1] || "executionDonciel")}
           </h2>
           <div className="ml-auto flex items-center gap-2">
             {isAdmin && (
