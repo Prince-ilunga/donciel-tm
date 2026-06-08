@@ -413,14 +413,18 @@ export function TradeDetailDialog() {
                       {t(language, "screenshots")}
                     </h4>
                     <div className="grid grid-cols-3 gap-3">
-                      {trade.screenshots.map((screenshot) => (
+                      {trade.screenshots.map((screenshot) => {
+                        const imgSrc = screenshot.url.startsWith('upload/screenshots/')
+                          ? `/api/screenshots/${screenshot.url.replace('upload/screenshots/', '')}`
+                          : screenshot.url;
+                        return (
                         <button
                           key={screenshot.id}
-                          onClick={() => setScreenshotViewerUrl(screenshot.url)}
+                          onClick={() => setScreenshotViewerUrl(imgSrc)}
                           className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200"
                         >
                           <img
-                            src={screenshot.url}
+                            src={imgSrc}
                             alt={`${screenshot.type} screenshot`}
                             className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                           />
@@ -437,7 +441,8 @@ export function TradeDetailDialog() {
                             </span>
                           </div>
                         </button>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}

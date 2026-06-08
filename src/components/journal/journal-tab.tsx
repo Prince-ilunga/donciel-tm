@@ -874,14 +874,18 @@ function TradeCard({
                   {t(language, "screenshots")}
                 </h5>
                 <div className="grid grid-cols-3 gap-2">
-                  {trade.screenshots.map((screenshot) => (
+                  {trade.screenshots.map((screenshot) => {
+                    const imgSrc = screenshot.url.startsWith('upload/screenshots/')
+                      ? `/api/screenshots/${screenshot.url.replace('upload/screenshots/', '')}`
+                      : screenshot.url;
+                    return (
                     <button
                       key={screenshot.id}
-                      onClick={() => onScreenshotClick(screenshot.url)}
+                      onClick={() => onScreenshotClick(imgSrc)}
                       className="group relative aspect-video rounded-lg overflow-hidden border border-border hover:border-primary/30 transition-colors"
                     >
                       <img
-                        src={screenshot.url}
+                        src={imgSrc}
                         alt={`${screenshot.type} screenshot`}
                         className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                       />
@@ -898,7 +902,8 @@ function TradeCard({
                         </span>
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
