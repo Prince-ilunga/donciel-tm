@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  name          String?
+  role          String   @default("user") // "admin" or "user"
+  status        String   @default("pending") // "pending", "approved", "rejected"
+  language      String   @default("fr") // "fr" or "en"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  trades        Trade[]
+  notes         Note[]
+  customPairs   CustomPair[]
+  videos        Video[]
+}
+
+model Trade {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime
+  pair            String   // XAUUSD, US30, US100, EURUSD, GBPUSD, or custom
+  direction       String   // LONG, SHORT
+  session         String   // LONDON, NEW YORK, ASIE, OVERLAP, MACRO CHER, MACRO PEU CHER
+  marketCondition String   // CONTINUATION, RETRACEMENT
+  timeframe       String   // M1, M5, M15, M30, H1, H4, D1, W1
+  setup           String?  // Setup type
+  entryPrice      Float
+  stopLoss        Float
+  takeProfit      Float
+  exitPrice       Float?
+  entryTime       String?  // HH:mm format
+  exitTime         String?  // HH:mm format
+  duration        String?  // Auto-calculated duration
+  lotSize         Float?
+  rr              Float?   // Auto-calculated RR
+  pnl             Float?   // Auto-calculated P&L
+  result          String?  // WIN, LOSS, BE (auto-calculated)
+  newsEnabled     Boolean  @default(false)
+  emotions        String?  // Pre-trade emotions
+  confluence      String?  // Confluences
+  mistakes        String?  // Mistakes made
+  lessons         String?  // Lessons learned
+  notes           String?  // Additional notes
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  screenshots     Screenshot[]
+}
+
+model Screenshot {
+  id       String @id @default(cuid())
+  tradeId  String
+  trade    Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  type     String // "analysis", "entry", "exit"
+  url      String // File path or URL
+  createdAt DateTime @default(now())
+}
+
+model Video {
+  id          String   @id @default(cuid())
+  category    String   // STRUCTURE, BIAIS, ZONES, MODELS, SETUPS
+  title       String
+  description String?
+  url         String   // File path
+  uploadedBy  String
+  uploader    User     @relation(fields: [uploadedBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // DAY, WEEK, MONTH
+  title     String
+  content   String
+  date      DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CustomPair {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime @default(now())
+}
