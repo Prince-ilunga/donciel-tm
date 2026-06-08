@@ -113,6 +113,11 @@ export async function PUT(
       }
     }
 
+    // Adjust RR based on result: LOSS = -1R, BE = 0R, WIN = positive RR
+    let finalRR = rr ?? calculatedRR;
+    if (calculatedResult === 'LOSS') finalRR = -1;
+    else if (calculatedResult === 'BE') finalRR = 0;
+
     // Auto-calculate PnL
     let calculatedPnl: number | null = pnl ?? existingTrade.pnl;
     if (xp !== undefined && xp !== null && ls) {
@@ -138,7 +143,7 @@ export async function PUT(
         exitTime: exitTime !== undefined ? exitTime || null : existingTrade.exitTime,
         duration: duration !== undefined ? duration || null : existingTrade.duration,
         lotSize: lotSize !== undefined ? (lotSize !== null ? ls : null) : existingTrade.lotSize,
-        rr: rr ?? calculatedRR,
+        rr: finalRR,
         pnl: calculatedPnl,
         result: calculatedResult,
         ...(newsEnabled !== undefined && { newsEnabled }),

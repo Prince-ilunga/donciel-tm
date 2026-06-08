@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Auto-calculate RR
+    // Auto-calculate RR (positive reward/risk ratio)
     const risk = Math.abs(entryPrice - stopLoss);
     const reward = Math.abs(takeProfit - entryPrice);
     const calculatedRR = risk > 0 ? parseFloat((reward / risk).toFixed(2)) : null;
@@ -112,6 +112,11 @@ export async function POST(request: NextRequest) {
         else calculatedResult = 'BE';
       }
     }
+
+    // Adjust RR based on result: LOSS = -1R, BE = 0R, WIN = positive RR
+    let finalRR = rr ?? calculatedRR;
+    if (calculatedResult === 'LOSS') finalRR = -1;
+    else if (calculatedResult === 'BE') finalRR = 0;
 
     // Auto-calculate PnL
     let calculatedPnl: number | null = pnl ?? null;
@@ -140,7 +145,7 @@ export async function POST(request: NextRequest) {
         exitTime: exitTime || null,
         duration: duration || null,
         lotSize: lotSize ? parseFloat(lotSize) : null,
-        rr: rr ?? calculatedRR,
+        rr: finalRR,
         pnl: calculatedPnl,
         result: calculatedResult,
         newsEnabled: newsEnabled ?? false,

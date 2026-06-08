@@ -255,14 +255,7 @@ export function MainApp() {
           )}
         </div>
 
-        {/* Copyright */}
-        {!sidebarCollapsed && (
-          <div className="p-3 pt-0 shrink-0">
-            <p className="text-[10px] text-muted-foreground text-center">
-              DONCIEL™ © {new Date().getFullYear()}
-            </p>
-          </div>
-        )}
+
       </aside>
 
       {/* Main content */}
