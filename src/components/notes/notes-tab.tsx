@@ -271,7 +271,7 @@ function NoteDialog({
                       noteType === nt.id ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/30"
                     )}
                   >
-                    <Icon className="w-3.5 h-3.5" />
+                    <Icon className={cn("w-3.5 h-3.5", nt.color)} />
                     {language === "fr" ? nt.label_fr.split(" ")[0] : nt.label_en.split(" ")[0]}
                   </button>
                 );
