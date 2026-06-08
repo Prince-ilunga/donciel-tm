@@ -115,3 +115,29 @@ Stage Summary:
 - Default API routes get 300s timeouts (5 minutes) instead of implicit short timeouts
 - XHR provides real-time per-chunk progress (smooth progress bar instead of per-chunk jumps)
 - Upload verified working through both curl and browser automation
+
+---
+Task ID: 16
+Agent: Main Agent
+Task: Fix video upload resetting to 0% at 12% (Caddy timeout still not applied)
+
+Work Log:
+- User reported upload reaches 12% then resets to 0%
+- Root cause: Caddy was never actually reloaded (no root permissions), so the @upload_api handler was never active
+- The running Caddy still uses the OLD config where /api/videos/upload/* routes go through the default handler with short timeouts
+- Key insight: Caddy's XTransformPort handler ALREADY has zero timeouts and works perfectly
+- Solution: Add ?XTransformPort=3000 to ALL upload API URLs in the frontend
+  - This routes requests through Caddy's existing zero-timeout XTransformPort handler
+  - Requests still reach the same Next.js API routes on port 3000
+  - No Caddy reload needed!
+- Also reduced chunk size from 10MB to 5MB for faster completion per chunk on slow connections
+- Increased XHR timeout from 10 min to 15 min per chunk
+- Progress bar no longer resets instantly to 0% on error (3-second delay so user can see where it failed)
+- Tested: 20MB file (4 chunks) uploaded successfully through Caddy with XTransformPort=3000
+- Browser test: 8MB file uploaded, video appears in UI
+
+Stage Summary:
+- Frontend now uses ?XTransformPort=3000 for all upload API requests
+- Bypasses Caddy's default handler timeout entirely by using the zero-timeout XTransformPort handler
+- 5MB chunks instead of 10MB for better reliability on slow connections
+- Upload verified working via both curl and browser

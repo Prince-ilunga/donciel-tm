@@ -58,7 +58,7 @@ setInterval(() => {
       // Clean up chunk files
       for (let i = 0; i < session.totalChunks; i++) {
         const chunkPath = path.join(CHUNK_DIR, `${id}_${i}`);
-        fs.unlinkSync(chunkPath).catch(() => {});
+        try { fs.unlinkSync(chunkPath); } catch {}
       }
       activeUploads.delete(id);
       console.log(`[upload-service] Cleaned up stale session: ${id}`);

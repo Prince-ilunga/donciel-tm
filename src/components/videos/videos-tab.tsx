@@ -203,7 +203,7 @@ export function VideosTab() {
   );
 }
 
-const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per chunk
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB per chunk (smaller = more reliable on slow connections)
 
 /** Upload a single chunk via XHR to get real-time progress events */
 function uploadChunkViaXHR(
@@ -212,7 +212,8 @@ function uploadChunkViaXHR(
 ): Promise<{ ok: boolean; status: number; data: any }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/videos/upload/chunk");
+    // Use XTransformPort=3000 to route through Caddy's zero-timeout handler
+    xhr.open("POST", "/api/videos/upload/chunk?XTransformPort=3000");
     xhr.withCredentials = true;
 
     xhr.upload.onprogress = (e) => {
@@ -229,7 +230,7 @@ function uploadChunkViaXHR(
 
     xhr.onerror = () => reject(new Error("Network error"));
     xhr.ontimeout = () => reject(new Error("Request timed out"));
-    xhr.timeout = 10 * 60 * 1000; // 10 min timeout per chunk (for slow connections)
+    xhr.timeout = 15 * 60 * 1000; // 15 min timeout per chunk (for slow connections)
 
     xhr.send(fd);
   });
@@ -267,9 +268,9 @@ function AddVideoDialog({
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
     try {
-      // Step 1: Initialize chunked upload (via Next.js API proxy)
+      // Step 1: Initialize chunked upload (via XTransformPort for zero timeout)
       setUploadStatus(language === "fr" ? "Initialisation..." : "Initializing...");
-      const initRes = await fetch("/api/videos/upload/init", {
+      const initRes = await fetch("/api/videos/upload/init?XTransformPort=3000", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -349,7 +350,7 @@ function AddVideoDialog({
       // Step 3: Complete the upload (assemble chunks on server)
       setUploadStatus(language === "fr" ? "Assemblage de la vidéo..." : "Assembling video...");
       setUploadProgress(100);
-      const completeRes = await fetch("/api/videos/upload/complete", {
+      const completeRes = await fetch("/api/videos/upload/complete?XTransformPort=3000", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ uploadId }),
@@ -372,8 +373,11 @@ function AddVideoDialog({
       toast.error(err.message || (language === "fr" ? "Erreur lors de l'upload" : "Upload failed"));
     }
     setIsSubmitting(false);
-    setUploadProgress(0);
-    setUploadStatus("");
+    // Don't reset progress immediately so user can see where it failed
+    setTimeout(() => {
+      setUploadProgress(0);
+      setUploadStatus("");
+    }, 3000);
   };
 
   return (
