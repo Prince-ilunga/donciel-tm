@@ -695,8 +695,8 @@ function TradeFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0 gap-0 overflow-hidden">
-        <div className="p-6 border-b border-border">
+      <DialogContent className="max-w-2xl max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
+        <div className="p-6 border-b border-border shrink-0">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -710,7 +710,7 @@ function TradeFormDialog({
           </DialogHeader>
         </div>
 
-        <ScrollArea className="max-h-[calc(90vh-140px)]">
+        <ScrollArea className="flex-1 overflow-hidden">
           <div className="p-6 space-y-6">
             {/* Auto-calculator display */}
             {(autoCalc.rr !== null || autoCalc.pnl !== null || autoCalc.resultLabel !== null) && (
@@ -1204,7 +1204,7 @@ function TradeFormDialog({
         </ScrollArea>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border bg-muted/30 flex items-center justify-end gap-3">
+        <div className="p-4 border-t border-border bg-muted/30 flex items-center justify-end gap-3 shrink-0">
           <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}
