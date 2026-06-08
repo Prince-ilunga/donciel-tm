@@ -117,15 +117,15 @@ export function MainApp() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out lg:translate-x-0",
+          "fixed lg:static inset-y-0 left-0 z-50 bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out lg:translate-x-0 overflow-hidden",
           sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full",
-          sidebarCollapsed && "lg:w-16",
+          sidebarCollapsed && "lg:w-14",
           !sidebarCollapsed && "lg:w-64",
           sidebarOpen && !sidebarCollapsed && "w-64"
         )}
       >
         {/* Logo */}
-        <div className="p-4 flex items-center gap-3">
+        <div className={cn("flex items-center shrink-0", sidebarCollapsed ? "p-2 justify-center" : "p-4 gap-3")}>
           <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
             <TrendingUp className="w-5 h-5 text-primary-foreground" />
           </div>
@@ -136,29 +136,40 @@ export function MainApp() {
               </h1>
             </div>
           )}
-          <div className="ml-auto flex items-center gap-1">
-            {/* Collapse button - desktop only */}
+          {!sidebarCollapsed && (
+            <div className="ml-auto flex items-center gap-1">
+              {/* Collapse button - desktop only */}
+              <button
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                className="hidden lg:flex text-sidebar-foreground hover:bg-sidebar-accent rounded-md p-1.5 transition-colors"
+                title={language === "fr" ? "Réduire" : "Collapse"}
+              >
+                <PanelLeftClose className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden text-sidebar-foreground"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+          {sidebarCollapsed && (
             <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="hidden lg:flex text-sidebar-foreground hover:bg-sidebar-accent rounded-md p-1.5 transition-colors"
-              title={sidebarCollapsed ? (language === "fr" ? "Développer" : "Expand") : (language === "fr" ? "Réduire" : "Collapse")}
+              onClick={() => setSidebarCollapsed(false)}
+              className="hidden lg:flex absolute top-2.5 right-1 text-sidebar-foreground hover:bg-sidebar-accent rounded-md p-1 transition-colors"
+              title={language === "fr" ? "Développer" : "Expand"}
             >
-              {sidebarCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+              <PanelLeft className="w-3.5 h-3.5" />
             </button>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-sidebar-foreground"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          )}
         </div>
 
         <Separator className="bg-sidebar-border" />
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 px-3 py-4">
-          <nav className="space-y-1">
+        <ScrollArea className="flex-1 py-4">
+          <nav className={cn("space-y-1", sidebarCollapsed ? "px-1.5" : "px-3")}>
             {filteredNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -170,7 +181,8 @@ export function MainApp() {
                     setSidebarOpen(false);
                   }}
                   className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    "w-full flex items-center rounded-lg text-sm font-medium transition-all duration-200",
+                    sidebarCollapsed ? "justify-center px-0 py-2.5" : "gap-3 px-3 py-2.5",
                     isActive
                       ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -195,13 +207,14 @@ export function MainApp() {
         <Separator className="bg-sidebar-border" />
 
         {/* Bottom actions */}
-        <div className="p-3 space-y-2">
-          <div className="flex items-center gap-2">
+        <div className={cn("shrink-0", sidebarCollapsed ? "p-1.5 space-y-1" : "p-3 space-y-2")}>
+          <div className={cn("flex items-center", sidebarCollapsed ? "justify-center gap-0" : "gap-2")}>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="h-9 w-9 text-sidebar-foreground"
+              title={theme === "dark" ? (language === "fr" ? "Mode clair" : "Light mode") : (language === "fr" ? "Mode sombre" : "Dark mode")}
             >
               {mounted && theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </Button>
@@ -210,6 +223,7 @@ export function MainApp() {
               size="icon"
               onClick={toggleLanguage}
               className="h-9 w-9 text-sidebar-foreground"
+              title={language === "fr" ? "English" : "Français"}
             >
               <Globe className="w-4 h-4" />
             </Button>
@@ -245,7 +259,7 @@ export function MainApp() {
 
         {/* Copyright */}
         {!sidebarCollapsed && (
-          <div className="p-3 pt-0">
+          <div className="p-3 pt-0 shrink-0">
             <p className="text-[10px] text-muted-foreground text-center">
               DONCIEL™ © {new Date().getFullYear()}
             </p>
