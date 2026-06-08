@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import {
   TrendingUp,
   TrendingDown,
@@ -348,32 +348,14 @@ export function DistributionTab() {
             </Card>
           </div>
 
-          {/* Charts Row 3: Performance breakdowns */}
-          <Tabs defaultValue="setup" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="setup">{t(language, "performanceBySetup")}</TabsTrigger>
-              <TabsTrigger value="session">{t(language, "performanceBySession")}</TabsTrigger>
-              <TabsTrigger value="condition">{t(language, "performanceByMarketCondition")}</TabsTrigger>
-              <TabsTrigger value="timeframe">{t(language, "performanceByTimeframe")}</TabsTrigger>
-              <TabsTrigger value="asset">{t(language, "performanceByAsset")}</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="setup">
-              <PerformanceBreakdownCard data={setupData} title={t(language, "performanceBySetup")} category="setup" onChartClick={handleChartClick} />
-            </TabsContent>
-            <TabsContent value="session">
-              <PerformanceBreakdownCard data={sessionData} title={t(language, "performanceBySession")} category="session" onChartClick={handleChartClick} />
-            </TabsContent>
-            <TabsContent value="condition">
-              <PerformanceBreakdownCard data={marketCondData} title={t(language, "performanceByMarketCondition")} category="marketCondition" onChartClick={handleChartClick} />
-            </TabsContent>
-            <TabsContent value="timeframe">
-              <PerformanceBreakdownCard data={timeframeData} title={t(language, "performanceByTimeframe")} category="timeframe" onChartClick={handleChartClick} />
-            </TabsContent>
-            <TabsContent value="asset">
-              <PerformanceBreakdownCard data={assetData} title={t(language, "performanceByAsset")} category="pair" onChartClick={handleChartClick} />
-            </TabsContent>
-          </Tabs>
+          {/* Charts Row 3: Performance breakdowns — each in its own chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <PerformanceBreakdownCard data={setupData} title={t(language, "performanceBySetup")} category="setup" onChartClick={handleChartClick} />
+            <PerformanceBreakdownCard data={assetData} title={t(language, "performanceByAsset")} category="pair" onChartClick={handleChartClick} />
+            <PerformanceBreakdownCard data={sessionData} title={t(language, "performanceBySession")} category="session" onChartClick={handleChartClick} />
+            <PerformanceBreakdownCard data={marketCondData} title={t(language, "performanceByMarketCondition")} category="marketCondition" onChartClick={handleChartClick} />
+            <PerformanceBreakdownCard data={timeframeData} title={t(language, "performanceByTimeframe")} category="timeframe" onChartClick={handleChartClick} />
+          </div>
         </>
       )}
     </div>
