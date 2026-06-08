@@ -56,3 +56,39 @@ Stage Summary:
 - Files streamed to disk via Bun.write() (no full memory buffering)
 - Auth and admin checks preserved in the upload service
 - Existing Next.js /api/videos endpoint untouched (still works for small files)
+
+---
+Task ID: 14
+Agent: Main Agent
+Task: Fix video upload stopping at a certain percentage (timeout issue on slow connections)
+
+Work Log:
+- Analyzed user screenshot showing 80.7MB video upload in Add Video dialog
+- Diagnosed root cause: single-request upload fails on slow connections due to timeouts at Caddy/Bun/browser layers
+- Tested 20MB/100MB/200MB/500MB uploads via curl on localhost — all work (fast connection)
+- The issue only manifests on slow remote connections where uploads take minutes
+- Implemented chunked upload strategy (10MB per chunk) to solve timeout problems:
+  - Each chunk is small enough to complete before any timeout
+  - Failed chunks are automatically retried (up to 3 attempts with exponential backoff)
+  - Progress bar shows per-chunk progress accurately
+- Created Next.js API routes as proxies to avoid Caddy XTransformPort issues:
+  - /api/videos/upload/init — initialize chunked upload session
+  - /api/videos/upload/chunk — upload individual chunk
+  - /api/videos/upload/complete — assemble chunks, create DB record
+- Created shared upload session store at /src/lib/upload-store.ts (using globalThis for persistence)
+- Updated frontend AddVideoDialog to use chunked upload with:
+  - Chunk-by-chunk progress indicator ("Upload du morceau 3/8...")
+  - Status messages in French/English
+  - Retry logic with exponential backoff
+  - Assembly status message at the end
+- Kept upload mini-service (port 3031) for backward compatibility with direct uploads
+- Tested: 80MB file (8 chunks) uploaded successfully through Caddy gateway
+- Browser test: video upload works correctly, appears in UI with proper metadata
+
+Stage Summary:
+- Chunked upload (10MB chunks) solves the timeout issue for large video uploads
+- No more dependency on Caddy XTransformPort for chunk uploads (goes through Next.js API routes)
+- Retry logic ensures reliability on unstable connections
+- Upload progress is accurate and granular
+- 500MB files work (tested via curl with 50 chunks)
+- Browser upload verified working through the Preview Panel

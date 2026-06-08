@@ -203,6 +203,8 @@ export function VideosTab() {
   );
 }
 
+const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per chunk
+
 function AddVideoDialog({
   open,
   onOpenChange,
@@ -222,6 +224,7 @@ function AddVideoDialog({
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState("");
 
   const handleSubmit = async () => {
     if (!title || !file) {
@@ -230,56 +233,110 @@ function AddVideoDialog({
     }
     setIsSubmitting(true);
     setUploadProgress(0);
+
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("title", title);
-      fd.append("description", description);
-      fd.append("category", selectedCategory);
-
-      // Use the upload mini-service for streaming large file support (up to 500MB)
-      const res = await new Promise<Response>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/upload/video?XTransformPort=3031");
-        xhr.withCredentials = true;
-
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            setUploadProgress(pct);
-          }
-        };
-
-        xhr.onload = () => {
-          const response = new Response(xhr.responseText, {
-            status: xhr.status,
-            statusText: xhr.statusText,
-            headers: new Headers({ "Content-Type": "application/json" }),
-          });
-          resolve(response);
-        };
-
-        xhr.onerror = () => reject(new Error("Upload failed"));
-        xhr.send(fd);
+      // Step 1: Initialize chunked upload (via Next.js API proxy)
+      setUploadStatus(language === "fr" ? "Initialisation..." : "Initializing...");
+      const initRes = await fetch("/api/videos/upload/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          totalSize: file.size,
+          totalChunks,
+          category: selectedCategory,
+          title,
+          description,
+        }),
       });
 
-      if (res.ok) {
-        toast.success(language === "fr" ? "Vidéo ajoutée !" : "Video added!");
-        onOpenChange(false);
-        setTitle("");
-        setDescription("");
-        setFile(null);
-        setUploadProgress(0);
-        onVideoAdded();
-      } else {
-        const data = await res.json();
-        toast.error(data.error || "Error");
+      if (!initRes.ok) {
+        const data = await initRes.json();
+        throw new Error(data.error || "Init failed");
       }
-    } catch {
-      toast.error(language === "fr" ? "Erreur lors de l'upload" : "Upload failed");
+
+      const { uploadId } = await initRes.json();
+
+      // Step 2: Upload each chunk (via Next.js API proxy)
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+
+        setUploadStatus(
+          language === "fr"
+            ? `Upload du morceau ${i + 1}/${totalChunks}...`
+            : `Uploading chunk ${i + 1}/${totalChunks}...`
+        );
+
+        const fd = new FormData();
+        fd.append("uploadId", uploadId);
+        fd.append("chunkIndex", i.toString());
+        fd.append("chunk", chunkBlob, file.name);
+
+        // Upload chunk with retry (up to 3 attempts)
+        let chunkSuccess = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const chunkRes = await fetch("/api/videos/upload/chunk", {
+              method: "POST",
+              body: fd,
+            });
+
+            if (chunkRes.ok) {
+              chunkSuccess = true;
+              break;
+            }
+
+            if (attempt === 3) {
+              const data = await chunkRes.json();
+              throw new Error(data.error || `Chunk ${i + 1} failed`);
+            }
+          } catch (err: any) {
+            if (attempt === 3) throw err;
+            // Wait before retry (exponential backoff)
+            await new Promise((r) => setTimeout(r, 1000 * attempt));
+          }
+        }
+
+        if (!chunkSuccess) {
+          throw new Error(`Chunk ${i + 1} failed after 3 attempts`);
+        }
+
+        // Update progress
+        const pct = Math.round(((i + 1) / totalChunks) * 100);
+        setUploadProgress(pct);
+      }
+
+      // Step 3: Complete the upload (assemble chunks on server)
+      setUploadStatus(language === "fr" ? "Assemblage de la vidéo..." : "Assembling video...");
+      const completeRes = await fetch("/api/videos/upload/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uploadId }),
+      });
+
+      if (!completeRes.ok) {
+        const data = await completeRes.json();
+        throw new Error(data.error || "Assembly failed");
+      }
+
+      toast.success(language === "fr" ? "Vidéo ajoutée !" : "Video added!");
+      onOpenChange(false);
+      setTitle("");
+      setDescription("");
+      setFile(null);
+      setUploadProgress(0);
+      setUploadStatus("");
+      onVideoAdded();
+    } catch (err: any) {
+      toast.error(err.message || (language === "fr" ? "Erreur lors de l'upload" : "Upload failed"));
     }
     setIsSubmitting(false);
     setUploadProgress(0);
+    setUploadStatus("");
   };
 
   return (
@@ -330,10 +387,10 @@ function AddVideoDialog({
               </p>
             )}
           </div>
-          {isSubmitting && uploadProgress > 0 && (
+          {isSubmitting && (
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{language === "fr" ? "Upload en cours..." : "Uploading..."}</span>
+                <span>{uploadStatus || (language === "fr" ? "Upload en cours..." : "Uploading...")}</span>
                 <span>{uploadProgress}%</span>
               </div>
               <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
