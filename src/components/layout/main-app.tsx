@@ -22,7 +22,6 @@ import {
   Globe,
   Menu,
   X,
-  TrendingUp,
   FileDown,
   PanelLeftClose,
   PanelLeft,
@@ -38,6 +37,7 @@ import { VideosTab } from "@/components/videos/videos-tab";
 import { NotesTab } from "@/components/notes/notes-tab";
 import { AdminTab } from "@/components/admin/admin-tab";
 import { RoleManagementTab } from "@/components/admin/role-management-tab";
+import { DoncielLogo } from "@/components/shared/donciel-logo";
 
 const navItems: { id: TabId; icon: typeof LayoutDashboard; key: string; adminOnly?: boolean }[] = [
   { id: "dashboard", icon: LayoutDashboard, key: "dashboard" },
@@ -126,9 +126,7 @@ export function MainApp() {
       >
         {/* Logo */}
         <div className={cn("flex items-center shrink-0", sidebarCollapsed ? "p-2 justify-center" : "p-4 gap-3")}>
-          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <TrendingUp className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <DoncielLogo size={36} />
           {!sidebarCollapsed && (
             <div>
               <h1 className="text-lg font-bold tracking-tight text-sidebar-foreground">

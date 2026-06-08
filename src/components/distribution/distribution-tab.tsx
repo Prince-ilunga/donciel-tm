@@ -392,11 +392,11 @@ function PerformanceBreakdownCard({ data, title, category, onChartClick }: { dat
         </ResponsiveContainer>
       </div>
       {/* Detail cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {data.map((d: any, i: number) => (
           <div key={d.name} className="p-3 rounded-lg bg-muted/50 border border-border/50 cursor-pointer hover:bg-muted/70 transition-colors" onClick={() => onChartClick(category, d.name)}>
             <div className="text-sm font-semibold truncate">{d.name}</div>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge variant="outline" className="text-[10px]">{d.value} trades</Badge>
               <Badge variant="outline" className="text-[10px] text-profit">{d.winRate.toFixed(0)}% WR</Badge>
             </div>

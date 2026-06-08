@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Eye, EyeOff, TrendingUp, BarChart3, Shield, Globe } from "lucide-react";
+import { Eye, EyeOff, BarChart3, Shield, Globe } from "lucide-react";
 import { toast } from "sonner";
+import { DoncielLogo } from "@/components/shared/donciel-logo";
 
 export function AuthScreen() {
   const { setUser, authStatus, setAuthStatus } = useAppStore();
@@ -143,7 +144,7 @@ export function AuthScreen() {
           <div className="space-y-6">
             <div className="flex items-start gap-4">
               <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <TrendingUp className="w-5 h-5 text-primary" />
+                <DoncielLogo size={20} />
               </div>
               <div>
                 <h3 className="font-semibold">Analyse en Temps Réel</h3>
