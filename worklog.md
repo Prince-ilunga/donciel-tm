@@ -92,3 +92,26 @@ Stage Summary:
 - Upload progress is accurate and granular
 - 500MB files work (tested via curl with 50 chunks)
 - Browser upload verified working through the Preview Panel
+
+---
+Task ID: 15
+Agent: Main Agent
+Task: Fix video upload failing at 0% (Caddy gateway timeout on chunk upload routes)
+
+Work Log:
+- Analyzed user screenshot showing "Upload du morceau 1/9... 0%" — upload stuck at first chunk
+- Root cause: Caddy gateway had timeout settings ONLY for requests with XTransformPort query parameter, but chunked upload goes through Next.js API routes (/api/videos/upload/*) WITHOUT that parameter
+- Those requests hit the default handler which had NO custom timeout — Caddy's default timeouts killed the connection before chunks could complete on slow connections
+- Fixed Caddyfile by adding dedicated @upload_api handler for /api/videos/upload/* with zero timeouts (matching the XTransformPort handler)
+- Also extended default handler timeouts from implicit (very short) to 300s for general API routes
+- Improved frontend upload UX: replaced fetch-based chunk uploads with XHR-based uploads that provide real-time progress per chunk (instead of jumping 0% → 100% per chunk)
+- XHR has 10-minute timeout per chunk for slow connections
+- Added retry status messages in French ("Nouvel essai morceau 1 (tentative 2/3)...")
+- Verified: 20MB file uploads through Caddy gateway (2 chunks, both 200 OK, complete 201)
+- Verified: Browser upload works end-to-end via agent-browser (5MB file, appears in UI)
+
+Stage Summary:
+- Caddy now has zero timeouts for /api/videos/upload/* routes — no more connection drops on slow uploads
+- Default API routes get 300s timeouts (5 minutes) instead of implicit short timeouts
+- XHR provides real-time per-chunk progress (smooth progress bar instead of per-chunk jumps)
+- Upload verified working through both curl and browser automation

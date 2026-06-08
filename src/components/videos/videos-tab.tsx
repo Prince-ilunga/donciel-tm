@@ -205,6 +205,36 @@ export function VideosTab() {
 
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10 MB per chunk
 
+/** Upload a single chunk via XHR to get real-time progress events */
+function uploadChunkViaXHR(
+  fd: FormData,
+  onProgress: (pct: number) => void
+): Promise<{ ok: boolean; status: number; data: any }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/videos/upload/chunk");
+    xhr.withCredentials = true;
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      let data: any = null;
+      try { data = JSON.parse(xhr.responseText); } catch {}
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
+    };
+
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.ontimeout = () => reject(new Error("Request timed out"));
+    xhr.timeout = 10 * 60 * 1000; // 10 min timeout per chunk (for slow connections)
+
+    xhr.send(fd);
+  });
+}
+
 function AddVideoDialog({
   open,
   onOpenChange,
@@ -259,7 +289,7 @@ function AddVideoDialog({
 
       const { uploadId } = await initRes.json();
 
-      // Step 2: Upload each chunk (via Next.js API proxy)
+      // Step 2: Upload each chunk using XHR for real-time progress
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
@@ -276,27 +306,33 @@ function AddVideoDialog({
         fd.append("chunkIndex", i.toString());
         fd.append("chunk", chunkBlob, file.name);
 
-        // Upload chunk with retry (up to 3 attempts)
+        // Upload chunk with retry (up to 3 attempts) using XHR
         let chunkSuccess = false;
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
-            const chunkRes = await fetch("/api/videos/upload/chunk", {
-              method: "POST",
-              body: fd,
+            const result = await uploadChunkViaXHR(fd, (chunkPct) => {
+              // Progress for this chunk = base progress + (chunk progress / total chunks)
+              const basePct = Math.round((i / totalChunks) * 100);
+              const chunkContrib = Math.round((chunkPct / 100) * (100 / totalChunks));
+              setUploadProgress(Math.min(basePct + chunkContrib, 99));
             });
 
-            if (chunkRes.ok) {
+            if (result.ok) {
               chunkSuccess = true;
               break;
             }
 
             if (attempt === 3) {
-              const data = await chunkRes.json();
-              throw new Error(data.error || `Chunk ${i + 1} failed`);
+              throw new Error(result.data?.error || `Chunk ${i + 1} failed (HTTP ${result.status})`);
             }
           } catch (err: any) {
             if (attempt === 3) throw err;
             // Wait before retry (exponential backoff)
+            setUploadStatus(
+              language === "fr"
+                ? `Nouvel essai morceau ${i + 1} (tentative ${attempt + 1}/3)...`
+                : `Retrying chunk ${i + 1} (attempt ${attempt + 1}/3)...`
+            );
             await new Promise((r) => setTimeout(r, 1000 * attempt));
           }
         }
@@ -305,13 +341,14 @@ function AddVideoDialog({
           throw new Error(`Chunk ${i + 1} failed after 3 attempts`);
         }
 
-        // Update progress
+        // Update progress after chunk completes
         const pct = Math.round(((i + 1) / totalChunks) * 100);
         setUploadProgress(pct);
       }
 
       // Step 3: Complete the upload (assemble chunks on server)
       setUploadStatus(language === "fr" ? "Assemblage de la vidéo..." : "Assembling video...");
+      setUploadProgress(100);
       const completeRes = await fetch("/api/videos/upload/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
