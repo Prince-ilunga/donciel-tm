@@ -1,0 +1,12 @@
+{
+  "name": "upload-service",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun index.ts"
+  },
+  "dependencies": {
+    "formidable": "^3.5.2",
+    "jose": "^6.2.3"
+  }
+}

@@ -30,3 +30,29 @@ Stage Summary:
 - All 8 tabs functional with proper French translations
 - Charts rendered with recharts (bar, line, area, pie)
 - Dark mode default with light mode toggle
+
+---
+Task ID: 13
+Agent: Main Agent
+Task: Fix video upload to support up to 500MB per file
+
+Work Log:
+- Diagnosed that Next.js App Router has default body size limit preventing large video uploads
+- Created dedicated upload mini-service at mini-services/upload-service/ (port 3031)
+- Used Bun.serve() with maxRequestBodySize: 501MB for streaming large file support
+- Service handles authentication (JWT via cookie), admin check, file streaming to disk, and DB record creation
+- Prisma client is lazy-loaded from the main project to avoid duplicate generation
+- Updated frontend AddVideoDialog to use XHR with upload progress bar via /upload/video?XTransformPort=3031
+- Added file size display in the upload dialog (shows MB and warns if >500MB)
+- Added upload progress bar with percentage indicator
+- Button disabled when file exceeds 500MB limit
+- Tested upload through Caddy gateway (port 81) - returns 201 Created
+- Video appears correctly in the UI after upload
+- File saved to disk and DB record created successfully
+
+Stage Summary:
+- Upload mini-service running on port 3031 with 500MB file support
+- Frontend uses XHR for progress tracking during upload
+- Files streamed to disk via Bun.write() (no full memory buffering)
+- Auth and admin checks preserved in the upload service
+- Existing Next.js /api/videos endpoint untouched (still works for small files)

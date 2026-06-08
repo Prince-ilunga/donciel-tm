@@ -221,6 +221,7 @@ function AddVideoDialog({
   const [selectedCategory, setSelectedCategory] = useState(category);
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const handleSubmit = async () => {
     if (!title || !file) {
@@ -228,6 +229,7 @@ function AddVideoDialog({
       return;
     }
     setIsSubmitting(true);
+    setUploadProgress(0);
     try {
       const fd = new FormData();
       fd.append("file", file);
@@ -235,22 +237,49 @@ function AddVideoDialog({
       fd.append("description", description);
       fd.append("category", selectedCategory);
 
-      const res = await fetch("/api/videos", { method: "POST", body: fd });
+      // Use the upload mini-service for streaming large file support (up to 500MB)
+      const res = await new Promise<Response>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/upload/video?XTransformPort=3031");
+        xhr.withCredentials = true;
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(pct);
+          }
+        };
+
+        xhr.onload = () => {
+          const response = new Response(xhr.responseText, {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            headers: new Headers({ "Content-Type": "application/json" }),
+          });
+          resolve(response);
+        };
+
+        xhr.onerror = () => reject(new Error("Upload failed"));
+        xhr.send(fd);
+      });
+
       if (res.ok) {
         toast.success(language === "fr" ? "Vidéo ajoutée !" : "Video added!");
         onOpenChange(false);
         setTitle("");
         setDescription("");
         setFile(null);
+        setUploadProgress(0);
         onVideoAdded();
       } else {
         const data = await res.json();
         toast.error(data.error || "Error");
       }
     } catch {
-      toast.error("Error");
+      toast.error(language === "fr" ? "Erreur lors de l'upload" : "Upload failed");
     }
     setIsSubmitting(false);
+    setUploadProgress(0);
   };
 
   return (
@@ -262,7 +291,7 @@ function AddVideoDialog({
             {t(language, "addVideo")}
           </DialogTitle>
           <DialogDescription>
-            {language === "fr" ? "Ajouter une vidéo au Setup DONCIEL" : "Add a video to DONCIEL Setup"}
+            {language === "fr" ? "Ajouter une vidéo au Setup DONCIEL (max 500 Mo)" : "Add a video to DONCIEL Setup (max 500 MB)"}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -290,11 +319,35 @@ function AddVideoDialog({
           <div className="space-y-1.5">
             <Label className="text-xs">{language === "fr" ? "Fichier vidéo" : "Video file"} *</Label>
             <Input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            {file && (
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {(file.size / 1024 / 1024).toFixed(1)} Mo
+                {file.size > 500 * 1024 * 1024 && (
+                  <span className="text-red-500 ml-1">
+                    {language === "fr" ? "(dépasse 500 Mo !)" : "(exceeds 500 MB!)"}
+                  </span>
+                )}
+              </p>
+            )}
           </div>
+          {isSubmitting && uploadProgress > 0 && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{language === "fr" ? "Upload en cours..." : "Uploading..."}</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-300"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t(language, "cancel")}</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || (!!file && file.size > 500 * 1024 * 1024)}>
             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
             {t(language, "save")}
           </Button>
