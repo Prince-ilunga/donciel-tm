@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getAuthUser, isAdmin } from '@/lib/auth';
+import { getAuthUser } from '@/lib/auth';
 
 function buildGroupStats(trades: any[], keyFn: (t: any) => string) {
   const groups: Record<string, { count: number; wins: number; totalRR: number; totalPnL: number; rrValues: number[] }> = {};
@@ -32,12 +32,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
 
-    const where: Record<string, unknown> = {};
-    if (!isAdmin(result.user)) {
-      where.userId = result.user.id;
-    } else {
-      where.user = { status: 'approved' };
-    }
+    const where: Record<string, unknown> = { user: { status: 'approved' } };
 
     const trades = await db.trade.findMany({
       where,
