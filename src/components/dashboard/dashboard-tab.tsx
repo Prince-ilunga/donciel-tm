@@ -710,7 +710,7 @@ function TradeFormDialog({
           </DialogHeader>
         </div>
 
-        <ScrollArea className="flex-1 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="p-6 space-y-6">
             {/* Auto-calculator display */}
             {(autoCalc.rr !== null || autoCalc.pnl !== null || autoCalc.resultLabel !== null) && (
@@ -1201,7 +1201,7 @@ function TradeFormDialog({
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Footer */}
         <div className="p-4 border-t border-border bg-muted/30 flex items-center justify-end gap-3 shrink-0">
