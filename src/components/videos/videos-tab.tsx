@@ -150,22 +150,43 @@ export function VideosTab() {
             {filteredVideos.map((video: any) => (
               <Card key={video.id} className="overflow-hidden group">
                 {/* Video thumbnail / player */}
-                <div
-                  className="relative h-40 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center cursor-pointer"
-                  onClick={() => setPlayingVideo(video.id === playingVideo ? null : video.id)}
-                >
-                  <Play className="w-12 h-12 text-primary/60 group-hover:text-primary transition-colors" />
-                  {isAdmin && (
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => { e.stopPropagation(); handleDelete(video.id); }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
-                </div>
+                {playingVideo === video.id ? (
+                  <div className="relative bg-black">
+                    <video
+                      src={`/${video.url}`}
+                      controls
+                      autoPlay
+                      className="w-full h-40 object-contain"
+                    />
+                    {isAdmin && (
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-7 w-7"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(video.id); }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div
+                    className="relative h-40 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center cursor-pointer"
+                    onClick={() => setPlayingVideo(video.id)}
+                  >
+                    <Play className="w-12 h-12 text-primary/60 group-hover:text-primary transition-colors" />
+                    {isAdmin && (
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => { e.stopPropagation(); handleDelete(video.id); }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                )}
                 <div className="p-4">
                   <h4 className="font-semibold text-sm truncate">{video.title}</h4>
                   {video.description && (
