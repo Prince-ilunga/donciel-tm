@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { AuthScreen } from "@/components/auth/auth-screen";
 import { MainApp } from "@/components/layout/main-app";
+import { TradeDetailDialog } from "@/components/shared/trade-detail-dialog";
+import { ScreenshotViewer } from "@/components/shared/screenshot-viewer";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -55,6 +57,8 @@ export default function Home() {
       <div className="min-h-screen bg-background">
         {isAuthenticated ? <MainApp /> : <AuthScreen />}
       </div>
+      <TradeDetailDialog />
+      <ScreenshotViewer />
       <Toaster richColors position="top-right" />
     </ThemeProvider>
   );

@@ -25,7 +25,6 @@ import {
   Bar,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   PieChart,
@@ -51,12 +50,34 @@ const PROFIT_COLOR = "oklch(0.72 0.22 145)";
 const LOSS_COLOR = "oklch(0.65 0.24 25)";
 
 export function DistributionTab() {
-  const { language } = useAppStore();
+  const { language, setSelectedTradeId, setShowTradeDetail } = useAppStore();
   const { stats, loading, refetch } = useStats();
+  const { trades } = useTrades();
 
   // Fetch on mount
   React.useEffect(() => { refetch(); }, [refetch]);
   const statsData = (stats as any)?.stats ?? stats;
+
+  // Handle chart bar click - find trades matching the clicked category
+  const handleChartClick = (category: string, value: string) => {
+    // Find the first trade matching this category and open its details
+    const matchingTrade = trades.find((trade: any) => {
+      switch (category) {
+        case "setup": return (trade.setup || "N/A") === value;
+        case "session": return trade.session === value;
+        case "marketCondition": return trade.marketCondition === value;
+        case "timeframe": return trade.timeframe === value;
+        case "pair": return trade.pair === value;
+        case "direction": return trade.direction === value;
+        case "rrRange": return true; // For RR distribution, just open first trade
+        default: return false;
+      }
+    });
+    if (matchingTrade) {
+      setSelectedTradeId(matchingTrade.id);
+      setShowTradeDetail(true);
+    }
+  };
 
   if (loading) {
     return (
@@ -144,7 +165,7 @@ export function DistributionTab() {
     <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
           {t(language, "distributionRR")}
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
@@ -201,7 +222,6 @@ export function DistributionTab() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={rrDistributionData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="name" tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
                     <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
                     <Tooltip
@@ -212,7 +232,7 @@ export function DistributionTab() {
                         color: "var(--popover-foreground)",
                       }}
                     />
-                    <Bar dataKey="count" fill="oklch(0.65 0.2 160)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="count" fill="oklch(0.65 0.2 160)" radius={[4, 4, 0, 0]} cursor="pointer" onClick={(data) => handleChartClick("rrRange", data.name)} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -233,6 +253,8 @@ export function DistributionTab() {
                         outerRadius={90}
                         dataKey="value"
                         label={({ name, value }) => `${name}: ${value}`}
+                        cursor="pointer"
+                        onClick={(data) => handleChartClick("direction", data.name)}
                       >
                         {directionData.map((_: any, index: number) => (
                           <Cell key={index} fill={index === 0 ? PROFIT_COLOR : LOSS_COLOR} />
@@ -249,7 +271,7 @@ export function DistributionTab() {
               {/* Direction details */}
               <div className="grid grid-cols-2 gap-3 mt-4">
                 {directionData.map((d: any) => (
-                  <div key={d.name} className="text-center p-3 rounded-lg bg-muted/50">
+                  <div key={d.name} className="text-center p-3 rounded-lg bg-muted/50 cursor-pointer hover:bg-muted/70 transition-colors" onClick={() => handleChartClick("direction", d.name)}>
                     <div className={cn("text-lg font-bold", d.name === "LONG" ? "text-profit" : "text-loss")}>
                       {d.name}
                     </div>
@@ -269,7 +291,6 @@ export function DistributionTab() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={cumulativeRRData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="trade" tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
                     <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
                     <Tooltip
@@ -304,7 +325,6 @@ export function DistributionTab() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={movingAvgData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="trade" tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
                     <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
                     <Tooltip
@@ -339,19 +359,19 @@ export function DistributionTab() {
             </TabsList>
 
             <TabsContent value="setup">
-              <PerformanceBreakdownCard data={setupData} title={t(language, "performanceBySetup")} />
+              <PerformanceBreakdownCard data={setupData} title={t(language, "performanceBySetup")} category="setup" onChartClick={handleChartClick} />
             </TabsContent>
             <TabsContent value="session">
-              <PerformanceBreakdownCard data={sessionData} title={t(language, "performanceBySession")} />
+              <PerformanceBreakdownCard data={sessionData} title={t(language, "performanceBySession")} category="session" onChartClick={handleChartClick} />
             </TabsContent>
             <TabsContent value="condition">
-              <PerformanceBreakdownCard data={marketCondData} title={t(language, "performanceByMarketCondition")} />
+              <PerformanceBreakdownCard data={marketCondData} title={t(language, "performanceByMarketCondition")} category="marketCondition" onChartClick={handleChartClick} />
             </TabsContent>
             <TabsContent value="timeframe">
-              <PerformanceBreakdownCard data={timeframeData} title={t(language, "performanceByTimeframe")} />
+              <PerformanceBreakdownCard data={timeframeData} title={t(language, "performanceByTimeframe")} category="timeframe" onChartClick={handleChartClick} />
             </TabsContent>
             <TabsContent value="asset">
-              <PerformanceBreakdownCard data={assetData} title={t(language, "performanceByAsset")} />
+              <PerformanceBreakdownCard data={assetData} title={t(language, "performanceByAsset")} category="pair" onChartClick={handleChartClick} />
             </TabsContent>
           </Tabs>
         </>
@@ -360,7 +380,7 @@ export function DistributionTab() {
   );
 }
 
-function PerformanceBreakdownCard({ data, title }: { data: any[]; title: string }) {
+function PerformanceBreakdownCard({ data, title, category, onChartClick }: { data: any[]; title: string; category: string; onChartClick: (category: string, value: string) => void }) {
   if (!data || data.length === 0) {
     return (
       <Card className="p-8 text-center">
@@ -375,7 +395,6 @@ function PerformanceBreakdownCard({ data, title }: { data: any[]; title: string 
       <div className="h-64 mb-4">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="name" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
             <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 12 }} />
             <Tooltip
@@ -386,14 +405,14 @@ function PerformanceBreakdownCard({ data, title }: { data: any[]; title: string 
                 color: "var(--popover-foreground)",
               }}
             />
-            <Bar dataKey="totalRR" fill="oklch(0.65 0.2 160)" radius={[4, 4, 0, 0]} name="Total RR" />
+            <Bar dataKey="totalRR" fill="oklch(0.65 0.2 160)" radius={[4, 4, 0, 0]} name="Total RR" cursor="pointer" onClick={(data) => onChartClick(category, data.name)} />
           </BarChart>
         </ResponsiveContainer>
       </div>
       {/* Detail cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {data.map((d: any, i: number) => (
-          <div key={d.name} className="p-3 rounded-lg bg-muted/50 border border-border/50">
+          <div key={d.name} className="p-3 rounded-lg bg-muted/50 border border-border/50 cursor-pointer hover:bg-muted/70 transition-colors" onClick={() => onChartClick(category, d.name)}>
             <div className="text-sm font-semibold truncate">{d.name}</div>
             <div className="flex items-center gap-2 mt-1">
               <Badge variant="outline" className="text-[10px]">{d.value} trades</Badge>

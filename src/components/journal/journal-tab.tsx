@@ -61,7 +61,6 @@ import {
   Line,
   XAxis,
   YAxis,
-  CartesianGrid,
   ResponsiveContainer,
   Cell,
   Tooltip as RechartsTooltip,
@@ -383,7 +382,7 @@ export function JournalTab() {
             {/* Calendar Header */}
             <div className="p-4 md:p-6 border-b border-border">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold tracking-tight bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent">
+                <h2 className="text-lg font-bold tracking-tight text-foreground">
                   {FRENCH_MONTHS[currentMonth.getMonth()]}{" "}
                   {currentMonth.getFullYear()}
                 </h2>
@@ -1095,7 +1094,6 @@ function MiniCharts({
           <div className="h-32">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rrChartData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.3} />
                 <XAxis
                   dataKey="name"
                   tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
@@ -1141,7 +1139,6 @@ function MiniCharts({
                 data={cumulativePnLData}
                 margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.3} />
                 <XAxis
                   dataKey="name"
                   tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}

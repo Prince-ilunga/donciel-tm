@@ -179,17 +179,17 @@
 
 /* Metric card glow */
 .metric-glow {
-  box-shadow: 0 0 20px oklch(0.65 0.2 160 / 10%);
+  box-shadow: 0 0 20px oklch(0.9 0 0 / 10%);
 }
 
 .metric-glossy {
   background: linear-gradient(135deg, oklch(0.2 0.01 160 / 80%), oklch(0.15 0.01 160 / 90%));
-  border: 1px solid oklch(0.3 0.02 160 / 50%);
+  border: 1px solid oklch(0.4 0.01 160 / 50%);
 }
 
 .dark .metric-glossy {
   background: linear-gradient(135deg, oklch(0.2 0.01 160 / 80%), oklch(0.15 0.01 160 / 90%));
-  border: 1px solid oklch(0.35 0.03 160 / 40%);
+  border: 1px solid oklch(0.4 0.02 160 / 40%);
 }
 
 /* Trade form field animation */
@@ -199,7 +199,7 @@
 
 .trade-field:focus-within {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px oklch(0.65 0.2 160 / 15%);
+  box-shadow: 0 4px 12px oklch(0.9 0 0 / 10%);
 }
 
 /* Tab indicator animation */

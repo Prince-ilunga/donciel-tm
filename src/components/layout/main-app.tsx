@@ -24,6 +24,8 @@ import {
   X,
   TrendingUp,
   FileDown,
+  PanelLeftClose,
+  PanelLeft,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import React, { useState } from "react";
@@ -52,6 +54,7 @@ export function MainApp() {
   const { user, activeTab, setActiveTab, language, setLanguage, logout: storeLogout } = useAppStore();
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const mountedRef = React.useRef(false);
 
@@ -114,26 +117,41 @@ export function MainApp() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0",
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed lg:static inset-y-0 left-0 z-50 bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-300 ease-in-out lg:translate-x-0",
+          sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full",
+          sidebarCollapsed && "lg:w-16",
+          !sidebarCollapsed && "lg:w-64",
+          sidebarOpen && !sidebarCollapsed && "w-64"
         )}
       >
         {/* Logo */}
         <div className="p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+          <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
             <TrendingUp className="w-5 h-5 text-primary-foreground" />
           </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-sidebar-foreground">
-              DONCIEL<sup className="text-[10px] text-primary ml-0.5">TM</sup>
-            </h1>
+          {!sidebarCollapsed && (
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-sidebar-foreground">
+                DONCIEL<sup className="text-[10px] text-primary ml-0.5">TM</sup>
+              </h1>
+            </div>
+          )}
+          <div className="ml-auto flex items-center gap-1">
+            {/* Collapse button - desktop only */}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="hidden lg:flex text-sidebar-foreground hover:bg-sidebar-accent rounded-md p-1.5 transition-colors"
+              title={sidebarCollapsed ? (language === "fr" ? "Développer" : "Expand") : (language === "fr" ? "Réduire" : "Collapse")}
+            >
+              {sidebarCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+            </button>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden text-sidebar-foreground"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="ml-auto lg:hidden text-sidebar-foreground"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
 
         <Separator className="bg-sidebar-border" />
@@ -157,10 +175,13 @@ export function MainApp() {
                       ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                       : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   )}
+                  title={sidebarCollapsed ? t(language, item.key as Parameters<typeof t>[1]) : undefined}
                 >
                   <Icon className="w-4.5 h-4.5 shrink-0" />
-                  <span className="truncate">{t(language, item.key as Parameters<typeof t>[1])}</span>
-                  {item.adminOnly && (
+                  {!sidebarCollapsed && (
+                    <span className="truncate">{t(language, item.key as Parameters<typeof t>[1])}</span>
+                  )}
+                  {!sidebarCollapsed && item.adminOnly && (
                     <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0 h-4">
                       Admin
                     </Badge>
@@ -192,28 +213,44 @@ export function MainApp() {
             >
               <Globe className="w-4 h-4" />
             </Button>
-            <div className="ml-auto">
-              <Badge variant="outline" className="text-[10px] font-mono">
-                {language.toUpperCase()}
-              </Badge>
-            </div>
+            {!sidebarCollapsed && (
+              <div className="ml-auto">
+                <Badge variant="outline" className="text-[10px] font-mono">
+                  {language.toUpperCase()}
+                </Badge>
+              </div>
+            )}
           </div>
-          <Button
-            variant="ghost"
-            onClick={handleLogout}
-            className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            <LogOut className="w-4 h-4 mr-3" />
-            {t(language, "logout")}
-          </Button>
+          {!sidebarCollapsed ? (
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              <LogOut className="w-4 h-4 mr-3" />
+              {t(language, "logout")}
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="w-full text-sidebar-foreground hover:bg-sidebar-accent"
+              title={t(language, "logout")}
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
+          )}
         </div>
 
         {/* Copyright */}
-        <div className="p-3 pt-0">
-          <p className="text-[10px] text-muted-foreground text-center">
-            DONCIEL™ © {new Date().getFullYear()}
-          </p>
-        </div>
+        {!sidebarCollapsed && (
+          <div className="p-3 pt-0">
+            <p className="text-[10px] text-muted-foreground text-center">
+              DONCIEL™ © {new Date().getFullYear()}
+            </p>
+          </div>
+        )}
       </aside>
 
       {/* Main content */}
@@ -230,9 +267,6 @@ export function MainApp() {
             {t(language, navItems.find(n => n.id === activeTab)?.key as Parameters<typeof t>[1] || "dashboard")}
           </h2>
           <div className="ml-auto flex items-center gap-2">
-            <Badge variant="secondary" className="hidden sm:flex text-xs">
-              {user?.email}
-            </Badge>
             {isAdmin && (
               <Badge className="text-xs bg-primary">
                 <Crown className="w-3 h-3 mr-1" />

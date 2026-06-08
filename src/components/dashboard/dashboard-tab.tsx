@@ -73,7 +73,9 @@ import { format } from "date-fns";
 const DEFAULT_PAIRS = ["XAUUSD", "US30", "US100", "EURUSD", "GBPUSD"];
 const SESSIONS = ["LONDON", "NEW YORK", "ASIE", "OVERLAP", "MACRO CHER", "MACRO PEU CHER"];
 const MARKET_CONDITIONS = ["CONTINUATION", "RETRACEMENT"];
-const TIMEFRAMES = ["M1", "M5", "M15", "M30", "H1", "H4", "D1", "W1"];
+const TIMEFRAMES_ANALYSIS = ["M15", "M30", "H1", "H4", "D1", "W1"];
+const TIMEFRAMES_ENTRY = ["M1", "M5", "M15", "M30", "H1"];
+const SETUPS = ["SETUP A", "SETUP A+", "SETUP B", "SETUP B+", "SETUP C"];
 
 // ─── Types ───────────────────────────────────────────────────
 interface TradeFormData {
@@ -83,7 +85,8 @@ interface TradeFormData {
   direction: "LONG" | "SHORT";
   session: string;
   marketCondition: string;
-  timeframe: string;
+  timeframeAnalysis: string;
+  timeframeEntry: string;
   setup: string;
   entryPrice: string;
   stopLoss: string;
@@ -110,7 +113,8 @@ const initialFormData: TradeFormData = {
   direction: "LONG",
   session: "",
   marketCondition: "",
-  timeframe: "",
+  timeframeAnalysis: "",
+  timeframeEntry: "",
   setup: "",
   entryPrice: "",
   stopLoss: "",
@@ -225,7 +229,7 @@ export function DashboardTab() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">
             DONCIEL<sup className="text-[10px] text-primary ml-0.5">TM</sup>
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
@@ -584,8 +588,12 @@ function TradeFormDialog({
       toast.error(language === "fr" ? "La condition du marché est requise" : "Market condition is required");
       return;
     }
-    if (!formData.timeframe) {
-      toast.error(language === "fr" ? "Le timeframe est requis" : "Timeframe is required");
+    if (!formData.timeframeAnalysis) {
+      toast.error(language === "fr" ? "Le timeframe d'analyse est requis" : "Analysis timeframe is required");
+      return;
+    }
+    if (!formData.timeframeEntry) {
+      toast.error(language === "fr" ? "Le timeframe d'entrée est requis" : "Entry timeframe is required");
       return;
     }
     if (!formData.entryPrice || isNaN(parseFloat(formData.entryPrice))) {
@@ -614,7 +622,7 @@ function TradeFormDialog({
         direction: formData.direction,
         session: formData.session,
         marketCondition: formData.marketCondition,
-        timeframe: formData.timeframe,
+        timeframe: `${formData.timeframeAnalysis}/${formData.timeframeEntry}`,
         setup: formData.setup || null,
         entryPrice: parseFloat(formData.entryPrice),
         stopLoss: parseFloat(formData.stopLoss),
@@ -899,15 +907,36 @@ function TradeFormDialog({
                   </Select>
                 </div>
 
-                {/* Timeframe */}
+                {/* Timeframe Analysis */}
                 <div className="space-y-1.5 trade-field">
-                  <Label className="text-xs font-medium">{t(language, "timeframe")} *</Label>
-                  <Select value={formData.timeframe} onValueChange={(v) => updateField("timeframe", v)}>
+                  <Label className="text-xs font-medium">
+                    {language === "fr" ? "TF Analyse" : "Analysis TF"} *
+                  </Label>
+                  <Select value={formData.timeframeAnalysis} onValueChange={(v) => updateField("timeframeAnalysis", v)}>
                     <SelectTrigger className="w-full h-9">
                       <SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {TIMEFRAMES.map((tf) => (
+                      {TIMEFRAMES_ANALYSIS.map((tf) => (
+                        <SelectItem key={tf} value={tf}>
+                          <span className="font-mono">{tf}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Timeframe Entry */}
+                <div className="space-y-1.5 trade-field">
+                  <Label className="text-xs font-medium">
+                    {language === "fr" ? "TF Entrée" : "Entry TF"} *
+                  </Label>
+                  <Select value={formData.timeframeEntry} onValueChange={(v) => updateField("timeframeEntry", v)}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIMEFRAMES_ENTRY.map((tf) => (
                         <SelectItem key={tf} value={tf}>
                           <span className="font-mono">{tf}</span>
                         </SelectItem>
@@ -920,12 +949,18 @@ function TradeFormDialog({
               {/* Setup */}
               <div className="space-y-1.5 trade-field">
                 <Label className="text-xs font-medium">{t(language, "setup")}</Label>
-                <Input
-                  placeholder={language === "fr" ? "Ex: Breakout, Range, etc." : "Ex: Breakout, Range, etc."}
-                  value={formData.setup}
-                  onChange={(e) => updateField("setup", e.target.value)}
-                  className="h-9"
-                />
+                <Select value={formData.setup} onValueChange={(v) => updateField("setup", v)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue placeholder={language === "fr" ? "Sélectionner un setup" : "Select a setup"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SETUPS.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        <span className="font-mono font-semibold">{s}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

@@ -22,7 +22,6 @@ import {
   Bar,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
   ResponsiveContainer,
   LineChart,
@@ -121,7 +120,7 @@ export function TimingTab() {
     <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">
           {t(language, "timingAnalysis")}
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
@@ -147,7 +146,6 @@ export function TimingTab() {
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dayData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="name" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
                       <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
                       <Tooltip contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--popover-foreground)" }} />
@@ -162,7 +160,6 @@ export function TimingTab() {
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={hourData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="name" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
                       <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
                       <Tooltip contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--popover-foreground)" }} />
@@ -177,7 +174,6 @@ export function TimingTab() {
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={monthData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="name" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} angle={-30} textAnchor="end" height={40} />
                       <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
                       <Tooltip contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--popover-foreground)" }} />
@@ -200,7 +196,6 @@ export function TimingTab() {
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={weekData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="name" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} angle={-30} textAnchor="end" height={40} />
                       <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
                       <Tooltip contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--popover-foreground)" }} />
@@ -215,7 +210,6 @@ export function TimingTab() {
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={monthData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="name" tick={{ fill: "var(--muted-foreground)", fontSize: 10 }} angle={-30} textAnchor="end" height={40} />
                       <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
                       <Tooltip contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--popover-foreground)" }} />
@@ -230,7 +224,6 @@ export function TimingTab() {
                 <div className="h-56">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={cumulativeData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="trade" tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
                       <YAxis tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
                       <Tooltip contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--popover-foreground)" }} />
@@ -264,7 +257,7 @@ export function TimingTab() {
               <TabsContent value="day">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 mt-3">
                   {dayData.map((d) => (
-                    <Card key={d.name} className="p-3 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                    <Card key={d.name} className="p-3 text-center hover:border-foreground/30 transition-colors cursor-pointer">
                       <div className="text-sm font-semibold">{d.name}</div>
                       <div className={cn("text-lg font-bold font-mono mt-1", d.rr >= 0 ? "text-profit" : "text-loss")}>
                         {d.rr >= 0 ? "+" : ""}{d.rr.toFixed(2)} RR
@@ -278,7 +271,7 @@ export function TimingTab() {
               <TabsContent value="hour">
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mt-3">
                   {hourData.map((d) => (
-                    <Card key={d.name} className="p-3 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                    <Card key={d.name} className="p-3 text-center hover:border-foreground/30 transition-colors cursor-pointer">
                       <div className="text-sm font-semibold">{d.name}</div>
                       <div className={cn("text-lg font-bold font-mono mt-1", d.rr >= 0 ? "text-profit" : "text-loss")}>
                         {d.rr >= 0 ? "+" : ""}{d.rr.toFixed(1)}
@@ -292,7 +285,7 @@ export function TimingTab() {
               <TabsContent value="session">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-3">
                   {sessionEntries.map((d) => (
-                    <Card key={d.name} className="p-4 hover:border-primary/50 transition-colors cursor-pointer">
+                    <Card key={d.name} className="p-4 hover:border-foreground/30 transition-colors cursor-pointer">
                       <div className="text-sm font-semibold">{d.name}</div>
                       <div className={cn("text-lg font-bold font-mono mt-1", d.rr >= 0 ? "text-profit" : "text-loss")}>
                         {d.rr >= 0 ? "+" : ""}{d.rr.toFixed(2)} RR
@@ -309,7 +302,7 @@ export function TimingTab() {
               <TabsContent value="month">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mt-3">
                   {monthData.map((d) => (
-                    <Card key={d.name} className="p-4 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                    <Card key={d.name} className="p-4 text-center hover:border-foreground/30 transition-colors cursor-pointer">
                       <div className="text-sm font-semibold">{d.name}</div>
                       <div className={cn("text-lg font-bold font-mono mt-1", d.rr >= 0 ? "text-profit" : "text-loss")}>
                         {d.rr >= 0 ? "+" : ""}{d.rr.toFixed(2)} RR
