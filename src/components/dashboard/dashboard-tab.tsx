@@ -701,6 +701,7 @@ function TradeFormDialog({
               const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
               if (!uploadRes.ok) {
                 console.error(`Failed to upload ${type} screenshot`);
+                toast.warning(language === "fr" ? `Capture "${type}" non sauvegardée` : `"${type}" screenshot not saved`);
               }
             })()
           );

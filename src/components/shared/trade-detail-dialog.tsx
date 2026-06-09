@@ -94,6 +94,7 @@ export function TradeDetailDialog() {
         return;
       }
       const data = await res.json();
+      console.log('[TradeDetail] Screenshots from API:', data.trade?.screenshots?.length, data.trade?.screenshots);
       if (data.trade && data.trade.entryPrice !== undefined) {
         setTrade(data.trade);
       } else {
@@ -296,25 +297,27 @@ export function TradeDetailDialog() {
     );
   }, [chartData.cumulativeRRUpToTrade]);
 
-  // Resolve screenshot URL - same logic as journal tab
+  // Resolve screenshot URL - handles all possible URL formats
   const resolveScreenshotUrl = useCallback((url: string): string => {
     if (!url) return '';
-    // Same logic as journal-tab: local paths get converted, full URLs used as-is
+    // Full URLs (Cloudinary, etc.) used directly
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    // Local paths get converted to API route
     if (url.startsWith('upload/screenshots/')) {
       return `/api/screenshots/${url.replace('upload/screenshots/', '')}`;
     }
-    // Full URLs (Cloudinary, etc.) used directly
-    return url;
+    // Any other path - try as API route
+    return `/api/screenshots/${url.split('/').pop()}`;
   }, []);
 
-  // Get screenshots - prioritize allTrades (which works in journal) as primary source
+  // Get screenshots - use trade API data directly (always includes screenshots)
   const tradeScreenshots = useMemo(() => {
     if (!trade) return [];
-    // First try allTrades (same data source as journal tab where screenshots work)
+    // Primary: trade API data (always includes screenshots with include: { screenshots: true })
+    if (trade.screenshots && trade.screenshots.length > 0) return trade.screenshots;
+    // Fallback: allTrades (same data source as journal tab)
     const fromAllTrades = allTrades.find(t => t.id === trade.id)?.screenshots;
     if (fromAllTrades && fromAllTrades.length > 0) return fromAllTrades;
-    // Fallback to trade API data
-    if (trade.screenshots && trade.screenshots.length > 0) return trade.screenshots;
     return [];
   }, [trade, allTrades]);
 
@@ -562,9 +565,12 @@ export function TradeDetailDialog() {
                 )}
 
                 {/* Screenshots */}
-                {tradeScreenshots.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t(language, "screenshots")}</h4>
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t(language, "screenshots")}
+                    {tradeScreenshots.length > 0 && <span className="ml-1 text-[10px]">({tradeScreenshots.length})</span>}
+                  </h4>
+                  {tradeScreenshots.length > 0 ? (
                     <div className="grid grid-cols-3 gap-3">
                       {tradeScreenshots.map((screenshot) => {
                         const imgSrc = resolveScreenshotUrl(screenshot.url);
@@ -585,8 +591,12 @@ export function TradeDetailDialog() {
                         );
                       })}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-xs text-muted-foreground/60 italic">
+                      {language === "fr" ? "Aucune capture d'écran" : "No screenshots"}
+                    </div>
+                  )}
+                </div>
               </div>
             </ScrollArea>
           </>

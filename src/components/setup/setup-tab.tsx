@@ -744,7 +744,11 @@ function TradeFormDialog({
             fd.append("file", file);
             fd.append("tradeId", trade.id);
             fd.append("type", type);
-            await fetch("/api/upload", { method: "POST", body: fd });
+            const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
+            if (!uploadRes.ok) {
+              console.error(`Failed to upload ${type} screenshot`);
+              toast.warning(language === "fr" ? `Capture "${type}" non sauvegardée` : `"${type}" screenshot not saved`);
+            }
           })());
         }
       }
