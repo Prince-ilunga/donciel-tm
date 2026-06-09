@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -12,15 +12,30 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
   title: "DONCIEL™ - Journal de Trading Professionnel",
   description: "Journal de trading ultra professionnel avec analyses avancées, statistiques en temps réel et outils IA.",
+  manifest: "/manifest.json",
   icons: {
     icon: [
       { url: "/logo.svg", type: "image/svg+xml" },
-      { url: "/logo.png", type: "image/png" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
     ],
-    apple: "/logo.png",
+    apple: [
+      { url: "/icon-192.png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "DONCIEL™",
   },
 };
 
@@ -31,6 +46,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
