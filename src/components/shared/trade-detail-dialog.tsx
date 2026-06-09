@@ -122,13 +122,15 @@ export function TradeDetailDialog() {
       prevTradeIdRef.current = selectedTradeId;
       setTrade(null);
       fetchTrade(selectedTradeId);
+      // Fetch all trades for chart data
+      refetchTrades();
     }
     if (!showTradeDetail && prevTradeIdRef.current) {
       prevTradeIdRef.current = null;
       setTrade(null);
       setError(null);
     }
-  }, [showTradeDetail, selectedTradeId, fetchTrade]);
+  }, [showTradeDetail, selectedTradeId, fetchTrade, refetchTrades]);
 
   const isLong = trade?.direction === "LONG";
   const isWin = trade?.result === "WIN";
@@ -155,9 +157,9 @@ export function TradeDetailDialog() {
     return { riskRewardRatio, riskAmount, rewardAmount, efficiency };
   }, [trade]);
 
-  // Get surrounding trades for charts (last 10 trades around this one)
+  // Get chart data for this trade
   const chartData = useMemo(() => {
-    if (!trade || !allTrades.length) return { last10RR: [], last10Cumulative: [], totalCumulativeRR: 0 };
+    if (!trade || !allTrades.length) return { last10RR: [], cumulativeRRUpToTrade: [], totalCumulativeRR: 0 };
 
     // Sort trades by date then createdAt
     const sorted = [...allTrades].sort((a, b) => {
@@ -169,7 +171,8 @@ export function TradeDetailDialog() {
 
     // Find the index of current trade
     const currentIdx = sorted.findIndex(t => t.id === trade.id);
-    // Take up to 10 trades ending at or including this trade
+
+    // ─── RR PAR TRADE: Last 10 trades ending at this trade ───
     const startIdx = Math.max(0, (currentIdx >= 0 ? currentIdx : sorted.length - 1) - 9);
     const endIdx = currentIdx >= 0 ? currentIdx + 1 : sorted.length;
     const last10 = sorted.slice(startIdx, endIdx);
@@ -180,22 +183,19 @@ export function TradeDetailDialog() {
       result: t.result,
     }));
 
-    // Cumulative RR for last 10
+    // ─── CUMULE RR ISOLÉ: Cumulative RR from first trade up to this trade ───
+    const upToCurrentIdx = currentIdx >= 0 ? currentIdx + 1 : sorted.length;
+    const tradesUpToCurrent = sorted.slice(0, upToCurrentIdx);
+
     let cumRR = 0;
-    const last10Cumulative = last10.map((t, i) => {
+    const cumulativeRRUpToTrade = tradesUpToCurrent.map((t, i) => {
       cumRR += (t.rr ?? 0);
-      return { index: startIdx + i + 1, cumulativeRR: cumRR };
+      return { index: i + 1, cumulativeRR: cumRR };
     });
 
-    // Cumulative RR up to and including this trade
-    let cumulativeRRUpToTrade = 0;
-    for (let i = 0; i < sorted.length; i++) {
-      cumulativeRRUpToTrade += (sorted[i].rr ?? 0);
-      if (sorted[i].id === trade.id) break;
-    }
-    const totalCumulativeRR = cumulativeRRUpToTrade;
+    const totalCumulativeRR = cumRR;
 
-    return { last10RR, last10Cumulative, totalCumulativeRR };
+    return { last10RR, cumulativeRRUpToTrade, totalCumulativeRR };
   }, [trade, allTrades]);
 
   // Chart dimensions
@@ -231,9 +231,9 @@ export function TradeDetailDialog() {
     );
   }, [chartData.last10RR]);
 
-  // Line chart for CUMULE ISOLÉ
+  // Line chart for CUMULE RR ISOLÉ (from first trade up to this trade)
   const cumulativeLineChart = useMemo(() => {
-    const data = chartData.last10Cumulative;
+    const data = chartData.cumulativeRRUpToTrade;
     if (!data.length) return null;
     const values = data.map(d => d.cumulativeRR);
     const minVal = Math.min(...values, 0);
@@ -251,19 +251,34 @@ export function TradeDetailDialog() {
     // Zero line Y
     const zeroY = CHART_H - CHART_PAD - ((0 - minVal) / range) * (CHART_H - CHART_PAD * 2);
 
+    // Determine color based on final cumulative RR
+    const finalRR = values[values.length - 1];
+    const lineColor = finalRR >= 0 ? "#22c55e" : "#ef4444";
+
     return (
       <svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="overflow-visible">
         {zeroY > CHART_PAD && zeroY < CHART_H - CHART_PAD && (
           <line x1={CHART_PAD} y1={zeroY} x2={CHART_W - CHART_PAD} y2={zeroY} stroke="currentColor" strokeOpacity={0.15} strokeDasharray="3,3" />
         )}
-        <path d={areaD} fill="#22c55e" opacity={0.1} />
-        <path d={pathD} fill="none" stroke="#22c55e" strokeWidth={2} />
+        <path d={areaD} fill={lineColor} opacity={0.1} />
+        <path d={pathD} fill="none" stroke={lineColor} strokeWidth={2} />
         {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={3} fill="#22c55e" />
+          <circle key={i} cx={p.x} cy={p.y} r={3} fill={lineColor} />
         ))}
       </svg>
     );
-  }, [chartData.last10Cumulative]);
+  }, [chartData.cumulativeRRUpToTrade]);
+
+  // Resolve screenshot URL
+  const resolveScreenshotUrl = useCallback((url: string): string => {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    if (url.startsWith('upload/screenshots/')) {
+      return `/api/screenshots/${url.replace('upload/screenshots/', '')}`;
+    }
+    return `/api/screenshots/${url}`;
+  }, []);
 
   return (
     <Dialog open={showTradeDetail} onOpenChange={handleOpenChange}>
@@ -387,7 +402,7 @@ export function TradeDetailDialog() {
                     {language === "fr" ? "Graphiques" : "Charts"}
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* RR PAR TRADE - Bar Chart */}
+                    {/* RR PAR TRADE - Bar Chart (10 derniers trades) */}
                     <Card className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
@@ -402,13 +417,13 @@ export function TradeDetailDialog() {
                       )}
                     </Card>
 
-                    {/* CUMULE ISOLÉ - Line Chart */}
+                    {/* CUMULE RR ISOLÉ - Curve Chart (from first trade up to this trade) */}
                     <Card className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
-                          {t(language, "cumuleIsole")}
+                          {t(language, "cumuleRRIsole")}
                         </span>
-                        <Badge variant="outline" className="text-[9px]">{t(language, "derniersTrades")}</Badge>
+                        <span className="text-[9px] text-muted-foreground">{t(language, "depuisPremierTrade")}</span>
                       </div>
                       {cumulativeLineChart || (
                         <div className="h-[120px] flex items-center justify-center text-muted-foreground text-sm">
@@ -509,23 +524,22 @@ export function TradeDetailDialog() {
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t(language, "screenshots")}</h4>
                     <div className="grid grid-cols-3 gap-3">
                       {trade.screenshots.map((screenshot) => {
-                        // Handle Cloudinary URLs and local paths
-                        let imgSrc: string;
-                        if (screenshot.url.startsWith('http://') || screenshot.url.startsWith('https://')) {
-                          // Cloudinary or other cloud URL - use directly
-                          imgSrc = screenshot.url;
-                        } else if (screenshot.url.startsWith('upload/screenshots/')) {
-                          // Local path - use API route
-                          imgSrc = `/api/screenshots/${screenshot.url.replace('upload/screenshots/', '')}`;
-                        } else {
-                          // Fallback: try as API route first, then as-is
-                          imgSrc = `/api/screenshots/${screenshot.url}`;
-                        }
+                        const imgSrc = resolveScreenshotUrl(screenshot.url);
                         return (
                           <button key={screenshot.id} onClick={(e) => { e.stopPropagation(); setScreenshotViewerUrl(imgSrc); }}
                             className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200">
                             <img src={imgSrc} alt={`${screenshot.type} screenshot`} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              onError={(e) => {
+                                const img = e.target as HTMLImageElement;
+                                img.style.display = 'none';
+                                const parent = img.parentElement;
+                                if (parent) {
+                                  const placeholder = document.createElement('div');
+                                  placeholder.className = 'w-full h-full flex items-center justify-center bg-muted/50';
+                                  placeholder.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground/50"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+                                  parent.insertBefore(placeholder, img);
+                                }
+                              }}
                             />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                               <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
