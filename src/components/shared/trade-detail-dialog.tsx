@@ -271,14 +271,31 @@ export function TradeDetailDialog() {
 
   // Resolve screenshot URL
   const resolveScreenshotUrl = useCallback((url: string): string => {
+    if (!url) return '';
+    // Full URLs (Cloudinary, etc.)
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
+    // Local paths
     if (url.startsWith('upload/screenshots/')) {
       return `/api/screenshots/${url.replace('upload/screenshots/', '')}`;
     }
-    return `/api/screenshots/${url}`;
+    // Raw filenames
+    if (!url.includes('/')) {
+      return `/api/screenshots/${url}`;
+    }
+    // Other paths - try API route
+    return `/api/screenshots/${url.split('/').pop()}`;
   }, []);
+
+  // Get screenshots with fallback from allTrades
+  const tradeScreenshots = useMemo(() => {
+    if (!trade) return [];
+    // Try trade API screenshots first, then fallback to allTrades
+    if (trade.screenshots && trade.screenshots.length > 0) return trade.screenshots;
+    const fallback = allTrades.find(t => t.id === trade.id);
+    return fallback?.screenshots || [];
+  }, [trade, allTrades]);
 
   return (
     <Dialog open={showTradeDetail} onOpenChange={handleOpenChange}>
@@ -417,13 +434,12 @@ export function TradeDetailDialog() {
                       )}
                     </Card>
 
-                    {/* CUMULE RR ISOLÉ - Curve Chart (from first trade up to this trade) */}
+                    {/* CUMULE RR ISOLÉ - Curve Chart (for this trade) */}
                     <Card className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
                           {t(language, "cumuleRRIsole")}
                         </span>
-                        <span className="text-[9px] text-muted-foreground">{t(language, "depuisPremierTrade")}</span>
                       </div>
                       {cumulativeLineChart || (
                         <div className="h-[120px] flex items-center justify-center text-muted-foreground text-sm">
@@ -519,28 +535,17 @@ export function TradeDetailDialog() {
                 )}
 
                 {/* Screenshots */}
-                {trade.screenshots && trade.screenshots.length > 0 && (
+                {tradeScreenshots.length > 0 && (
                   <div className="space-y-3">
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t(language, "screenshots")}</h4>
                     <div className="grid grid-cols-3 gap-3">
-                      {trade.screenshots.map((screenshot) => {
+                      {tradeScreenshots.map((screenshot) => {
                         const imgSrc = resolveScreenshotUrl(screenshot.url);
+                        if (!imgSrc) return null;
                         return (
                           <button key={screenshot.id} onClick={(e) => { e.stopPropagation(); setScreenshotViewerUrl(imgSrc); }}
                             className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200">
-                            <img src={imgSrc} alt={`${screenshot.type} screenshot`} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                              onError={(e) => {
-                                const img = e.target as HTMLImageElement;
-                                img.style.display = 'none';
-                                const parent = img.parentElement;
-                                if (parent) {
-                                  const placeholder = document.createElement('div');
-                                  placeholder.className = 'w-full h-full flex items-center justify-center bg-muted/50';
-                                  placeholder.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground/50"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
-                                  parent.insertBefore(placeholder, img);
-                                }
-                              }}
-                            />
+                            <img src={imgSrc} alt={`${screenshot.type} screenshot`} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" loading="lazy" />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                               <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
