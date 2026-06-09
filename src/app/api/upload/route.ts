@@ -33,17 +33,32 @@ export async function POST(request: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = path.extname(file.name) || '.png';
+    const ext = path.extname(file.name) || (file.type?.startsWith('video/') ? '.mp4' : '.png');
     const uniqueName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`;
+
+    // Determine content type for proper Cloudinary resource_type
+    const contentType = file.type || (ext === '.mp4' || ext === '.webm' || ext === '.mov' ? 'video/mp4' : 'image/png');
 
     let screenshotUrl: string;
 
     if (isStorageConfigured()) {
       // Upload to Cloudinary
       const storageKey = `screenshots/${uniqueName.replace(ext, '')}`;
-      screenshotUrl = await uploadFile(storageKey, buffer, file.type || 'image/png');
+      screenshotUrl = await uploadFile(storageKey, buffer, contentType);
     } else {
-      // Save locally
+      // Check if we're in a serverless environment (Vercel production)
+      // In that case, local filesystem won't persist — warn the user
+      const isVercel = !!process.env.VERCEL;
+
+      if (isVercel) {
+        console.error('❌ Cloudinary is NOT configured on Vercel! Screenshots will NOT persist.');
+        return NextResponse.json(
+          { error: 'Stockage cloud non configuré. Veuillez configurer Cloudinary (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET) dans les variables d\'environnement Vercel.' },
+          { status: 503 }
+        );
+      }
+
+      // Save locally (only works in local development)
       const uploadDir = path.join(process.cwd(), 'upload', 'screenshots');
       fs.mkdirSync(uploadDir, { recursive: true });
       const filePath = path.join(uploadDir, uniqueName);

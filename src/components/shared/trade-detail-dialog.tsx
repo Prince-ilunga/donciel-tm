@@ -309,6 +309,17 @@ export function TradeDetailDialog() {
     return `/api/screenshots/${url.split('/').pop()}`;
   }, []);
 
+  // Detect if a URL is a video (Cloudinary video URL or video file extension)
+  const isVideoUrl = useCallback((url: string): boolean => {
+    if (!url) return false;
+    // Cloudinary video URLs contain /video/upload/
+    if (url.includes('/video/upload/')) return true;
+    // Check video file extensions
+    const videoExts = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v'];
+    const lowerUrl = url.toLowerCase();
+    return videoExts.some(ext => lowerUrl.endsWith(ext));
+  }, []);
+
   // Get screenshots - check both trade API and allTrades for maximum reliability
   const tradeScreenshots = useMemo(() => {
     if (!trade) return [];
@@ -563,28 +574,55 @@ export function TradeDetailDialog() {
                   </div>
                 )}
 
-                {/* Screenshots */}
+                {/* Screenshots & Videos */}
                 <div className="space-y-3">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {t(language, "screenshots")}
+                    {language === "fr" ? "Captures & Vidéos" : "Screenshots & Videos"}
                     {tradeScreenshots.length > 0 && <span className="ml-1 text-[10px]">({tradeScreenshots.length})</span>}
                   </h4>
                   {tradeScreenshots.length > 0 ? (
                     <div className="grid grid-cols-3 gap-3">
                       {tradeScreenshots.map((screenshot) => {
-                        const imgSrc = resolveScreenshotUrl(screenshot.url);
-                        if (!imgSrc) return null;
+                        const mediaSrc = resolveScreenshotUrl(screenshot.url);
+                        if (!mediaSrc) return null;
+                        const isVideo = isVideoUrl(screenshot.url);
+                        const typeLabel = (screenshot.type === "context" || screenshot.type === "analysis")
+                          ? t(language, "contextScreenshot")
+                          : screenshot.type === "entry"
+                            ? t(language, "entryScreenshot")
+                            : t(language, "exitScreenshot");
+
                         return (
-                          <button key={screenshot.id} onClick={(e) => { e.stopPropagation(); setScreenshotViewerUrl(imgSrc); }}
-                            className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200">
-                            <img src={imgSrc} alt={`${screenshot.type} screenshot`} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                          <button
+                            key={screenshot.id}
+                            onClick={(e) => { e.stopPropagation(); setScreenshotViewerUrl(mediaSrc); }}
+                            className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200"
+                          >
+                            {isVideo ? (
+                              <video
+                                src={mediaSrc}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                            ) : (
+                              <img
+                                src={mediaSrc}
+                                alt={`${screenshot.type} screenshot`}
+                                className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                              />
+                            )}
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                               <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 flex items-center justify-between">
                               <span className="text-[10px] text-white font-medium uppercase tracking-wider">
-                                {(screenshot.type === "context" || screenshot.type === "analysis") ? t(language, "contextScreenshot") : screenshot.type === "entry" ? t(language, "entryScreenshot") : t(language, "exitScreenshot")}
+                                {typeLabel}
                               </span>
+                              {isVideo && (
+                                <span className="text-[9px] text-white/70 bg-white/20 rounded px-1">VID</span>
+                              )}
                             </div>
                           </button>
                         );

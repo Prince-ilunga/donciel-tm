@@ -867,32 +867,43 @@ function TradeCard({
               </div>
             )}
 
-            {/* Screenshots */}
+            {/* Screenshots & Videos */}
             {trade.screenshots && trade.screenshots.length > 0 && (
               <div className="space-y-2">
                 <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t(language, "screenshots")}
+                  {language === "fr" ? "Captures & Vidéos" : "Screenshots & Videos"}
                 </h5>
                 <div className="grid grid-cols-3 gap-2">
                   {trade.screenshots.map((screenshot) => {
-                    const imgSrc = screenshot.url.startsWith('upload/screenshots/')
+                    const mediaSrc = screenshot.url.startsWith('upload/screenshots/')
                       ? `/api/screenshots/${screenshot.url.replace('upload/screenshots/', '')}`
                       : screenshot.url;
+                    const isVideo = screenshot.url.includes('/video/upload/') || /\.(mp4|webm|mov|avi|mkv|m4v)$/i.test(screenshot.url);
                     return (
                     <button
                       key={screenshot.id}
-                      onClick={(e) => { e.stopPropagation(); onScreenshotClick(imgSrc); }}
+                      onClick={(e) => { e.stopPropagation(); onScreenshotClick(mediaSrc); }}
                       className="group relative aspect-video rounded-lg overflow-hidden border border-border hover:border-primary/30 transition-colors"
                     >
-                      <img
-                        src={imgSrc}
-                        alt={`${screenshot.type} screenshot`}
-                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
-                      />
+                      {isVideo ? (
+                        <video
+                          src={mediaSrc}
+                          className="w-full h-full object-cover"
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                      ) : (
+                        <img
+                          src={mediaSrc}
+                          alt={`${screenshot.type} screenshot`}
+                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                        />
+                      )}
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                         <ImageIcon className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1">
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1 flex items-center justify-between">
                         <span className="text-[8px] text-white font-medium uppercase">
                           {screenshot.type === "analysis"
                             ? t(language, "analysisScreenshot")
@@ -900,6 +911,9 @@ function TradeCard({
                             ? t(language, "entryScreenshot")
                             : t(language, "exitScreenshot")}
                         </span>
+                        {isVideo && (
+                          <span className="text-[7px] text-white/70 bg-white/20 rounded px-0.5">VID</span>
+                        )}
                       </div>
                     </button>
                     );

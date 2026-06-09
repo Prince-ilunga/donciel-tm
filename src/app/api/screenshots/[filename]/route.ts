@@ -13,6 +13,9 @@ export async function GET(
     // Prevent directory traversal
     const sanitized = filename.replace(/\.\./g, '').replace(/\//g, '');
 
+    // Check if this looks like a video file
+    const isVideo = /\.(mp4|webm|mov|avi|mkv|m4v)$/i.test(sanitized);
+
     // Check local filesystem first (works for locally stored screenshots)
     const localPath = path.join(process.cwd(), 'upload', 'screenshots', sanitized);
 
@@ -27,8 +30,12 @@ export async function GET(
         '.gif': 'image/gif',
         '.webp': 'image/webp',
         '.bmp': 'image/bmp',
+        '.mp4': 'video/mp4',
+        '.webm': 'video/webm',
+        '.mov': 'video/quicktime',
+        '.avi': 'video/x-msvideo',
       };
-      const contentType = contentTypes[ext] || 'image/png';
+      const contentType = contentTypes[ext] || (isVideo ? 'video/mp4' : 'image/png');
 
       return new NextResponse(buffer, {
         headers: {
@@ -43,7 +50,8 @@ export async function GET(
       const cloudName = getCloudName();
       // Remove extension for public_id
       const publicId = sanitized.replace(/\.[^.]+$/, '');
-      const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/screenshots/${publicId}`;
+      const resourceType = isVideo ? 'video' : 'image';
+      const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/${resourceType}/upload/screenshots/${publicId}`;
       return NextResponse.redirect(cloudinaryUrl);
     }
 

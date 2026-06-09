@@ -1012,23 +1012,27 @@ function TradeFormDialog({
 
             <Separator />
 
-            {/* ─── Screenshots ──────────────── */}
+            {/* ─── Screenshots & Videos ──────────────── */}
             <div className="space-y-4">
               <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                {t(language, "screenshots")}
+                {language === "fr" ? "Captures & Vidéos" : "Screenshots & Videos"}
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Context Screenshot */}
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">{language === "fr" ? "Contexte" : "Context"}</Label>
-                  <input ref={contextRef} type="file" accept="image/*" className="hidden" onChange={(e) => updateField("contextFile", e.target.files?.[0] || null)} />
+                  <input ref={contextRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => updateField("contextFile", e.target.files?.[0] || null)} />
                   <Button type="button" variant="outline" className="w-full h-9 gap-2" onClick={() => contextRef.current?.click()}>
                     <Upload className="w-3.5 h-3.5" />
                     {formData.contextFile ? formData.contextFile.name.slice(0, 20) : (language === "fr" ? "Choisir" : "Choose")}
                   </Button>
                   {formData.contextFile && (
                     <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
-                      <img src={URL.createObjectURL(formData.contextFile)} alt="Context" className="w-full h-full object-cover" />
+                      {formData.contextFile.type.startsWith('video/') ? (
+                        <video src={URL.createObjectURL(formData.contextFile)} className="w-full h-full object-cover" muted playsInline />
+                      ) : (
+                        <img src={URL.createObjectURL(formData.contextFile)} alt="Context" className="w-full h-full object-cover" />
+                      )}
                       <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => updateField("contextFile", null)}>
                         <X className="w-3 h-3" />
                       </Button>
@@ -1038,14 +1042,18 @@ function TradeFormDialog({
                 {/* Entry Screenshot */}
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">{language === "fr" ? "Entrée" : "Entry"}</Label>
-                  <input ref={entryFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => updateField("entryFile", e.target.files?.[0] || null)} />
+                  <input ref={entryFileRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => updateField("entryFile", e.target.files?.[0] || null)} />
                   <Button type="button" variant="outline" className="w-full h-9 gap-2" onClick={() => entryFileRef.current?.click()}>
                     <Upload className="w-3.5 h-3.5" />
                     {formData.entryFile ? formData.entryFile.name.slice(0, 20) : (language === "fr" ? "Choisir" : "Choose")}
                   </Button>
                   {formData.entryFile && (
                     <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
-                      <img src={URL.createObjectURL(formData.entryFile)} alt="Entry" className="w-full h-full object-cover" />
+                      {formData.entryFile.type.startsWith('video/') ? (
+                        <video src={URL.createObjectURL(formData.entryFile)} className="w-full h-full object-cover" muted playsInline />
+                      ) : (
+                        <img src={URL.createObjectURL(formData.entryFile)} alt="Entry" className="w-full h-full object-cover" />
+                      )}
                       <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => updateField("entryFile", null)}>
                         <X className="w-3 h-3" />
                       </Button>
@@ -1055,14 +1063,18 @@ function TradeFormDialog({
                 {/* Exit Screenshot */}
                 <div className="space-y-2">
                   <Label className="text-xs font-medium">{language === "fr" ? "Sortie" : "Exit"}</Label>
-                  <input ref={exitFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => updateField("exitFile", e.target.files?.[0] || null)} />
+                  <input ref={exitFileRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => updateField("exitFile", e.target.files?.[0] || null)} />
                   <Button type="button" variant="outline" className="w-full h-9 gap-2" onClick={() => exitFileRef.current?.click()}>
                     <Upload className="w-3.5 h-3.5" />
                     {formData.exitFile ? formData.exitFile.name.slice(0, 20) : (language === "fr" ? "Choisir" : "Choose")}
                   </Button>
                   {formData.exitFile && (
                     <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
-                      <img src={URL.createObjectURL(formData.exitFile)} alt="Exit" className="w-full h-full object-cover" />
+                      {formData.exitFile.type.startsWith('video/') ? (
+                        <video src={URL.createObjectURL(formData.exitFile)} className="w-full h-full object-cover" muted playsInline />
+                      ) : (
+                        <img src={URL.createObjectURL(formData.exitFile)} alt="Exit" className="w-full h-full object-cover" />
+                      )}
                       <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => updateField("exitFile", null)}>
                         <X className="w-3 h-3" />
                       </Button>
