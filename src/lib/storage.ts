@@ -8,7 +8,7 @@
  * - R2_ACCOUNT_ID: Your Cloudflare account ID
  * - R2_ACCESS_KEY_ID: R2 API token access key
  * - R2_SECRET_ACCESS_KEY: R2 API token secret key
- * - R2_BUCKET_NAME: Name of your R2 bucket
+ * - R2_BUCKET_NAME: Name of your R2 bucket (default: donciel-storage)
  * - R2_PUBLIC_URL: Public URL for accessing files (e.g., https://cdn.donciel.com)
  */
 
@@ -148,7 +148,7 @@ export function getPublicUrl(key: string): string {
   if (R2_PUBLIC_URL) {
     return `${R2_PUBLIC_URL}/${key}`;
   }
-  // If no public URL configured, use signed URLs
+  // If no public URL configured, use signed URLs via API route
   return key;
 }
 
@@ -180,26 +180,26 @@ export function extractStorageKey(url: string): string {
 export function getFileUrl(url: string): string {
   if (!url) return '';
 
-  // If it's already a full URL (http/https), return as-is
+  // If it's already a full URL (http/https), return as-is (R2 public URL)
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
 
-  // If R2 is configured and it's a local path, convert to R2 public URL
-  if (isR2Configured && url.startsWith('upload/')) {
-    const key = url.replace('upload/', '');
-    return getPublicUrl(key);
-  }
-
-  // If it's a local path, use the API route
+  // If it's a local screenshot path, use the API route
   if (url.startsWith('upload/screenshots/')) {
     const filename = url.replace('upload/screenshots/', '');
     return `/api/screenshots/${filename}`;
   }
 
+  // If it's a local video path, use the streaming API route
   if (url.startsWith('upload/videos/')) {
-    const filename = url.replace('upload/videos/', '');
-    return `/${url}`;
+    const key = url.replace('upload/', '');
+    return `/api/videos/stream?key=${encodeURIComponent(key)}`;
+  }
+
+  // If R2 is configured and it's a key without prefix, construct public URL
+  if (isR2Configured && !url.startsWith('/')) {
+    return getPublicUrl(url);
   }
 
   // Fallback

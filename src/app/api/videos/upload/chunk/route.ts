@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
-import { activeUploads } from '@/lib/upload-store';
+import { db } from '@/lib/db';
 import { uploadChunk, isStorageConfigured } from '@/lib/storage';
 import path from 'path';
 import fs from 'fs';
@@ -28,7 +28,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Chunk trop volumineux' }, { status: 413 });
     }
 
-    const session = activeUploads.get(uploadId);
+    // Load session from database
+    const session = await db.uploadSession.findUnique({
+      where: { uploadId },
+    });
+
     if (!session) {
       return NextResponse.json({ error: 'Session d\'upload non trouvée' }, { status: 404 });
     }
@@ -49,11 +53,19 @@ export async function POST(request: NextRequest) {
       fs.writeFileSync(chunkPath, buffer);
     }
 
-    session.receivedChunks.add(chunkIndex);
+    // Update received chunks in database
+    const receivedChunks: number[] = JSON.parse(session.receivedChunks);
+    if (!receivedChunks.includes(chunkIndex)) {
+      receivedChunks.push(chunkIndex);
+    }
+    await db.uploadSession.update({
+      where: { uploadId },
+      data: { receivedChunks: JSON.stringify(receivedChunks) },
+    });
 
     return NextResponse.json({
       received: chunkIndex,
-      totalReceived: session.receivedChunks.size,
+      totalReceived: receivedChunks.length,
       totalChunks: session.totalChunks,
     }, { status: 200 });
   } catch (error) {

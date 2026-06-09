@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { activeUploads } from '@/lib/upload-store';
 import { uploadFile, deleteFile, isStorageConfigured } from '@/lib/storage';
 import {
   S3Client,
@@ -44,7 +43,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'uploadId requis' }, { status: 400 });
     }
 
-    const session = activeUploads.get(uploadId);
+    // Load session from database
+    const session = await db.uploadSession.findUnique({
+      where: { uploadId },
+    });
+
     if (!session) {
       return NextResponse.json({ error: 'Session d\'upload non trouvée' }, { status: 404 });
     }
@@ -53,10 +56,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify all chunks received
-    if (session.receivedChunks.size !== session.totalChunks) {
+    const receivedChunks: number[] = JSON.parse(session.receivedChunks);
+    if (receivedChunks.length !== session.totalChunks) {
       const missing = [];
       for (let i = 0; i < session.totalChunks; i++) {
-        if (!session.receivedChunks.has(i)) missing.push(i);
+        if (!receivedChunks.includes(i)) missing.push(i);
       }
       return NextResponse.json({
         error: `Chunks manquants: ${missing.join(', ')}`,
@@ -143,8 +147,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Clean up session
-    activeUploads.delete(uploadId);
+    // Clean up session from database
+    await db.uploadSession.delete({
+      where: { uploadId },
+    });
 
     console.log(`[upload] Video saved: ${uniqueName} (${(session.totalSize / 1024 / 1024).toFixed(1)} MB) → ${isStorageConfigured() ? 'R2' : 'local'}`);
 

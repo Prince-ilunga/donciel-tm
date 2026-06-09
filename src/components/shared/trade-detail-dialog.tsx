@@ -502,9 +502,18 @@ export function TradeDetailDialog() {
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t(language, "screenshots")}</h4>
                     <div className="grid grid-cols-3 gap-3">
                       {trade.screenshots.map((screenshot) => {
-                        const imgSrc = screenshot.url.startsWith('upload/screenshots/')
-                          ? `/api/screenshots/${screenshot.url.replace('upload/screenshots/', '')}`
-                          : screenshot.url;
+                        // Handle both R2 URLs and local paths
+                        let imgSrc: string;
+                        if (screenshot.url.startsWith('http://') || screenshot.url.startsWith('https://')) {
+                          // R2 public URL - use directly
+                          imgSrc = screenshot.url;
+                        } else if (screenshot.url.startsWith('upload/screenshots/')) {
+                          // Local path - use API route (handles R2 signed URL redirect too)
+                          imgSrc = `/api/screenshots/${screenshot.url.replace('upload/screenshots/', '')}`;
+                        } else {
+                          // Fallback: use as-is (could be R2 key or other format)
+                          imgSrc = screenshot.url;
+                        }
                         return (
                           <button key={screenshot.id} onClick={(e) => { e.stopPropagation(); setScreenshotViewerUrl(imgSrc); }}
                             className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200">

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser, isAdmin } from '@/lib/auth';
-import path from 'path';
-import fs from 'fs/promises';
+import { uploadFile, isStorageConfigured } from '@/lib/storage';
 
 export async function GET(request: NextRequest) {
   try {
@@ -80,28 +79,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), 'upload', 'videos');
-    await fs.mkdir(uploadDir, { recursive: true });
-
     // Generate unique filename
-    const ext = path.extname(file.name) || '.mp4';
-    const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
-    const filepath = path.join(uploadDir, filename);
+    const ext = file.name.split('.').pop() || 'mp4';
+    const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
-    // Write file
+    // Read file data
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    await fs.writeFile(filepath, buffer);
+
+    let fileUrl: string;
+
+    if (isStorageConfigured()) {
+      // Upload to Cloudflare R2
+      const storageKey = `videos/${filename}`;
+      const contentType = ext.toLowerCase() === 'webm' ? 'video/webm' : 'video/mp4';
+      fileUrl = await uploadFile(storageKey, buffer, contentType);
+    } else {
+      // Fallback: local filesystem
+      const path = await import('path');
+      const fs = await import('fs/promises');
+      const uploadDir = path.join(process.cwd(), 'upload', 'videos');
+      await fs.mkdir(uploadDir, { recursive: true });
+      const filepath = path.join(uploadDir, filename);
+      await fs.writeFile(filepath, buffer);
+      fileUrl = `upload/videos/${filename}`;
+    }
 
     // Save video record
-    const relativePath = `upload/videos/${filename}`;
     const video = await db.video.create({
       data: {
         category,
         title,
         description: description || null,
-        url: relativePath,
+        url: fileUrl,
         uploadedBy: result.user.id,
       },
       include: {

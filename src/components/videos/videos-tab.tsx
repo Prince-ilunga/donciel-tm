@@ -61,6 +61,20 @@ export function VideosTab() {
 
   const filteredVideos = videos.filter((v: any) => v.category === activeCategory);
 
+  // Helper to get the correct video URL (R2 or local)
+  const getVideoUrl = (url: string) => {
+    if (!url) return '';
+    // If it's already a full URL (R2 public URL), use directly
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    // If it's a local path, serve via API streaming route
+    if (url.startsWith('upload/videos/')) {
+      const key = url.replace('upload/', '');
+      return `/api/videos/stream?key=${encodeURIComponent(key)}`;
+    }
+    // Fallback: old-style local path
+    return `/${url}`;
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm(language === "fr" ? "Supprimer cette vidéo ?" : "Delete this video?")) return;
     try {
@@ -153,7 +167,7 @@ export function VideosTab() {
                 {playingVideo === video.id ? (
                   <div className="relative bg-black">
                     <video
-                      src={`/${video.url}`}
+                      src={getVideoUrl(video.url)}
                       controls
                       autoPlay
                       className="w-full h-40 object-contain"

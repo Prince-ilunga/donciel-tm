@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -98,4 +98,19 @@ model CustomPair {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   createdAt DateTime @default(now())
+}
+
+model UploadSession {
+  id             String   @id @default(cuid())
+  uploadId       String   @unique
+  filename       String
+  totalSize      Int
+  totalChunks    Int
+  category       String
+  title          String
+  description    String   @default("")
+  userId         String
+  receivedChunks String   @default("[]") // JSON array of chunk indices
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

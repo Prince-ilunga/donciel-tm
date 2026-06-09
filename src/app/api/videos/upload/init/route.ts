@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, isAdmin } from '@/lib/auth';
-import { activeUploads } from '@/lib/upload-store';
+import { db } from '@/lib/db';
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
 const VALID_CATEGORIES = ['STRUCTURE', 'BIAIS', 'ZONES', 'MODELS', 'SETUPS'];
@@ -31,26 +31,28 @@ export async function POST(request: NextRequest) {
 
     const uploadId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
 
-    activeUploads.set(uploadId, {
-      uploadId,
-      filename: filename || 'video.mp4',
-      totalSize,
-      totalChunks,
-      category,
-      title,
-      description: description || '',
-      userId: result.user.id,
-      receivedChunks: new Set(),
-      createdAt: Date.now(),
+    // Store session in database (works on Vercel serverless)
+    await db.uploadSession.create({
+      data: {
+        uploadId,
+        filename: filename || 'video.mp4',
+        totalSize,
+        totalChunks,
+        category,
+        title,
+        description: description || '',
+        userId: result.user.id,
+        receivedChunks: '[]',
+      },
     });
 
     // Clean up stale sessions (older than 2 hours)
-    const now = Date.now();
-    for (const [id, session] of activeUploads) {
-      if (now - session.createdAt > 2 * 60 * 60 * 1000) {
-        activeUploads.delete(id);
-      }
-    }
+    const staleThreshold = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    await db.uploadSession.deleteMany({
+      where: {
+        createdAt: { lt: staleThreshold },
+      },
+    });
 
     return NextResponse.json({ uploadId }, { status: 200 });
   } catch (error) {
