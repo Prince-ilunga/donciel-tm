@@ -16,7 +16,11 @@ export const metadata: Metadata = {
   title: "DONCIEL™ - Journal de Trading Professionnel",
   description: "Journal de trading ultra professionnel avec analyses avancées, statistiques en temps réel et outils IA.",
   icons: {
-    icon: "/logo.svg",
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/logo.png", type: "image/png" },
+    ],
+    apple: "/logo.png",
   },
 };
 
