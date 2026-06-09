@@ -2,10 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "prisma generate && next build",
-  "installCommand": "bun install",
-  "regions": ["cdg1"],
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "JWT_SECRET": "@jwt_secret"
-  }
+  "installCommand": "bun install"
 }
