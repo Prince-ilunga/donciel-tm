@@ -35,7 +35,7 @@ const TOTAL_CYCLES = 8;
 
 // ─── Main Component ────────────────────────────────────────────
 export function ExecutionTab() {
-  const { language, setShowTradeForm, setSelectedTradeId, setShowTradeDetail } = useAppStore();
+  const { language } = useAppStore();
   const { stats, loading: statsLoading, refetch: refetchStats } = useStats();
   const { trades, loading: tradesLoading, refetch: refetchTrades } = useTrades();
 
@@ -91,14 +91,7 @@ export function ExecutionTab() {
             {language === "fr" ? "Progression en 8 cycles vers 300 trades" : "8-cycle progression towards 300 trades"}
           </p>
         </div>
-        <Button
-          onClick={() => setShowTradeForm(true)}
-          className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300"
-          size="lg"
-        >
-          <Target className="w-4 h-4" />
-          {t(language, "addTrade")}
-        </Button>
+
       </div>
 
       {/* ─── Top Stats ─────────────────────────────── */}

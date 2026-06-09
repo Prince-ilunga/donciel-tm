@@ -95,7 +95,6 @@ interface TradeFormData {
   setup: string;
   structure: string;
   entryModel: string;
-  amountToWin: string;
   entryPrice: string;
   stopLoss: string;
   takeProfit: string;
@@ -109,7 +108,7 @@ interface TradeFormData {
   mistakes: string;
   lessons: string;
   notes: string;
-  analysisFile: File | null;
+  contextFile: File | null;
   entryFile: File | null;
   exitFile: File | null;
 }
@@ -126,7 +125,6 @@ const initialFormData: TradeFormData = {
   setup: "",
   structure: "",
   entryModel: "",
-  amountToWin: "",
   entryPrice: "",
   stopLoss: "",
   takeProfit: "",
@@ -140,7 +138,7 @@ const initialFormData: TradeFormData = {
   mistakes: "",
   lessons: "",
   notes: "",
-  analysisFile: null,
+  contextFile: null,
   entryFile: null,
   exitFile: null,
 };
@@ -185,6 +183,10 @@ function calculateAuto(formData: TradeFormData) {
       else if (exitPrice >= stopLoss) result.resultLabel = "LOSS";
       else result.resultLabel = "BE";
     }
+
+    // Adjust RR based on result to match backend logic
+    if (result.resultLabel === "LOSS") result.rr = -1;
+    else if (result.resultLabel === "BE") result.rr = 0;
   }
 
   if (formData.entryTime && formData.exitTime) {
@@ -639,7 +641,7 @@ function TradeFormDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomPair, setShowCustomPair] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
-  const analysisRef = useRef<HTMLInputElement>(null);
+  const contextRef = useRef<HTMLInputElement>(null);
   const entryFileRef = useRef<HTMLInputElement>(null);
   const exitFileRef = useRef<HTMLInputElement>(null);
 
@@ -685,7 +687,6 @@ function TradeFormDialog({
         setup: formData.setup || null,
         structure: formData.structure || null,
         entryModel: formData.entryModel || null,
-        amountToWin: formData.amountToWin ? parseFloat(formData.amountToWin) : null,
         entryPrice: parseFloat(formData.entryPrice),
         stopLoss: parseFloat(formData.stopLoss),
         takeProfit: parseFloat(formData.takeProfit),
@@ -721,7 +722,7 @@ function TradeFormDialog({
       // Upload screenshots
       const uploadPromises: Promise<void>[] = [];
       const files: { file: File | null; type: string }[] = [
-        { file: formData.analysisFile, type: "analysis" },
+        { file: formData.contextFile, type: "context" },
         { file: formData.entryFile, type: "entry" },
         { file: formData.exitFile, type: "exit" },
       ];
@@ -953,10 +954,6 @@ function TradeFormDialog({
                   <Input type="number" step="any" placeholder="0.00" value={formData.lotSize} onChange={(e) => updateField("lotSize", e.target.value)} className="h-9 font-mono" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">{t(language, "amountToWin")}</Label>
-                  <Input type="number" step="any" placeholder="0.00" value={formData.amountToWin} onChange={(e) => updateField("amountToWin", e.target.value)} className="h-9 font-mono" />
-                </div>
-                <div className="space-y-1.5">
                   <Label className="text-xs font-medium">{t(language, "entryTime")}</Label>
                   <Input type="time" value={formData.entryTime} onChange={(e) => updateField("entryTime", e.target.value)} className="h-9 font-mono" />
                 </div>
@@ -995,6 +992,68 @@ function TradeFormDialog({
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">{t(language, "notes")}</Label>
                 <Textarea value={formData.notes} onChange={(e) => updateField("notes", e.target.value)} className="min-h-[60px] text-sm" />
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* ─── Screenshots ──────────────── */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                {t(language, "screenshots")}
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Context Screenshot */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">{language === "fr" ? "Contexte" : "Context"}</Label>
+                  <input ref={contextRef} type="file" accept="image/*" className="hidden" onChange={(e) => updateField("contextFile", e.target.files?.[0] || null)} />
+                  <Button type="button" variant="outline" className="w-full h-9 gap-2" onClick={() => contextRef.current?.click()}>
+                    <Upload className="w-3.5 h-3.5" />
+                    {formData.contextFile ? formData.contextFile.name.slice(0, 20) : (language === "fr" ? "Choisir" : "Choose")}
+                  </Button>
+                  {formData.contextFile && (
+                    <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
+                      <img src={URL.createObjectURL(formData.contextFile)} alt="Context" className="w-full h-full object-cover" />
+                      <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => updateField("contextFile", null)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {/* Entry Screenshot */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">{language === "fr" ? "Entrée" : "Entry"}</Label>
+                  <input ref={entryFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => updateField("entryFile", e.target.files?.[0] || null)} />
+                  <Button type="button" variant="outline" className="w-full h-9 gap-2" onClick={() => entryFileRef.current?.click()}>
+                    <Upload className="w-3.5 h-3.5" />
+                    {formData.entryFile ? formData.entryFile.name.slice(0, 20) : (language === "fr" ? "Choisir" : "Choose")}
+                  </Button>
+                  {formData.entryFile && (
+                    <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
+                      <img src={URL.createObjectURL(formData.entryFile)} alt="Entry" className="w-full h-full object-cover" />
+                      <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => updateField("entryFile", null)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {/* Exit Screenshot */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-medium">{language === "fr" ? "Sortie" : "Exit"}</Label>
+                  <input ref={exitFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => updateField("exitFile", e.target.files?.[0] || null)} />
+                  <Button type="button" variant="outline" className="w-full h-9 gap-2" onClick={() => exitFileRef.current?.click()}>
+                    <Upload className="w-3.5 h-3.5" />
+                    {formData.exitFile ? formData.exitFile.name.slice(0, 20) : (language === "fr" ? "Choisir" : "Choose")}
+                  </Button>
+                  {formData.exitFile && (
+                    <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
+                      <img src={URL.createObjectURL(formData.exitFile)} alt="Exit" className="w-full h-full object-cover" />
+                      <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => updateField("exitFile", null)}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

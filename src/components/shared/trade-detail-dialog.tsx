@@ -52,7 +52,6 @@ interface TradeDetail {
   setup: string | null;
   structure: string | null;
   entryModel: string | null;
-  amountToWin: number | null;
   entryPrice: number;
   stopLoss: number;
   takeProfit: number;
@@ -181,8 +180,13 @@ export function TradeDetailDialog() {
       return { index: startIdx + i + 1, cumulativeRR: cumRR };
     });
 
-    // Total cumulative RR from all trades
-    const totalCumulativeRR = sorted.reduce((s, t) => s + (t.rr ?? 0), 0);
+    // Cumulative RR up to and including this trade
+    let cumulativeRRUpToTrade = 0;
+    for (let i = 0; i < sorted.length; i++) {
+      cumulativeRRUpToTrade += (sorted[i].rr ?? 0);
+      if (sorted[i].id === trade.id) break;
+    }
+    const totalCumulativeRR = cumulativeRRUpToTrade;
 
     return { last10RR, last10Cumulative, totalCumulativeRR };
   }, [trade, allTrades]);
@@ -208,7 +212,7 @@ export function TradeDetailDialog() {
           const x = CHART_PAD + i * ((CHART_W - CHART_PAD * 2) / data.length) + 2;
           const barHeight = (Math.abs(d.rr) / maxRR) * (zeroY - CHART_PAD);
           const y = d.rr >= 0 ? zeroY - barHeight : zeroY;
-          const color = d.result === "WIN" ? "var(--color-profit, #22c55e)" : d.result === "LOSS" ? "var(--color-loss, #ef4444)" : "var(--color-gold, #eab308)";
+          const color = d.result === "WIN" ? "#22c55e" : d.result === "LOSS" ? "#ef4444" : "#eab308";
           return (
             <g key={i}>
               <rect x={x} y={y} width={barW} height={barHeight} fill={color} rx={2} opacity={0.8} />
@@ -245,10 +249,10 @@ export function TradeDetailDialog() {
         {zeroY > CHART_PAD && zeroY < CHART_H - CHART_PAD && (
           <line x1={CHART_PAD} y1={zeroY} x2={CHART_W - CHART_PAD} y2={zeroY} stroke="currentColor" strokeOpacity={0.15} strokeDasharray="3,3" />
         )}
-        <path d={areaD} fill="var(--color-profit, #22c55e)" opacity={0.1} />
-        <path d={pathD} fill="none" stroke="var(--color-profit, #22c55e)" strokeWidth={2} />
+        <path d={areaD} fill="#22c55e" opacity={0.1} />
+        <path d={pathD} fill="none" stroke="#22c55e" strokeWidth={2} />
         {points.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={3} fill="var(--color-profit, #22c55e)" />
+          <circle key={i} cx={p.x} cy={p.y} r={3} fill="#22c55e" />
         ))}
       </svg>
     );
@@ -367,13 +371,7 @@ export function TradeDetailDialog() {
                     <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><Clock className="w-3 h-3" />{t(language, "duration")}</div>
                     <div className="text-lg font-bold font-mono">{trade.duration || "—"}</div>
                   </div>
-                  {/* Amount to Win */}
-                  <div className="rounded-xl border border-border p-3 text-center">
-                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />{t(language, "amountToWin")}</div>
-                    <div className="text-lg font-bold font-mono text-profit">
-                      {trade.amountToWin != null ? `${trade.amountToWin.toFixed(2)}$` : "—"}
-                    </div>
-                  </div>
+
                 </div>
 
                 {/* ─── Charts Section ──────────────── */}
@@ -441,7 +439,7 @@ export function TradeDetailDialog() {
                     <ParamCard label={t(language, "takeProfit")} value={trade.takeProfit.toFixed(2)} mono valueClass="text-profit" />
                     {trade.exitPrice != null && <ParamCard label={t(language, "exitPrice")} value={trade.exitPrice.toFixed(2)} mono />}
                     {trade.lotSize != null && <ParamCard label={t(language, "lotSize")} value={trade.lotSize.toString()} mono />}
-                    {trade.amountToWin != null && <ParamCard label={t(language, "amountToWin")} value={`${trade.amountToWin.toFixed(2)}$`} mono valueClass="text-profit" />}
+
                     {trade.entryTime && <ParamCard label={t(language, "entryTime")} value={trade.entryTime} mono />}
                     {trade.exitTime && <ParamCard label={t(language, "exitTime")} value={trade.exitTime} mono />}
                   </div>
@@ -516,7 +514,7 @@ export function TradeDetailDialog() {
                             </div>
                             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
                               <span className="text-[10px] text-white font-medium uppercase tracking-wider">
-                                {screenshot.type === "analysis" ? t(language, "analysisScreenshot") : screenshot.type === "entry" ? t(language, "entryScreenshot") : t(language, "exitScreenshot")}
+                                {(screenshot.type === "context" || screenshot.type === "analysis") ? t(language, "contextScreenshot") : screenshot.type === "entry" ? t(language, "entryScreenshot") : t(language, "exitScreenshot")}
                               </span>
                             </div>
                           </button>
