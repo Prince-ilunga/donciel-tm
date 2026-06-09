@@ -86,7 +86,7 @@ export function TradeDetailDialog() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/trades/${id}`);
+      const res = await fetch(`/api/trades/${id}?_t=${Date.now()}`);
       if (!res.ok) {
         const data = await res.json();
         setError(data.error || (language === "fr" ? "Erreur lors du chargement" : "Error loading trade"));
@@ -94,7 +94,6 @@ export function TradeDetailDialog() {
         return;
       }
       const data = await res.json();
-      console.log('[TradeDetail] Screenshots from API:', data.trade?.screenshots?.length, data.trade?.screenshots);
       if (data.trade && data.trade.entryPrice !== undefined) {
         setTrade(data.trade);
       } else {
@@ -124,7 +123,7 @@ export function TradeDetailDialog() {
       prevTradeIdRef.current = selectedTradeId;
       setTrade(null);
       fetchTrade(selectedTradeId);
-      // Fetch all trades for chart data
+      // Fetch all trades for chart data and screenshot fallback
       refetchTrades();
     }
     if (!showTradeDetail && prevTradeIdRef.current) {
@@ -310,14 +309,14 @@ export function TradeDetailDialog() {
     return `/api/screenshots/${url.split('/').pop()}`;
   }, []);
 
-  // Get screenshots - use trade API data directly (always includes screenshots)
+  // Get screenshots - check both trade API and allTrades for maximum reliability
   const tradeScreenshots = useMemo(() => {
     if (!trade) return [];
-    // Primary: trade API data (always includes screenshots with include: { screenshots: true })
-    if (trade.screenshots && trade.screenshots.length > 0) return trade.screenshots;
-    // Fallback: allTrades (same data source as journal tab)
+    // Try allTrades first (freshly refetched when dialog opens, includes screenshots)
     const fromAllTrades = allTrades.find(t => t.id === trade.id)?.screenshots;
     if (fromAllTrades && fromAllTrades.length > 0) return fromAllTrades;
+    // Fallback: trade API data
+    if (trade.screenshots && trade.screenshots.length > 0) return trade.screenshots;
     return [];
   }, [trade, allTrades]);
 
