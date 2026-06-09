@@ -2,11 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { activeUploads } from '@/lib/upload-store';
+import { uploadFile, deleteFile, isStorageConfigured } from '@/lib/storage';
+import {
+  S3Client,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import path from 'path';
 import fs from 'fs';
 
 const CHUNK_DIR = path.join(process.cwd(), 'upload', 'chunks');
 const UPLOAD_DIR = path.join(process.cwd(), 'upload', 'videos');
+
+// R2 config for reading chunks
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'donciel-storage';
+
+function getS3Client(): S3Client {
+  return new S3Client({
+    region: 'auto',
+    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: R2_ACCESS_KEY_ID!,
+      secretAccessKey: R2_SECRET_ACCESS_KEY!,
+    },
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,34 +64,76 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Assemble chunks into final file
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    // Generate unique filename
     const ext = path.extname(session.filename) || '.mp4';
     const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
-    const finalPath = path.join(UPLOAD_DIR, uniqueName);
 
-    const writeStream = fs.createWriteStream(finalPath);
-    for (let i = 0; i < session.totalChunks; i++) {
-      const chunkPath = path.join(CHUNK_DIR, `${uploadId}_${i}`);
-      const chunkData = fs.readFileSync(chunkPath);
-      writeStream.write(chunkData);
-      try { fs.unlinkSync(chunkPath); } catch {}
+    let fileUrl: string;
+
+    if (isStorageConfigured()) {
+      // ─── R2 Mode: Assemble chunks from R2 and upload final video ───
+      const client = getS3Client();
+      const chunks: Buffer[] = [];
+
+      for (let i = 0; i < session.totalChunks; i++) {
+        const chunkKey = `chunks/${uploadId}/${i}`;
+        const response = await client.send(
+          new GetObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: chunkKey,
+          })
+        );
+
+        if (response.Body) {
+          const bytes = await response.Body.transformToByteArray();
+          chunks.push(Buffer.from(bytes));
+        }
+
+        // Delete chunk from R2 after reading
+        await client.send(
+          new DeleteObjectCommand({
+            Bucket: R2_BUCKET_NAME,
+            Key: chunkKey,
+          })
+        ).catch(() => {});
+      }
+
+      // Combine all chunks
+      const finalBuffer = Buffer.concat(chunks);
+
+      // Upload final video to R2
+      const storageKey = `videos/${uniqueName}`;
+      const contentType = ext.toLowerCase() === '.webm' ? 'video/webm' : 'video/mp4';
+      fileUrl = await uploadFile(storageKey, finalBuffer, contentType);
+    } else {
+      // ─── Local Mode: Assemble chunks from disk ───
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+      const finalPath = path.join(UPLOAD_DIR, uniqueName);
+      const writeStream = fs.createWriteStream(finalPath);
+
+      for (let i = 0; i < session.totalChunks; i++) {
+        const chunkPath = path.join(CHUNK_DIR, `${uploadId}_${i}`);
+        const chunkData = fs.readFileSync(chunkPath);
+        writeStream.write(chunkData);
+        try { fs.unlinkSync(chunkPath); } catch {}
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        writeStream.end();
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+      });
+
+      fileUrl = `upload/videos/${uniqueName}`;
     }
 
-    await new Promise<void>((resolve, reject) => {
-      writeStream.end();
-      writeStream.on('finish', resolve);
-      writeStream.on('error', reject);
-    });
-
     // Save video record in database
-    const relativePath = `upload/videos/${uniqueName}`;
     const video = await db.video.create({
       data: {
         category: session.category,
         title: session.title,
         description: session.description || null,
-        url: relativePath,
+        url: fileUrl,
         uploadedBy: session.userId,
       },
       include: {
@@ -81,7 +146,7 @@ export async function POST(request: NextRequest) {
     // Clean up session
     activeUploads.delete(uploadId);
 
-    console.log(`[chunked-upload] Video assembled: ${uniqueName} (${(session.totalSize / 1024 / 1024).toFixed(1)} MB)`);
+    console.log(`[upload] Video saved: ${uniqueName} (${(session.totalSize / 1024 / 1024).toFixed(1)} MB) → ${isStorageConfigured() ? 'R2' : 'local'}`);
 
     return NextResponse.json({ video }, { status: 201 });
   } catch (error) {

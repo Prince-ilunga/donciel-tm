@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
+import { isStorageConfigured, getSignedFileUrl, extractStorageKey } from '@/lib/storage';
 
 export async function GET(
   request: NextRequest,
@@ -11,17 +12,23 @@ export async function GET(
 
     // Prevent directory traversal
     const sanitized = filename.replace(/\.\./g, '').replace(/\//g, '');
+
+    // If R2 is configured, redirect to signed URL
+    if (isStorageConfigured()) {
+      const storageKey = `screenshots/${sanitized}`;
+      const signedUrl = await getSignedFileUrl(storageKey);
+      return NextResponse.redirect(signedUrl);
+    }
+
+    // Fallback: serve from local filesystem
     const filepath = path.join(process.cwd(), 'upload', 'screenshots', sanitized);
 
-    // Check file exists
     if (!fs.existsSync(filepath)) {
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
-    // Read file
     const buffer = fs.readFileSync(filepath);
 
-    // Determine content type
     const ext = path.extname(sanitized).toLowerCase();
     const contentTypes: Record<string, string> = {
       '.png': 'image/png',

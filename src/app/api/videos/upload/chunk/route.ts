@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { activeUploads } from '@/lib/upload-store';
+import { uploadChunk, isStorageConfigured } from '@/lib/storage';
 import path from 'path';
 import fs from 'fs';
 
@@ -35,11 +36,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 403 });
     }
 
-    // Write chunk to disk
-    fs.mkdirSync(CHUNK_DIR, { recursive: true });
-    const chunkPath = path.join(CHUNK_DIR, `${uploadId}_${chunkIndex}`);
     const buffer = Buffer.from(await chunkFile.arrayBuffer());
-    fs.writeFileSync(chunkPath, buffer);
+
+    if (isStorageConfigured()) {
+      // Upload chunk directly to R2 as a temporary part
+      const chunkKey = `chunks/${uploadId}/${chunkIndex}`;
+      await uploadChunk(chunkKey, buffer, 'application/octet-stream');
+    } else {
+      // Fallback: write chunk to local disk
+      fs.mkdirSync(CHUNK_DIR, { recursive: true });
+      const chunkPath = path.join(CHUNK_DIR, `${uploadId}_${chunkIndex}`);
+      fs.writeFileSync(chunkPath, buffer);
+    }
 
     session.receivedChunks.add(chunkIndex);
 

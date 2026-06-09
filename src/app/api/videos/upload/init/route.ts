@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser, isAdmin } from '@/lib/auth';
 import { activeUploads } from '@/lib/upload-store';
-import path from 'path';
-import fs from 'fs';
 
-const CHUNK_DIR = path.join(process.cwd(), 'upload', 'chunks');
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
 const VALID_CATEGORIES = ['STRUCTURE', 'BIAIS', 'ZONES', 'MODELS', 'SETUPS'];
 
@@ -32,8 +29,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'totalChunks requis' }, { status: 400 });
     }
 
-    fs.mkdirSync(CHUNK_DIR, { recursive: true });
-
     const uploadId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
 
     activeUploads.set(uploadId, {
@@ -53,10 +48,6 @@ export async function POST(request: NextRequest) {
     const now = Date.now();
     for (const [id, session] of activeUploads) {
       if (now - session.createdAt > 2 * 60 * 60 * 1000) {
-        for (let i = 0; i < session.totalChunks; i++) {
-          const chunkPath = path.join(CHUNK_DIR, `${id}_${i}`);
-          try { fs.unlinkSync(chunkPath); } catch {}
-        }
         activeUploads.delete(id);
       }
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser, isAdmin } from '@/lib/auth';
+import { deleteFile, extractStorageKey, isStorageConfigured } from '@/lib/storage';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -31,10 +32,19 @@ export async function DELETE(
       );
     }
 
-    // Delete the file
+    // Delete the file from storage
     try {
-      const filePath = path.join(process.cwd(), video.url);
-      await fs.unlink(filePath).catch(() => {});
+      if (isStorageConfigured()) {
+        // Delete from R2
+        const storageKey = extractStorageKey(video.url);
+        if (storageKey) {
+          await deleteFile(storageKey);
+        }
+      } else {
+        // Delete from local filesystem
+        const filePath = path.join(process.cwd(), video.url);
+        await fs.unlink(filePath).catch(() => {});
+      }
     } catch {
       // Ignore file deletion errors
     }
