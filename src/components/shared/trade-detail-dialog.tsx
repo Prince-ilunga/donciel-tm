@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -78,25 +79,41 @@ export function TradeDetailDialog() {
   const { trades: allTrades, refetch: refetchTrades } = useTrades();
   const [trade, setTrade] = useState<TradeDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const prevTradeIdRef = useRef<string | null>(null);
 
   const fetchTrade = useCallback(async (id: string) => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`/api/trades/${id}`);
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || (language === "fr" ? "Erreur lors du chargement" : "Error loading trade"));
+        setTrade(null);
+        return;
+      }
       const data = await res.json();
-      setTrade(data.trade || data);
+      if (data.trade && data.trade.entryPrice !== undefined) {
+        setTrade(data.trade);
+      } else {
+        setError(language === "fr" ? "Données du trade invalides" : "Invalid trade data");
+        setTrade(null);
+      }
     } catch (err) {
       console.error("Error fetching trade:", err);
+      setError(language === "fr" ? "Erreur de connexion" : "Connection error");
+      setTrade(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [language]);
 
   const handleOpenChange = useCallback((open: boolean) => {
     if (!open) {
       setShowTradeDetail(false);
       setTrade(null);
+      setError(null);
       prevTradeIdRef.current = null;
     }
   }, [setShowTradeDetail]);
@@ -110,6 +127,7 @@ export function TradeDetailDialog() {
     if (!showTradeDetail && prevTradeIdRef.current) {
       prevTradeIdRef.current = null;
       setTrade(null);
+      setError(null);
     }
   }, [showTradeDetail, selectedTradeId, fetchTrade]);
 
@@ -125,7 +143,7 @@ export function TradeDetailDialog() {
     const riskRewardRatio = risk > 0 ? (reward / risk).toFixed(2) : "—";
     const riskAmount = trade.lotSize ? (risk * trade.lotSize).toFixed(2) : "—";
     const rewardAmount = trade.lotSize ? (reward * trade.lotSize).toFixed(2) : "—";
-    const efficiency = trade.pnl !== null && trade.lotSize && trade.rr
+    const efficiency = trade.pnl != null && trade.lotSize && trade.rr
       ? trade.rr > 0 ? ((trade.pnl / (reward * trade.lotSize)) * 100).toFixed(0) : "—"
       : "—";
     return { riskRewardRatio, riskAmount, rewardAmount, efficiency };
@@ -242,8 +260,26 @@ export function TradeDetailDialog() {
         {/* Header */}
         {loading ? (
           <div className="p-6 space-y-4">
+            <DialogHeader>
+              <DialogTitle className="sr-only">{language === "fr" ? "Chargement du trade..." : "Loading trade..."}</DialogTitle>
+              <DialogDescription className="sr-only">{language === "fr" ? "Chargement en cours" : "Loading"}</DialogDescription>
+            </DialogHeader>
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-4 w-64" />
+          </div>
+        ) : error ? (
+          <div className="p-6">
+            <DialogHeader>
+              <DialogTitle className="sr-only">{language === "fr" ? "Erreur" : "Error"}</DialogTitle>
+              <DialogDescription className="sr-only">{error}</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <AlertTriangle className="w-12 h-12 text-loss/50 mb-4" />
+              <p className="text-muted-foreground text-sm">{error}</p>
+              <Button variant="outline" size="sm" className="mt-4" onClick={() => handleOpenChange(false)}>
+                {language === "fr" ? "Fermer" : "Close"}
+              </Button>
+            </div>
           </div>
         ) : trade ? (
           <>
@@ -259,6 +295,7 @@ export function TradeDetailDialog() {
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-mono font-bold text-lg">{trade.pair}</span>
+                    <DialogDescription className="sr-only">{trade.pair} {trade.direction} - {trade.date}</DialogDescription>
                     <Badge className={cn(
                       "text-xs font-semibold",
                       isLong ? "bg-profit/15 text-profit border-profit/20" : "bg-loss/15 text-loss border-loss/20"
@@ -305,15 +342,15 @@ export function TradeDetailDialog() {
                   {/* RR */}
                   <div className="rounded-xl border border-border p-3 text-center">
                     <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><Target className="w-3 h-3" />RR</div>
-                    <div className={cn("text-2xl font-bold font-mono", trade.rr !== null && trade.rr >= 1 && "text-profit", trade.rr !== null && trade.rr < 1 && "text-loss")}>
-                      {trade.rr !== null ? trade.rr.toFixed(2) : "—"}
+                    <div className={cn("text-2xl font-bold font-mono", trade.rr != null && trade.rr >= 1 && "text-profit", trade.rr != null && trade.rr < 1 && "text-loss")}>
+                      {trade.rr != null ? trade.rr.toFixed(2) : "—"}
                     </div>
                   </div>
                   {/* P&L */}
                   <div className="rounded-xl border border-border p-3 text-center">
                     <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />P&L</div>
-                    <div className={cn("text-2xl font-bold font-mono", trade.pnl !== null && trade.pnl > 0 && "text-profit", trade.pnl !== null && trade.pnl < 0 && "text-loss", trade.pnl !== null && trade.pnl === 0 && "text-gold")}>
-                      {trade.pnl !== null ? `${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}` : "—"}
+                    <div className={cn("text-2xl font-bold font-mono", trade.pnl != null && trade.pnl > 0 && "text-profit", trade.pnl != null && trade.pnl < 0 && "text-loss", trade.pnl != null && trade.pnl === 0 && "text-gold")}>
+                      {trade.pnl != null ? `${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}` : "—"}
                     </div>
                   </div>
                   {/* Result */}
@@ -334,7 +371,7 @@ export function TradeDetailDialog() {
                   <div className="rounded-xl border border-border p-3 text-center">
                     <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />{t(language, "amountToWin")}</div>
                     <div className="text-lg font-bold font-mono text-profit">
-                      {trade.amountToWin !== null ? `${trade.amountToWin.toFixed(2)}$` : "—"}
+                      {trade.amountToWin != null ? `${trade.amountToWin.toFixed(2)}$` : "—"}
                     </div>
                   </div>
                 </div>
@@ -402,9 +439,9 @@ export function TradeDetailDialog() {
                     <ParamCard label={t(language, "entryPrice")} value={trade.entryPrice.toFixed(2)} mono />
                     <ParamCard label={t(language, "stopLoss")} value={trade.stopLoss.toFixed(2)} mono valueClass="text-loss" />
                     <ParamCard label={t(language, "takeProfit")} value={trade.takeProfit.toFixed(2)} mono valueClass="text-profit" />
-                    {trade.exitPrice !== null && <ParamCard label={t(language, "exitPrice")} value={trade.exitPrice.toFixed(2)} mono />}
-                    {trade.lotSize !== null && <ParamCard label={t(language, "lotSize")} value={trade.lotSize.toString()} mono />}
-                    {trade.amountToWin !== null && <ParamCard label={t(language, "amountToWin")} value={`${trade.amountToWin.toFixed(2)}$`} mono valueClass="text-profit" />}
+                    {trade.exitPrice != null && <ParamCard label={t(language, "exitPrice")} value={trade.exitPrice.toFixed(2)} mono />}
+                    {trade.lotSize != null && <ParamCard label={t(language, "lotSize")} value={trade.lotSize.toString()} mono />}
+                    {trade.amountToWin != null && <ParamCard label={t(language, "amountToWin")} value={`${trade.amountToWin.toFixed(2)}$`} mono valueClass="text-profit" />}
                     {trade.entryTime && <ParamCard label={t(language, "entryTime")} value={trade.entryTime} mono />}
                     {trade.exitTime && <ParamCard label={t(language, "exitTime")} value={trade.exitTime} mono />}
                   </div>
@@ -493,6 +530,9 @@ export function TradeDetailDialog() {
           </>
         ) : (
           <div className="p-12 text-center">
+            <DialogHeader>
+              <DialogTitle className="sr-only">{language === "fr" ? "Aucune donnée" : "No data"}</DialogTitle>
+            </DialogHeader>
             <p className="text-muted-foreground">{t(language, "noData")}</p>
           </div>
         )}

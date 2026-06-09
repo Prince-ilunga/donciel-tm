@@ -30,7 +30,7 @@ const PHASE_1_CYCLES = 4;
 const PHASE_1_TRADES_PER_CYCLE = 25;
 const PHASE_2_CYCLES = 4;
 const PHASE_2_TRADES_PER_CYCLE = 50;
-const TOTAL_TRADES_TARGET = 500;
+const TOTAL_TRADES_TARGET = 300;
 const TOTAL_CYCLES = 8;
 
 // ─── Main Component ────────────────────────────────────────────

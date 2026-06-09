@@ -400,6 +400,7 @@ function TradeVerificationList({
     setup: "",
     entryModel: "",
     structure: "",
+    timing: "",
   });
   const [showFilters, setShowFilters] = useState(false);
 
@@ -409,15 +410,17 @@ function TradeVerificationList({
   const totalRR = trades.reduce((s, t) => s + (t.rr ?? 0), 0);
 
   // Apply filters
+  const { condition, setup, entryModel, structure, timing } = filters;
   const filteredTrades = useMemo(() => {
     return trades.filter(trade => {
-      if (filters.condition && trade.marketCondition !== filters.condition) return false;
-      if (filters.setup && trade.setup !== filters.setup) return false;
-      if (filters.entryModel && trade.entryModel !== filters.entryModel) return false;
-      if (filters.structure && trade.structure !== filters.structure) return false;
+      if (condition && trade.marketCondition !== condition) return false;
+      if (setup && trade.setup !== setup) return false;
+      if (entryModel && trade.entryModel !== entryModel) return false;
+      if (structure && trade.structure !== structure) return false;
+      if (timing && trade.session !== timing) return false;
       return true;
     });
-  }, [trades, filters]);
+  }, [trades, condition, setup, entryModel, structure, timing]);
 
   return (
     <div className="space-y-4">
@@ -426,7 +429,7 @@ function TradeVerificationList({
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium">{filteredTrades.length} {t(language, "nombreTrades")}</span>
+            <span className="text-sm font-medium">{filteredTrades.length} trades</span>
           </div>
           <Badge variant="outline" className="text-xs font-mono">
             RR Total: {totalRR.toFixed(2)}
@@ -454,7 +457,7 @@ function TradeVerificationList({
 
         {/* Filters */}
         {showFilters && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 pt-4 border-t border-border">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-border">
             <Select value={filters.condition} onValueChange={v => setFilters(p => ({ ...p, condition: v === "__all__" ? "" : v }))}>
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t(language, "condition")} /></SelectTrigger>
               <SelectContent>
@@ -481,6 +484,13 @@ function TradeVerificationList({
               <SelectContent>
                 <SelectItem value="__all__">{language === "fr" ? "Toutes" : "All"}</SelectItem>
                 {STRUCTURES.map(st => <SelectItem key={st} value={st}>{st}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={filters.timing} onValueChange={v => setFilters(p => ({ ...p, timing: v === "__all__" ? "" : v }))}>
+              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t(language, "timing")} /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">{language === "fr" ? "Tous" : "All"}</SelectItem>
+                {SESSIONS.map(s => <SelectItem key={s} value={s}>{t(language, s.toLowerCase().replace(/\s+/g, "") as any) || s}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
