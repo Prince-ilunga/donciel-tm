@@ -1,15 +1,22 @@
 /**
- * Cloudflare R2 Storage Module
+ * Cloud Storage Module — Backblaze B2 / Cloudflare R2 / Any S3-Compatible
  *
- * Uses AWS S3 SDK (R2 is S3-compatible) for cloud file storage.
- * Falls back to local filesystem when R2 is not configured.
+ * Uses AWS S3 SDK for cloud file storage. Works with:
+ * - Backblaze B2 (10 Go gratuit, SANS carte bancaire) ← recommandé
+ * - Cloudflare R2 (10 Go gratuit, demande carte bancaire)
+ * - Any S3-compatible storage
  *
- * Required environment variables for R2:
- * - R2_ACCOUNT_ID: Your Cloudflare account ID
- * - R2_ACCESS_KEY_ID: R2 API token access key
- * - R2_SECRET_ACCESS_KEY: R2 API token secret key
- * - R2_BUCKET_NAME: Name of your R2 bucket (default: donciel-storage)
- * - R2_PUBLIC_URL: Public URL for accessing files (e.g., https://cdn.donciel.com)
+ * Falls back to local filesystem when cloud storage is not configured.
+ *
+ * ─── Variables d'environnement requises ───
+ * - S3_ENDPOINT: URL du endpoint S3
+ *     Backblaze B2: https://s3.REGION.backblazeb2.com
+ *     Cloudflare R2: https://ACCOUNT_ID.r2.cloudflarestorage.com
+ * - S3_REGION: Région du bucket (ex: us-east-005 pour B2, "auto" pour R2)
+ * - S3_ACCESS_KEY_ID: Clé d'accès API
+ * - S3_SECRET_ACCESS_KEY: Clé secrète API
+ * - S3_BUCKET_NAME: Nom du bucket (défaut: donciel-storage)
+ * - S3_PUBLIC_URL: URL publique d'accès aux fichiers (optionnel)
  */
 
 import {
@@ -21,26 +28,27 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // ─── Configuration ──────────────────────────────────────────
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'donciel-storage';
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
+const S3_ENDPOINT = process.env.S3_ENDPOINT;
+const S3_REGION = process.env.S3_REGION || 'auto';
+const S3_ACCESS_KEY_ID = process.env.S3_ACCESS_KEY_ID;
+const S3_SECRET_ACCESS_KEY = process.env.S3_SECRET_ACCESS_KEY;
+const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'donciel-storage';
+const S3_PUBLIC_URL = process.env.S3_PUBLIC_URL;
 
-const isR2Configured =
-  !!R2_ACCOUNT_ID && !!R2_ACCESS_KEY_ID && !!R2_SECRET_ACCESS_KEY;
+const isCloudConfigured =
+  !!S3_ENDPOINT && !!S3_ACCESS_KEY_ID && !!S3_SECRET_ACCESS_KEY;
 
-// ─── S3 Client (R2-compatible) ──────────────────────────────
+// ─── S3 Client (works with B2, R2, or any S3-compatible) ───
 let s3Client: S3Client | null = null;
 
-function getS3Client(): S3Client {
+export function getS3Client(): S3Client {
   if (!s3Client) {
     s3Client = new S3Client({
-      region: 'auto',
-      endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      region: S3_REGION,
+      endpoint: S3_ENDPOINT,
       credentials: {
-        accessKeyId: R2_ACCESS_KEY_ID!,
-        secretAccessKey: R2_SECRET_ACCESS_KEY!,
+        accessKeyId: S3_ACCESS_KEY_ID!,
+        secretAccessKey: S3_SECRET_ACCESS_KEY!,
       },
     });
   }
@@ -50,7 +58,7 @@ function getS3Client(): S3Client {
 // ─── Storage Operations ─────────────────────────────────────
 
 /**
- * Upload a file to R2 storage
+ * Upload a file to cloud storage
  * @param key - The storage key (path) for the file, e.g., "screenshots/12345-image.png"
  * @param buffer - The file data as a Buffer
  * @param contentType - MIME type of the file
@@ -61,11 +69,11 @@ export async function uploadFile(
   buffer: Buffer,
   contentType: string = 'application/octet-stream'
 ): Promise<string> {
-  if (isR2Configured) {
+  if (isCloudConfigured) {
     const client = getS3Client();
     await client.send(
       new PutObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: S3_BUCKET_NAME,
         Key: key,
         Body: buffer,
         ContentType: contentType,
@@ -80,7 +88,7 @@ export async function uploadFile(
 }
 
 /**
- * Upload a stream/chunk to R2 (for multipart uploads)
+ * Upload a stream/chunk to cloud storage (for multipart uploads)
  * Same as uploadFile but works with Buffer data
  */
 export async function uploadChunk(
@@ -88,12 +96,12 @@ export async function uploadChunk(
   buffer: Buffer,
   contentType: string = 'application/octet-stream'
 ): Promise<void> {
-  if (!isR2Configured) return;
+  if (!isCloudConfigured) return;
 
   const client = getS3Client();
   await client.send(
     new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
+      Bucket: S3_BUCKET_NAME,
       Key: key,
       Body: buffer,
       ContentType: contentType,
@@ -102,15 +110,15 @@ export async function uploadChunk(
 }
 
 /**
- * Delete a file from R2 storage
+ * Delete a file from cloud storage
  * @param key - The storage key (path) of the file to delete
  */
 export async function deleteFile(key: string): Promise<void> {
-  if (isR2Configured) {
+  if (isCloudConfigured) {
     const client = getS3Client();
     await client.send(
       new DeleteObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: S3_BUCKET_NAME,
         Key: key,
       })
     );
@@ -127,10 +135,10 @@ export async function getSignedFileUrl(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
-  if (isR2Configured) {
+  if (isCloudConfigured) {
     const client = getS3Client();
     const command = new GetObjectCommand({
-      Bucket: R2_BUCKET_NAME,
+      Bucket: S3_BUCKET_NAME,
       Key: key,
     });
     return getSignedUrl(client, command, { expiresIn });
@@ -140,31 +148,31 @@ export async function getSignedFileUrl(
 }
 
 /**
- * Get the public URL for a file stored in R2
+ * Get the public URL for a file stored in cloud storage
  * @param key - The storage key (path) of the file
  * @returns The public URL
  */
 export function getPublicUrl(key: string): string {
-  if (R2_PUBLIC_URL) {
-    return `${R2_PUBLIC_URL}/${key}`;
+  if (S3_PUBLIC_URL) {
+    return `${S3_PUBLIC_URL}/${key}`;
   }
-  // If no public URL configured, use signed URLs via API route
+  // If no public URL configured, return the key (will use signed URLs via API route)
   return key;
 }
 
 /**
  * Extract the storage key from a URL or path
- * Handles both old local paths (upload/screenshots/xxx) and R2 URLs
+ * Handles both old local paths (upload/screenshots/xxx) and cloud URLs
  */
 export function extractStorageKey(url: string): string {
   if (!url) return '';
 
-  // If it's a full R2 public URL, extract the key after the domain
-  if (R2_PUBLIC_URL && url.startsWith(R2_PUBLIC_URL)) {
-    return url.replace(`${R2_PUBLIC_URL}/`, '');
+  // If it's a full public URL, extract the key after the domain
+  if (S3_PUBLIC_URL && url.startsWith(S3_PUBLIC_URL)) {
+    return url.replace(`${S3_PUBLIC_URL}/`, '');
   }
 
-  // If it's a local path like "upload/screenshots/xxx.png", convert to R2 key
+  // If it's a local path like "upload/screenshots/xxx.png", convert to storage key
   if (url.startsWith('upload/')) {
     return url.replace('upload/', '');
   }
@@ -175,12 +183,12 @@ export function extractStorageKey(url: string): string {
 
 /**
  * Get the display URL for a stored file
- * Handles both old local paths and new R2 URLs
+ * Handles both old local paths and new cloud URLs
  */
 export function getFileUrl(url: string): string {
   if (!url) return '';
 
-  // If it's already a full URL (http/https), return as-is (R2 public URL)
+  // If it's already a full URL (http/https), return as-is (cloud public URL)
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
@@ -197,8 +205,8 @@ export function getFileUrl(url: string): string {
     return `/api/videos/stream?key=${encodeURIComponent(key)}`;
   }
 
-  // If R2 is configured and it's a key without prefix, construct public URL
-  if (isR2Configured && !url.startsWith('/')) {
+  // If cloud is configured and it's a key without prefix, construct public URL
+  if (isCloudConfigured && !url.startsWith('/')) {
     return getPublicUrl(url);
   }
 
@@ -207,8 +215,15 @@ export function getFileUrl(url: string): string {
 }
 
 /**
- * Check if R2 storage is configured and available
+ * Check if cloud storage is configured and available
  */
 export function isStorageConfigured(): boolean {
-  return isR2Configured;
+  return isCloudConfigured;
+}
+
+/**
+ * Get the bucket name (exported for use in upload complete route)
+ */
+export function getBucketName(): string {
+  return S3_BUCKET_NAME;
 }

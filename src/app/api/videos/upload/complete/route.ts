@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { uploadFile, deleteFile, isStorageConfigured } from '@/lib/storage';
+import { uploadFile, isStorageConfigured, getS3Client, getBucketName } from '@/lib/storage';
 import {
-  S3Client,
   GetObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
@@ -12,23 +11,6 @@ import fs from 'fs';
 
 const CHUNK_DIR = path.join(process.cwd(), 'upload', 'chunks');
 const UPLOAD_DIR = path.join(process.cwd(), 'upload', 'videos');
-
-// R2 config for reading chunks
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'donciel-storage';
-
-function getS3Client(): S3Client {
-  return new S3Client({
-    region: 'auto',
-    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: R2_ACCESS_KEY_ID!,
-      secretAccessKey: R2_SECRET_ACCESS_KEY!,
-    },
-  });
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,15 +57,16 @@ export async function POST(request: NextRequest) {
     let fileUrl: string;
 
     if (isStorageConfigured()) {
-      // ─── R2 Mode: Assemble chunks from R2 and upload final video ───
+      // ─── Cloud Mode: Assemble chunks from cloud and upload final video ───
       const client = getS3Client();
+      const bucketName = getBucketName();
       const chunks: Buffer[] = [];
 
       for (let i = 0; i < session.totalChunks; i++) {
         const chunkKey = `chunks/${uploadId}/${i}`;
         const response = await client.send(
           new GetObjectCommand({
-            Bucket: R2_BUCKET_NAME,
+            Bucket: bucketName,
             Key: chunkKey,
           })
         );
@@ -93,10 +76,10 @@ export async function POST(request: NextRequest) {
           chunks.push(Buffer.from(bytes));
         }
 
-        // Delete chunk from R2 after reading
+        // Delete chunk from cloud after reading
         await client.send(
           new DeleteObjectCommand({
-            Bucket: R2_BUCKET_NAME,
+            Bucket: bucketName,
             Key: chunkKey,
           })
         ).catch(() => {});
@@ -105,7 +88,7 @@ export async function POST(request: NextRequest) {
       // Combine all chunks
       const finalBuffer = Buffer.concat(chunks);
 
-      // Upload final video to R2
+      // Upload final video to cloud
       const storageKey = `videos/${uniqueName}`;
       const contentType = ext.toLowerCase() === '.webm' ? 'video/webm' : 'video/mp4';
       fileUrl = await uploadFile(storageKey, finalBuffer, contentType);
@@ -152,7 +135,7 @@ export async function POST(request: NextRequest) {
       where: { uploadId },
     });
 
-    console.log(`[upload] Video saved: ${uniqueName} (${(session.totalSize / 1024 / 1024).toFixed(1)} MB) → ${isStorageConfigured() ? 'R2' : 'local'}`);
+    console.log(`[upload] Video saved: ${uniqueName} (${(session.totalSize / 1024 / 1024).toFixed(1)} MB) → ${isStorageConfigured() ? 'cloud' : 'local'}`);
 
     return NextResponse.json({ video }, { status: 201 });
   } catch (error) {
