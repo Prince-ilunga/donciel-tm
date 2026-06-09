@@ -104,7 +104,9 @@ export async function GET(request: NextRequest) {
     const totalRR = rrValues.length > 0 ? parseFloat(rrValues.reduce((a, b) => a + b, 0).toFixed(2)) : 0;
     const avgRR = rrValues.length > 0 ? parseFloat((rrValues.reduce((a, b) => a + b, 0) / rrValues.length).toFixed(2)) : 0;
     const bestRR = rrValues.length > 0 ? parseFloat(Math.max(...rrValues).toFixed(2)) : 0;
-    const worstRR = rrValues.length > 0 ? parseFloat(Math.min(...rrValues).toFixed(2)) : 0;
+    // Worst RR: only consider negative RR values (the most negative one)
+    const negativeRRs = rrValues.filter(rr => rr < 0);
+    const worstRR = negativeRRs.length > 0 ? parseFloat(Math.min(...negativeRRs).toFixed(2)) : 0;
     const stdDeviation = calculateStdDev(rrValues);
 
     const pnlValues = trades.filter((t) => t.pnl !== null).map((t) => t.pnl as number);
@@ -179,13 +181,13 @@ export async function GET(request: NextRequest) {
       return { tradeNumber: i + 1, cumulativeRR: parseFloat(cumRR.toFixed(2)) };
     });
 
-    // Moving Average (20 trades)
+    // Moving Average (up to 20 trades) — works from trade 1 with expanding window
     const windowSize = 20;
     const movingAvgRR = rrValues.map((_, i) => {
-      if (i < windowSize - 1) return null;
-      const window = rrValues.slice(i - windowSize + 1, i + 1);
-      return { tradeNumber: i + 1, avgRR: parseFloat((window.reduce((a, b) => a + b, 0) / windowSize).toFixed(2)) };
-    }).filter(Boolean) as { tradeNumber: number; avgRR: number }[];
+      const startIdx = Math.max(0, i - windowSize + 1);
+      const window = rrValues.slice(startIdx, i + 1);
+      return { tradeNumber: i + 1, avgRR: parseFloat((window.reduce((a, b) => a + b, 0) / window.length).toFixed(2)) };
+    });
 
     return NextResponse.json({
       stats: {

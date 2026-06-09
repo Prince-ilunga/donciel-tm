@@ -142,9 +142,16 @@ export function TradeDetailDialog() {
     const riskRewardRatio = risk > 0 ? (reward / risk).toFixed(2) : "—";
     const riskAmount = trade.lotSize ? (risk * trade.lotSize).toFixed(2) : "—";
     const rewardAmount = trade.lotSize ? (reward * trade.lotSize).toFixed(2) : "—";
-    const efficiency = trade.pnl != null && trade.lotSize && trade.rr
-      ? trade.rr > 0 ? ((trade.pnl / (reward * trade.lotSize)) * 100).toFixed(0) : "—"
-      : "—";
+    // Efficiency: actual P&L as percentage of max possible reward
+    // Works for all results (WIN, LOSS, BE)
+    let efficiency = "—";
+    if (trade.pnl != null && trade.lotSize && risk > 0) {
+      const maxReward = reward * trade.lotSize;
+      if (maxReward > 0) {
+        const eff = (trade.pnl / maxReward) * 100;
+        efficiency = eff.toFixed(0);
+      }
+    }
     return { riskRewardRatio, riskAmount, rewardAmount, efficiency };
   }, [trade]);
 
@@ -434,10 +441,10 @@ export function TradeDetailDialog() {
                     {language === "fr" ? "Paramètres de Prix" : "Price Parameters"}
                   </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <ParamCard label={t(language, "entryPrice")} value={trade.entryPrice.toFixed(2)} mono />
-                    <ParamCard label={t(language, "stopLoss")} value={trade.stopLoss.toFixed(2)} mono valueClass="text-loss" />
-                    <ParamCard label={t(language, "takeProfit")} value={trade.takeProfit.toFixed(2)} mono valueClass="text-profit" />
-                    {trade.exitPrice != null && <ParamCard label={t(language, "exitPrice")} value={trade.exitPrice.toFixed(2)} mono />}
+                    <ParamCard label={t(language, "entryPrice")} value={trade.entryPrice.toString()} mono />
+                    <ParamCard label={t(language, "stopLoss")} value={trade.stopLoss.toString()} mono valueClass="text-loss" />
+                    <ParamCard label={t(language, "takeProfit")} value={trade.takeProfit.toString()} mono valueClass="text-profit" />
+                    {trade.exitPrice != null && <ParamCard label={t(language, "exitPrice")} value={trade.exitPrice.toString()} mono />}
                     {trade.lotSize != null && <ParamCard label={t(language, "lotSize")} value={trade.lotSize.toString()} mono />}
 
                     {trade.entryTime && <ParamCard label={t(language, "entryTime")} value={trade.entryTime} mono />}
@@ -502,22 +509,24 @@ export function TradeDetailDialog() {
                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t(language, "screenshots")}</h4>
                     <div className="grid grid-cols-3 gap-3">
                       {trade.screenshots.map((screenshot) => {
-                        // Handle both R2 URLs and local paths
+                        // Handle Cloudinary URLs and local paths
                         let imgSrc: string;
                         if (screenshot.url.startsWith('http://') || screenshot.url.startsWith('https://')) {
-                          // R2 public URL - use directly
+                          // Cloudinary or other cloud URL - use directly
                           imgSrc = screenshot.url;
                         } else if (screenshot.url.startsWith('upload/screenshots/')) {
-                          // Local path - use API route (handles R2 signed URL redirect too)
+                          // Local path - use API route
                           imgSrc = `/api/screenshots/${screenshot.url.replace('upload/screenshots/', '')}`;
                         } else {
-                          // Fallback: use as-is (could be R2 key or other format)
-                          imgSrc = screenshot.url;
+                          // Fallback: try as API route first, then as-is
+                          imgSrc = `/api/screenshots/${screenshot.url}`;
                         }
                         return (
                           <button key={screenshot.id} onClick={(e) => { e.stopPropagation(); setScreenshotViewerUrl(imgSrc); }}
                             className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200">
-                            <img src={imgSrc} alt={`${screenshot.type} screenshot`} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                            <img src={imgSrc} alt={`${screenshot.type} screenshot`} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                               <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
