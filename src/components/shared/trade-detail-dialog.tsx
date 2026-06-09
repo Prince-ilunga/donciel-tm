@@ -323,7 +323,7 @@ export function TradeDetailDialog() {
 
   return (
     <Dialog open={showTradeDetail} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-5xl max-h-[90vh] p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
         {/* Header */}
         {loading ? (
           <div className="p-6 space-y-4">
@@ -351,7 +351,7 @@ export function TradeDetailDialog() {
         ) : trade ? (
           <>
             {/* Trade Header */}
-            <div className="p-6 border-b border-border bg-muted/30">
+            <div className="shrink-0 p-6 border-b border-border bg-muted/30">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-3 text-xl">
                   <div className={cn(
@@ -402,7 +402,7 @@ export function TradeDetailDialog() {
               </div>
             </div>
 
-            <ScrollArea className="max-h-[calc(90vh-140px)]">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="p-6 space-y-6">
                 {/* Key Metrics Row */}
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
