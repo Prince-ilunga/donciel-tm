@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
+import { getContractSize } from '@/lib/utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -131,13 +132,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Auto-calculate PnL
+    // Auto-calculate PnL using contract size
     let calculatedPnl: number | null = pnl ?? null;
     if (exitPrice !== undefined && exitPrice !== null && lotSize) {
       const priceDiff = direction === 'LONG'
         ? exitPrice - entryPrice
         : entryPrice - exitPrice;
-      calculatedPnl = parseFloat((priceDiff * lotSize).toFixed(2));
+      const contractSize = getContractSize(pair);
+      calculatedPnl = parseFloat((priceDiff * lotSize * contractSize).toFixed(2));
     }
 
     const trade = await db.trade.create({

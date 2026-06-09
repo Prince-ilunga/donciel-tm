@@ -4,7 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useAppStore } from "@/stores/app-store";
 import { t } from "@/lib/i18n";
 import { useStats, useTrades } from "@/lib/hooks";
-import { cn } from "@/lib/utils";
+import { cn, getContractSize } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -170,7 +170,8 @@ function calculateAuto(formData: TradeFormData) {
     const priceDiff = formData.direction === "LONG"
       ? exitPrice - entryPrice
       : entryPrice - exitPrice;
-    result.pnl = parseFloat((priceDiff * lotSize).toFixed(2));
+    const contractSize = getContractSize(formData.pair);
+    result.pnl = parseFloat((priceDiff * lotSize * contractSize).toFixed(2));
   }
 
   if (!isNaN(exitPrice) && !isNaN(entryPrice) && !isNaN(stopLoss) && !isNaN(takeProfit) && formData.exitPrice !== "") {

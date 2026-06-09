@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
+import { getContractSize } from '@/lib/utils';
 
 export async function GET(
   request: NextRequest,
@@ -128,11 +129,12 @@ export async function PUT(
       }
     }
 
-    // Auto-calculate PnL
+    // Auto-calculate PnL using contract size
     let calculatedPnl: number | null = pnl ?? existingTrade.pnl;
     if (xp !== undefined && xp !== null && ls) {
       const priceDiff = dir === 'LONG' ? xp - ep : ep - xp;
-      calculatedPnl = parseFloat((priceDiff * ls).toFixed(2));
+      const contractSize = getContractSize(existingTrade.pair);
+      calculatedPnl = parseFloat((priceDiff * ls * contractSize).toFixed(2));
     }
 
     const trade = await db.trade.update({

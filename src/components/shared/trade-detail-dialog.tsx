@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { useAppStore } from "@/stores/app-store";
 import { t } from "@/lib/i18n";
 import { useTrades } from "@/lib/hooks";
-import { cn } from "@/lib/utils";
+import { cn, getContractSize, calculateDollarAmount } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +52,7 @@ interface TradeDetail {
   setup: string | null;
   structure: string | null;
   entryModel: string | null;
+  amountToWin: number | null;
   entryPrice: number;
   stopLoss: number;
   takeProfit: number;
@@ -141,20 +142,46 @@ export function TradeDetailDialog() {
     if (!trade) return null;
     const risk = Math.abs(trade.entryPrice - trade.stopLoss);
     const reward = Math.abs(trade.takeProfit - trade.entryPrice);
-    const riskRewardRatio = risk > 0 ? (reward / risk).toFixed(2) : "—";
-    const riskAmount = trade.lotSize ? (risk * trade.lotSize).toFixed(2) : "—";
-    const rewardAmount = trade.lotSize ? (reward * trade.lotSize).toFixed(2) : "—";
-    // Efficiency: actual P&L as percentage of max possible reward
-    // Works for all results (WIN, LOSS, BE)
-    let efficiency = "—";
-    if (trade.pnl != null && trade.lotSize && risk > 0) {
-      const maxReward = reward * trade.lotSize;
-      if (maxReward > 0) {
-        const eff = (trade.pnl / maxReward) * 100;
-        efficiency = eff.toFixed(0);
-      }
+    const rr = risk > 0 ? reward / risk : 0;
+    const riskRewardRatio = risk > 0 ? rr.toFixed(2) : "—";
+
+    // Calculate Risk ($) and Reward ($) using contract size
+    let riskAmount = "—";
+    let rewardAmount = "—";
+    let maxRewardDollar = 0;
+
+    if (trade.amountToWin && trade.amountToWin > 0) {
+      // Use user-entered amountToWin for reward, derive risk from RR
+      rewardAmount = trade.amountToWin.toFixed(2);
+      riskAmount = rr > 0 ? (trade.amountToWin / rr).toFixed(2) : trade.amountToWin.toFixed(2);
+      maxRewardDollar = trade.amountToWin;
+    } else if (trade.lotSize && trade.lotSize > 0) {
+      // Calculate using contract size based on pair
+      const contractSize = getContractSize(trade.pair);
+      const riskDollar = risk * trade.lotSize * contractSize;
+      const rewardDollar = reward * trade.lotSize * contractSize;
+      riskAmount = riskDollar.toFixed(2);
+      rewardAmount = rewardDollar.toFixed(2);
+      maxRewardDollar = rewardDollar;
     }
-    return { riskRewardRatio, riskAmount, rewardAmount, efficiency };
+
+    // Efficiency: actual P&L as percentage of max possible reward
+    let efficiency = "—";
+    if (trade.pnl != null && maxRewardDollar > 0) {
+      const eff = (trade.pnl / maxRewardDollar) * 100;
+      efficiency = eff.toFixed(0) + "%";
+    }
+
+    // Recalculate P&L if it's 0/null but we have the data to compute it
+    let pnl = trade.pnl;
+    if ((pnl === null || pnl === 0) && trade.exitPrice != null && trade.lotSize && trade.lotSize > 0) {
+      const priceDiff = trade.direction === 'LONG'
+        ? trade.exitPrice - trade.entryPrice
+        : trade.entryPrice - trade.exitPrice;
+      pnl = calculateDollarAmount(priceDiff, trade.lotSize, trade.pair);
+    }
+
+    return { riskRewardRatio, riskAmount, rewardAmount, efficiency, pnl };
   }, [trade]);
 
   // Get chart data for this trade
@@ -269,32 +296,26 @@ export function TradeDetailDialog() {
     );
   }, [chartData.cumulativeRRUpToTrade]);
 
-  // Resolve screenshot URL
+  // Resolve screenshot URL - same logic as journal tab
   const resolveScreenshotUrl = useCallback((url: string): string => {
     if (!url) return '';
-    // Full URLs (Cloudinary, etc.)
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-    // Local paths
+    // Same logic as journal-tab: local paths get converted, full URLs used as-is
     if (url.startsWith('upload/screenshots/')) {
       return `/api/screenshots/${url.replace('upload/screenshots/', '')}`;
     }
-    // Raw filenames
-    if (!url.includes('/')) {
-      return `/api/screenshots/${url}`;
-    }
-    // Other paths - try API route
-    return `/api/screenshots/${url.split('/').pop()}`;
+    // Full URLs (Cloudinary, etc.) used directly
+    return url;
   }, []);
 
-  // Get screenshots with fallback from allTrades
+  // Get screenshots - prioritize allTrades (which works in journal) as primary source
   const tradeScreenshots = useMemo(() => {
     if (!trade) return [];
-    // Try trade API screenshots first, then fallback to allTrades
+    // First try allTrades (same data source as journal tab where screenshots work)
+    const fromAllTrades = allTrades.find(t => t.id === trade.id)?.screenshots;
+    if (fromAllTrades && fromAllTrades.length > 0) return fromAllTrades;
+    // Fallback to trade API data
     if (trade.screenshots && trade.screenshots.length > 0) return trade.screenshots;
-    const fallback = allTrades.find(t => t.id === trade.id);
-    return fallback?.screenshots || [];
+    return [];
   }, [trade, allTrades]);
 
   return (
@@ -392,9 +413,15 @@ export function TradeDetailDialog() {
                   {/* P&L */}
                   <div className="rounded-xl border border-border p-3 text-center">
                     <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />P&L</div>
-                    <div className={cn("text-2xl font-bold font-mono", trade.pnl != null && trade.pnl > 0 && "text-profit", trade.pnl != null && trade.pnl < 0 && "text-loss", trade.pnl != null && trade.pnl === 0 && "text-gold")}>
-                      {trade.pnl != null ? `${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}` : "—"}
-                    </div>
+                    {(() => {
+                      const pnl = tradeStats?.pnl ?? trade.pnl;
+                      if (pnl == null) return <span className="text-2xl font-bold font-mono text-muted-foreground">—</span>;
+                      return (
+                        <div className={cn("text-2xl font-bold font-mono", pnl > 0 && "text-profit", pnl < 0 && "text-loss", pnl === 0 && "text-gold")}>
+                          {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)}
+                        </div>
+                      );
+                    })()}
                   </div>
                   {/* Result */}
                   <div className="rounded-xl border border-border p-3 text-center">
@@ -506,7 +533,7 @@ export function TradeDetailDialog() {
                       <StatCard label={language === "fr" ? "Ratio Risk/Reward" : "Risk/Reward Ratio"} value={tradeStats.riskRewardRatio} />
                       <StatCard label={language === "fr" ? "Risque ($)" : "Risk ($)"} value={tradeStats.riskAmount} valueClass="text-loss" />
                       <StatCard label={language === "fr" ? "Récompense ($)" : "Reward ($)"} value={tradeStats.rewardAmount} valueClass="text-profit" />
-                      <StatCard label={language === "fr" ? "Efficacité" : "Efficiency"} value={tradeStats.efficiency !== "—" ? `${tradeStats.efficiency}%` : "—"} />
+                      <StatCard label={language === "fr" ? "Efficacité" : "Efficiency"} value={tradeStats.efficiency} />
                     </div>
                   </div>
                 )}
