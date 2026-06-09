@@ -145,6 +145,15 @@ export function TradeDetailDialog() {
     const rr = risk > 0 ? reward / risk : 0;
     const riskRewardRatio = risk > 0 ? rr.toFixed(2) : "—";
 
+    // Recalculate P&L FIRST if it's 0/null but we have the data to compute it
+    let pnl = trade.pnl;
+    if ((pnl === null || pnl === 0) && trade.exitPrice != null && trade.lotSize && trade.lotSize > 0) {
+      const priceDiff = trade.direction === 'LONG'
+        ? trade.exitPrice - trade.entryPrice
+        : trade.entryPrice - trade.exitPrice;
+      pnl = calculateDollarAmount(priceDiff, trade.lotSize, trade.pair);
+    }
+
     // Calculate Risk ($) and Reward ($) using contract size
     let riskAmount = "—";
     let rewardAmount = "—";
@@ -167,18 +176,9 @@ export function TradeDetailDialog() {
 
     // Efficiency: actual P&L as percentage of max possible reward
     let efficiency = "—";
-    if (trade.pnl != null && maxRewardDollar > 0) {
-      const eff = (trade.pnl / maxRewardDollar) * 100;
+    if (pnl != null && maxRewardDollar > 0) {
+      const eff = (pnl / maxRewardDollar) * 100;
       efficiency = eff.toFixed(0) + "%";
-    }
-
-    // Recalculate P&L if it's 0/null but we have the data to compute it
-    let pnl = trade.pnl;
-    if ((pnl === null || pnl === 0) && trade.exitPrice != null && trade.lotSize && trade.lotSize > 0) {
-      const priceDiff = trade.direction === 'LONG'
-        ? trade.exitPrice - trade.entryPrice
-        : trade.entryPrice - trade.exitPrice;
-      pnl = calculateDollarAmount(priceDiff, trade.lotSize, trade.pair);
     }
 
     return { riskRewardRatio, riskAmount, rewardAmount, efficiency, pnl };
@@ -572,7 +572,7 @@ export function TradeDetailDialog() {
                         return (
                           <button key={screenshot.id} onClick={(e) => { e.stopPropagation(); setScreenshotViewerUrl(imgSrc); }}
                             className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200">
-                            <img src={imgSrc} alt={`${screenshot.type} screenshot`} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" loading="lazy" />
+                            <img src={imgSrc} alt={`${screenshot.type} screenshot`} className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105" />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
                               <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
