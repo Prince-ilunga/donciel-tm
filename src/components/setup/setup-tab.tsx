@@ -185,8 +185,18 @@ function calculateAuto(formData: TradeFormData) {
     }
 
     // Adjust RR based on result to match backend logic
-    if (result.resultLabel === "LOSS") result.rr = -1;
-    else if (result.resultLabel === "BE") result.rr = 0;
+    if (result.resultLabel === "LOSS") {
+      result.rr = -1;
+    } else if (result.resultLabel === "BE" && !isNaN(exitPrice) && formData.exitPrice !== "") {
+      // Calculate partial RR for BE: actual price movement / risk
+      const risk = Math.abs(entryPrice - stopLoss);
+      if (risk > 0) {
+        const priceDiff = formData.direction === "LONG"
+          ? exitPrice - entryPrice
+          : entryPrice - exitPrice;
+        result.rr = parseFloat((priceDiff / risk).toFixed(2));
+      }
+    }
   }
 
   if (formData.entryTime && formData.exitTime) {

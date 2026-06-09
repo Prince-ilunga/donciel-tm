@@ -186,6 +186,19 @@ function calculateAuto(formData: TradeFormData) {
       else if (exitPrice >= stopLoss) result.resultLabel = "LOSS";
       else result.resultLabel = "BE";
     }
+    // Adjust RR based on result to match backend logic
+    if (result.resultLabel === "LOSS") {
+      result.rr = -1;
+    } else if (result.resultLabel === "BE" && !isNaN(exitPrice) && formData.exitPrice !== "") {
+      // Calculate partial RR for BE: actual price movement / risk
+      const risk = Math.abs(entryPrice - stopLoss);
+      if (risk > 0) {
+        const priceDiff = formData.direction === "LONG"
+          ? exitPrice - entryPrice
+          : entryPrice - exitPrice;
+        result.rr = parseFloat((priceDiff / risk).toFixed(2));
+      }
+    }
   } else if (result.rr !== null && result.rr >= 1 && isNaN(exitPrice)) {
     // If only RR is known and >= 1, we can't determine result without exit price
   }

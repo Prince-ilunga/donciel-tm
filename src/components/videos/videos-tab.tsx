@@ -88,7 +88,7 @@ export function VideosTab() {
             {language === "fr" ? "Vidéos éducatives du Setup DONCIEL" : "DONCIEL Setup educational videos"}
           </p>
         </div>
-        {user && (
+        {isAdmin && (
           <Button onClick={() => setShowAddDialog(true)} className="gap-2">
             <Plus className="w-4 h-4" />
             {t(language, "addVideo")}

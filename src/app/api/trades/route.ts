@@ -116,10 +116,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Adjust RR based on result: LOSS = -1R, BE = 0R, WIN = positive RR
+    // Adjust RR based on result: LOSS = -1R, BE = calculated partial RR, WIN = positive RR
     let finalRR = rr ?? calculatedRR;
-    if (calculatedResult === 'LOSS') finalRR = -1;
-    else if (calculatedResult === 'BE') finalRR = 0;
+    if (calculatedResult === 'LOSS') {
+      finalRR = -1;
+    } else if (calculatedResult === 'BE' && exitPrice !== undefined && exitPrice !== null) {
+      // Calculate partial RR for BE: actual price movement / risk
+      const risk = Math.abs(entryPrice - stopLoss);
+      if (risk > 0) {
+        const priceDiff = direction === 'LONG'
+          ? exitPrice - entryPrice
+          : entryPrice - exitPrice;
+        finalRR = parseFloat((priceDiff / risk).toFixed(2));
+      }
+    }
 
     // Auto-calculate PnL
     let calculatedPnl: number | null = pnl ?? null;

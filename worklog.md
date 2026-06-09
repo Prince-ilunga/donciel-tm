@@ -76,3 +76,32 @@ Stage Summary:
 - All 6 fixes applied across 4 files
 - All lint checks pass
 - Dev server running on port 3000
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix BE calculation, restrict Add Video to admin only, prepare Vercel deployment
+
+Work Log:
+
+**Fix 1: BE RR calculation - no longer forced to 0** (3 files)
+- Updated `src/app/api/trades/route.ts` backend: When result is "BE", RR is now calculated as `(exitPrice - entryPrice) / risk` for LONG, `(entryPrice - exitPrice) / risk` for SHORT, instead of being forced to 0
+- Updated `src/components/setup/setup-tab.tsx` frontend calculateAuto(): Same partial RR calculation for BE trades
+- Updated `src/components/dashboard/dashboard-tab.tsx` frontend calculateAuto(): Same partial RR calculation for BE trades + added LOSS RR adjustment (-1)
+- Example: LONG trade with Entry=100, SL=95, TP=110, Exit=103 → RR = 3/5 = 0.60 (not 0)
+
+**Fix 2: Add Video button - admin only** (videos-tab.tsx)
+- Changed condition from `{user && (` back to `{isAdmin && (` so Add Video button is only visible for admin accounts
+- Delete buttons and empty-state add button were already admin-only
+
+**Fix 3: Vercel deployment configuration**
+- Created `vercel.json` with build settings, environment variables, and region
+- Updated `next.config.ts`: Removed `output: "standalone"` (not compatible with Vercel), added `serverExternalPackages: ["bcryptjs"]`
+- Updated `package.json`: Added `postinstall: "prisma generate"`, updated build command to `prisma generate && next build`
+
+Stage Summary:
+- BE RR now calculated based on actual price movement instead of forced to 0
+- Add Video button restricted to admin accounts only
+- Vercel deployment config ready (vercel.json + updated next.config.ts + package.json)
+- All lint checks pass
+- Dev server running on port 3000
