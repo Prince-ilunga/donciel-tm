@@ -4,8 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DONCIEL™ - Flyer</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <style>
     @page {
       size: 595px 842px;
@@ -18,7 +16,9 @@
       width: 595px;
       height: 842px;
       background: #0a0a0f;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
     .page {
       width: 595px;
@@ -30,7 +30,6 @@
       flex-direction: column;
       align-items: center;
     }
-    /* Decorative background elements */
     .glow-1 {
       position: absolute;
       top: -80px;
@@ -49,32 +48,7 @@
       background: radial-gradient(circle, rgba(212,175,55,0.05) 0%, transparent 70%);
       pointer-events: none;
     }
-    /* Candlestick decoration */
-    .candlesticks {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0.03;
-      pointer-events: none;
-    }
-    .candle {
-      position: absolute;
-      width: 8px;
-      border-radius: 2px;
-    }
-    .candle-green { background: #22c55e; }
-    .candle-red { background: #ef4444; }
-    .wick {
-      position: absolute;
-      width: 2px;
-      left: 3px;
-      background: inherit;
-      opacity: 0.6;
-    }
 
-    /* Content */
     .content {
       position: relative;
       z-index: 10;
@@ -83,182 +57,202 @@
       align-items: center;
       width: 100%;
       height: 100%;
-      padding: 48px 40px;
+      padding: 32px 40px 24px;
     }
 
-    /* Top badge */
     .badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 16px;
+      padding: 5px 14px;
       background: rgba(212,175,55,0.08);
       border: 1px solid rgba(212,175,55,0.2);
       border-radius: 50px;
-      margin-bottom: 28px;
-      margin-top: 8px;
+      margin-bottom: 20px;
     }
     .badge-dot {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
       background: #d4af37;
       border-radius: 50%;
     }
     .badge-text {
-      font-size: 10px;
+      font-size: 9px;
       color: rgba(212,175,55,0.8);
       font-weight: 600;
       letter-spacing: 2px;
       text-transform: uppercase;
     }
 
-    /* Logo */
     .logo-area {
       display: flex;
       flex-direction: column;
       align-items: center;
-      margin-bottom: 20px;
+      margin-bottom: 14px;
     }
     .logo-box {
-      width: 80px;
-      height: 80px;
+      width: 64px;
+      height: 64px;
       background: linear-gradient(135deg, #1a1a3e, #0d0d2b);
-      border-radius: 18px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
       border: 1.5px solid rgba(212,175,55,0.25);
-      box-shadow: 0 0 40px rgba(212,175,55,0.08), 0 8px 24px rgba(0,0,0,0.4);
-      margin-bottom: 20px;
+      box-shadow: 0 0 30px rgba(212,175,55,0.08), 0 6px 18px rgba(0,0,0,0.4);
+      margin-bottom: 14px;
     }
     .logo-letter {
-      font-size: 44px;
+      font-size: 36px;
       font-weight: 900;
-      background: linear-gradient(135deg, #d4af37, #f5d76e, #d4af37);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: #d4af37;
     }
-
     .brand {
-      font-size: 34px;
+      font-size: 28px;
       font-weight: 900;
       letter-spacing: 4px;
-      background: linear-gradient(135deg, #d4af37 0%, #f5d76e 40%, #d4af37 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 6px;
+      color: #d4af37;
+      margin-bottom: 4px;
     }
     .brand sup {
-      font-size: 12px;
+      font-size: 10px;
       letter-spacing: 0;
     }
     .tagline {
-      font-size: 12px;
+      font-size: 10px;
       color: rgba(255,255,255,0.5);
       font-weight: 500;
       letter-spacing: 3px;
       text-transform: uppercase;
     }
 
-    /* Divider */
     .divider {
-      width: 80px;
+      width: 60px;
       height: 1px;
       background: linear-gradient(90deg, transparent, rgba(212,175,55,0.3), transparent);
-      margin: 28px 0;
+      margin: 18px 0;
     }
 
-    /* Features */
     .features {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 7px;
       width: 100%;
-      max-width: 380px;
-      margin-bottom: 28px;
+      max-width: 360px;
+      margin-bottom: 18px;
     }
     .feature {
       display: flex;
       align-items: center;
-      gap: 14px;
-      padding: 12px 16px;
+      gap: 10px;
+      padding: 9px 14px;
       background: rgba(212,175,55,0.03);
       border: 1px solid rgba(212,175,55,0.08);
-      border-radius: 12px;
+      border-radius: 10px;
     }
     .feature-icon {
-      font-size: 20px;
+      font-size: 16px;
       flex-shrink: 0;
-      width: 28px;
+      width: 24px;
       text-align: center;
     }
     .feature-text {
-      font-size: 12.5px;
+      font-size: 11.5px;
       color: rgba(255,255,255,0.7);
       font-weight: 500;
     }
 
-    /* URL Box */
-    .url-box {
-      display: flex;
-      flex-direction: column;
+    /* CTA Button - CLICKABLE */
+    a.cta-button {
+      display: inline-flex;
       align-items: center;
-      gap: 14px;
-      padding: 22px 32px;
-      background: linear-gradient(135deg, rgba(212,175,55,0.08), rgba(212,175,55,0.04));
-      border: 1.5px solid rgba(212,175,55,0.2);
-      border-radius: 16px;
-      margin-bottom: 20px;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 32px;
+      background: linear-gradient(135deg, #d4af37, #c9a22e);
+      color: #0a0a0f;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-decoration: none;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      box-shadow: 0 4px 20px rgba(212,175,55,0.3);
+    }
+    .cta-arrow {
+      font-size: 16px;
+    }
+
+    /* Bottom section with QR + URL side by side */
+    .bottom-section {
+      display: flex;
+      align-items: center;
+      gap: 24px;
       width: 100%;
       max-width: 380px;
     }
+
+    /* QR Code area - CLICKABLE */
+    a.qr-link {
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .qr-area {
+      width: 88px;
+      height: 88px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .qr-area img {
+      width: 80px;
+      height: 80px;
+    }
+    .qr-hint {
+      font-size: 7.5px;
+      color: rgba(255,255,255,0.3);
+      margin-top: 4px;
+    }
+
+    /* URL Box - CLICKABLE */
+    a.url-link {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-decoration: none;
+      gap: 8px;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, rgba(212,175,55,0.08), rgba(212,175,55,0.04));
+      border: 1.5px solid rgba(212,175,55,0.2);
+      border-radius: 12px;
+      flex: 1;
+    }
     .url-label {
-      font-size: 9px;
+      font-size: 8px;
       color: rgba(212,175,55,0.6);
       font-weight: 600;
       letter-spacing: 2px;
       text-transform: uppercase;
     }
     .url-value {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 15px;
-      font-weight: 500;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      font-weight: 700;
       color: #d4af37;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
+      text-align: center;
     }
     .url-hint {
-      font-size: 9px;
+      font-size: 8px;
       color: rgba(255,255,255,0.3);
       font-weight: 400;
-    }
-
-    /* QR placeholder area */
-    .qr-area {
-      width: 90px;
-      height: 90px;
-      background: rgba(255,255,255,0.95);
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 8px;
-    }
-    .qr-inner {
-      width: 74px;
-      height: 74px;
-      display: grid;
-      grid-template-columns: repeat(9, 1fr);
-      grid-template-rows: repeat(9, 1fr);
-      gap: 1px;
-    }
-    .qr-cell {
-      background: #0a0a0f;
-      border-radius: 0.5px;
-    }
-    .qr-cell-white {
-      background: transparent;
     }
 
     /* Footer */
@@ -267,17 +261,17 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
-      padding-bottom: 8px;
+      gap: 5px;
+      padding-bottom: 6px;
     }
     .footer-text {
-      font-size: 8px;
+      font-size: 7px;
       color: rgba(255,255,255,0.2);
       letter-spacing: 1px;
       font-weight: 500;
     }
     .footer-line {
-      width: 40px;
+      width: 30px;
       height: 1px;
       background: rgba(212,175,55,0.15);
     }
@@ -285,37 +279,9 @@
 </head>
 <body>
   <div class="page">
-    <!-- Background decorations -->
     <div class="glow-1"></div>
     <div class="glow-2"></div>
-    <div class="candlesticks">
-      <div class="candle candle-green" style="left:40px; top:120px; height:40px;">
-        <div class="wick" style="bottom:40px; height:20px;"></div>
-        <div class="wick" style="top:40px; height:15px;"></div>
-      </div>
-      <div class="candle candle-red" style="left:65px; top:130px; height:30px;">
-        <div class="wick" style="bottom:30px; height:25px;"></div>
-        <div class="wick" style="top:30px; height:10px;"></div>
-      </div>
-      <div class="candle candle-green" style="left:90px; top:105px; height:50px;">
-        <div class="wick" style="bottom:50px; height:15px;"></div>
-        <div class="wick" style="top:50px; height:20px;"></div>
-      </div>
-      <div class="candle candle-red" style="right:50px; bottom:180px; height:35px;">
-        <div class="wick" style="bottom:35px; height:18px;"></div>
-        <div class="wick" style="top:35px; height:12px;"></div>
-      </div>
-      <div class="candle candle-green" style="right:80px; bottom:170px; height:45px;">
-        <div class="wick" style="bottom:45px; height:22px;"></div>
-        <div class="wick" style="top:45px; height:16px;"></div>
-      </div>
-      <div class="candle candle-red" style="right:110px; bottom:195px; height:25px;">
-        <div class="wick" style="bottom:25px; height:30px;"></div>
-        <div class="wick" style="top:25px; height:10px;"></div>
-      </div>
-    </div>
 
-    <!-- Main content -->
     <div class="content">
       <div class="badge">
         <div class="badge-dot"></div>
@@ -351,46 +317,32 @@
         </div>
       </div>
 
-      <!-- QR Code area -->
-      <div class="qr-area">
-        <div class="qr-inner" id="qr-grid"></div>
-      </div>
-      <div class="url-hint" style="margin-bottom: 20px;">Scannez pour accéder</div>
+      <!-- CTA Button - CLICKABLE -->
+      <a href="https://donciel-trading.vercel.app" class="cta-button" target="_blank">
+        Accéder à l'Application <span class="cta-arrow">→</span>
+      </a>
 
-      <!-- URL Box -->
-      <div class="url-box">
-        <div class="url-label">Lien direct</div>
-        <div class="url-value">donciel-trading.vercel.app</div>
-        <div class="url-hint">Cliquez ou scannez pour ouvrir l'application</div>
+      <!-- Bottom section: QR + URL side by side -->
+      <div class="bottom-section">
+        <a href="https://donciel-trading.vercel.app" class="qr-link" target="_blank">
+          <div class="qr-area">
+            <img src="qr-code.png" alt="QR Code" />
+          </div>
+          <span class="qr-hint">Scannez pour accéder</span>
+        </a>
+
+        <a href="https://donciel-trading.vercel.app" class="url-link" target="_blank">
+          <div class="url-label">Lien direct</div>
+          <div class="url-value">donciel-trading.vercel.app</div>
+          <div class="url-hint">Cliquez pour ouvrir l'application</div>
+        </a>
       </div>
 
-      <!-- Footer -->
       <div class="footer">
         <div class="footer-line"></div>
         <div class="footer-text">DONCIEL™ — LE TRADING RÉINVENTÉ</div>
       </div>
     </div>
   </div>
-
-  <script>
-    // Generate QR-like pattern
-    const grid = document.getElementById('qr-grid');
-    const pattern = [
-      1,1,1,0,1,0,1,1,1,
-      1,0,1,0,0,0,1,0,1,
-      1,1,1,0,1,0,1,1,1,
-      0,0,0,1,0,1,0,0,0,
-      1,0,1,0,1,0,1,0,1,
-      0,0,0,1,0,1,0,0,0,
-      1,1,1,0,1,0,1,1,1,
-      1,0,1,0,0,0,1,0,1,
-      1,1,1,0,1,0,1,1,1,
-    ];
-    pattern.forEach(v => {
-      const cell = document.createElement('div');
-      cell.className = v ? 'qr-cell' : 'qr-cell-white';
-      grid.appendChild(cell);
-    });
-  </script>
 </body>
 </html>
