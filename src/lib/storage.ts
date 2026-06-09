@@ -1,65 +1,45 @@
 /**
- * Cloud Storage Module — Backblaze B2 / Cloudflare R2 / Any S3-Compatible
+ * Cloud Storage Module — Cloudinary
  *
- * Uses AWS S3 SDK for cloud file storage. Works with:
- * - Backblaze B2 (10 Go gratuit, SANS carte bancaire) ← recommandé
- * - Cloudflare R2 (10 Go gratuit, demande carte bancaire)
- * - Any S3-compatible storage
+ * ★ 25 Go gratuit, SANS carte bancaire
+ * ★ Supporte vidéos et images
+ * ★ URLs publiques directes (pas besoin de signed URLs)
  *
- * Falls back to local filesystem when cloud storage is not configured.
+ * Falls back to local filesystem when Cloudinary is not configured.
  *
  * ─── Variables d'environnement requises ───
- * - S3_ENDPOINT: URL du endpoint S3
- *     Backblaze B2: https://s3.REGION.backblazeb2.com
- *     Cloudflare R2: https://ACCOUNT_ID.r2.cloudflarestorage.com
- * - S3_REGION: Région du bucket (ex: us-east-005 pour B2, "auto" pour R2)
- * - S3_ACCESS_KEY_ID: Clé d'accès API
- * - S3_SECRET_ACCESS_KEY: Clé secrète API
- * - S3_BUCKET_NAME: Nom du bucket (défaut: donciel-storage)
- * - S3_PUBLIC_URL: URL publique d'accès aux fichiers (optionnel)
+ * - CLOUDINARY_CLOUD_NAME: Nom de votre cloud Cloudinary
+ * - CLOUDINARY_API_KEY: Clé API Cloudinary
+ * - CLOUDINARY_API_SECRET: Secret API Cloudinary
  */
 
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { v2 as cloudinary } from 'cloudinary';
+import path from 'path';
+import fs from 'fs';
 
 // ─── Configuration ──────────────────────────────────────────
-const S3_ENDPOINT = process.env.S3_ENDPOINT;
-const S3_REGION = process.env.S3_REGION || 'auto';
-const S3_ACCESS_KEY_ID = process.env.S3_ACCESS_KEY_ID;
-const S3_SECRET_ACCESS_KEY = process.env.S3_SECRET_ACCESS_KEY;
-const S3_BUCKET_NAME = process.env.S3_BUCKET_NAME || 'donciel-storage';
-const S3_PUBLIC_URL = process.env.S3_PUBLIC_URL;
+const CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 
 const isCloudConfigured =
-  !!S3_ENDPOINT && !!S3_ACCESS_KEY_ID && !!S3_SECRET_ACCESS_KEY;
+  !!CLOUDINARY_CLOUD_NAME && !!CLOUDINARY_API_KEY && !!CLOUDINARY_API_SECRET;
 
-// ─── S3 Client (works with B2, R2, or any S3-compatible) ───
-let s3Client: S3Client | null = null;
-
-export function getS3Client(): S3Client {
-  if (!s3Client) {
-    s3Client = new S3Client({
-      region: S3_REGION,
-      endpoint: S3_ENDPOINT,
-      credentials: {
-        accessKeyId: S3_ACCESS_KEY_ID!,
-        secretAccessKey: S3_SECRET_ACCESS_KEY!,
-      },
-    });
-  }
-  return s3Client;
+// Configure Cloudinary SDK
+if (isCloudConfigured) {
+  cloudinary.config({
+    cloud_name: CLOUDINARY_CLOUD_NAME,
+    api_key: CLOUDINARY_API_KEY,
+    api_secret: CLOUDINARY_API_SECRET,
+    secure: true,
+  });
 }
 
 // ─── Storage Operations ─────────────────────────────────────
 
 /**
- * Upload a file to cloud storage
- * @param key - The storage key (path) for the file, e.g., "screenshots/12345-image.png"
+ * Upload a file to Cloudinary
+ * @param key - The storage key (folder/filename), e.g., "screenshots/12345-image.png"
  * @param buffer - The file data as a Buffer
  * @param contentType - MIME type of the file
  * @returns The public URL of the uploaded file
@@ -70,17 +50,30 @@ export async function uploadFile(
   contentType: string = 'application/octet-stream'
 ): Promise<string> {
   if (isCloudConfigured) {
-    const client = getS3Client();
-    await client.send(
-      new PutObjectCommand({
-        Bucket: S3_BUCKET_NAME,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType,
-      })
+    // Determine resource type based on content type
+    const isVideo = contentType.startsWith('video/');
+    const resourceType = isVideo ? 'video' : 'image';
+
+    // Extract folder and public_id from key
+    const lastSlash = key.lastIndexOf('/');
+    const folder = lastSlash > 0 ? key.substring(0, lastSlash) : '';
+    const publicId = lastSlash > 0 ? key.substring(lastSlash + 1) : key;
+    // Remove file extension from public_id (Cloudinary uses it as the resource identifier)
+    const publicIdNoExt = publicId.replace(/\.[^.]+$/, '');
+
+    const result = await cloudinary.uploader.upload(
+      `data:${contentType};base64,${buffer.toString('base64')}`,
+      {
+        folder,
+        public_id: publicIdNoExt,
+        resource_type: resourceType,
+        use_filename: true,
+        unique_filename: false,
+        overwrite: false,
+      }
     );
-    // Return the public URL
-    return getPublicUrl(key);
+
+    return result.secure_url;
   }
 
   // Fallback: return a relative path (local filesystem mode)
@@ -88,8 +81,9 @@ export async function uploadFile(
 }
 
 /**
- * Upload a stream/chunk to cloud storage (for multipart uploads)
- * Same as uploadFile but works with Buffer data
+ * Upload a chunk to cloud storage
+ * For Cloudinary, we store chunks locally during upload, then assemble at the end.
+ * Cloudinary doesn't support chunked uploads natively — the complete route handles assembly.
  */
 export async function uploadChunk(
   key: string,
@@ -98,97 +92,124 @@ export async function uploadChunk(
 ): Promise<void> {
   if (!isCloudConfigured) return;
 
-  const client = getS3Client();
-  await client.send(
-    new PutObjectCommand({
-      Bucket: S3_BUCKET_NAME,
-      Key: key,
-      Body: buffer,
-      ContentType: contentType,
-    })
-  );
+  // Store chunk locally temporarily (will be assembled and uploaded on complete)
+  const chunkDir = path.join(process.cwd(), 'upload', 'chunks');
+  fs.mkdirSync(chunkDir, { recursive: true });
+
+  // key format: "chunks/uploadId/chunkIndex"
+  const parts = key.split('/');
+  const filename = parts.join('_');
+  const chunkPath = path.join(chunkDir, filename);
+  fs.writeFileSync(chunkPath, buffer);
 }
 
 /**
- * Delete a file from cloud storage
- * @param key - The storage key (path) of the file to delete
+ * Delete a file from Cloudinary
+ * @param key - The storage key or full URL of the file to delete
  */
 export async function deleteFile(key: string): Promise<void> {
   if (isCloudConfigured) {
-    const client = getS3Client();
-    await client.send(
-      new DeleteObjectCommand({
-        Bucket: S3_BUCKET_NAME,
-        Key: key,
-      })
-    );
+    try {
+      // Extract public_id from URL or key
+      const publicId = extractPublicId(key);
+      if (!publicId) return;
+
+      // Determine if it's a video based on the key/path
+      const isVideo = key.includes('videos/') || publicId.includes('videos/');
+
+      await cloudinary.uploader.destroy(publicId, {
+        resource_type: isVideo ? 'video' : 'image',
+      });
+    } catch (error) {
+      console.error('Cloudinary delete error:', error);
+    }
   }
 }
 
 /**
- * Get a signed URL for temporary access to a private file
- * @param key - The storage key (path) of the file
- * @param expiresIn - URL expiration time in seconds (default: 1 hour)
- * @returns A signed URL that grants temporary access
+ * Get a signed URL for temporary access to a file
+ * With Cloudinary public buckets, files are publicly accessible,
+ * so this just returns the direct URL.
  */
 export async function getSignedFileUrl(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
   if (isCloudConfigured) {
-    const client = getS3Client();
-    const command = new GetObjectCommand({
-      Bucket: S3_BUCKET_NAME,
-      Key: key,
-    });
-    return getSignedUrl(client, command, { expiresIn });
+    // Cloudinary public URLs don't expire, but we can generate a signed URL
+    // For simplicity, construct the URL directly
+    return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${key}`;
   }
-  // Fallback: return a local API path
   return `/api/storage/${key}`;
 }
 
 /**
- * Get the public URL for a file stored in cloud storage
- * @param key - The storage key (path) of the file
- * @returns The public URL
+ * Get the public URL for a file stored in Cloudinary
  */
 export function getPublicUrl(key: string): string {
-  if (S3_PUBLIC_URL) {
-    return `${S3_PUBLIC_URL}/${key}`;
+  if (isCloudConfigured) {
+    return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${key}`;
   }
-  // If no public URL configured, return the key (will use signed URLs via API route)
   return key;
 }
 
 /**
+ * Extract the Cloudinary public_id from a URL or path
+ */
+function extractPublicId(urlOrKey: string): string {
+  if (!urlOrKey) return '';
+
+  // If it's a Cloudinary URL
+  if (urlOrKey.includes('res.cloudinary.com')) {
+    // Format: https://res.cloudinary.com/CLOUD_NAME/image/upload/v1234567890/folder/public_id.ext
+    // or: https://res.cloudinary.com/CLOUD_NAME/video/upload/v1234567890/folder/public_id.ext
+    const match = urlOrKey.match(/\/(?:image|video|raw)\/upload\/v\d+\/(.+?)(?:\.[^.]+)?$/);
+    if (match) return match[1];
+
+    // Without version: .../upload/folder/public_id.ext
+    const matchNoVersion = urlOrKey.match(/\/(?:image|video|raw)\/upload\/(.+?)(?:\.[^.]+)?$/);
+    if (matchNoVersion) return matchNoVersion[1];
+  }
+
+  // If it's a local path like "upload/screenshots/xxx.png", convert to Cloudinary folder/key
+  if (urlOrKey.startsWith('upload/')) {
+    const cleanPath = urlOrKey.replace('upload/', '');
+    // Remove extension for public_id
+    return cleanPath.replace(/\.[^.]+$/, '');
+  }
+
+  // Already a clean key — remove extension
+  return urlOrKey.replace(/\.[^.]+$/, '');
+}
+
+/**
  * Extract the storage key from a URL or path
- * Handles both old local paths (upload/screenshots/xxx) and cloud URLs
+ * Handles both old local paths and Cloudinary URLs
  */
 export function extractStorageKey(url: string): string {
   if (!url) return '';
 
-  // If it's a full public URL, extract the key after the domain
-  if (S3_PUBLIC_URL && url.startsWith(S3_PUBLIC_URL)) {
-    return url.replace(`${S3_PUBLIC_URL}/`, '');
+  // If it's a Cloudinary URL, return the full URL (we'll use it directly)
+  if (url.includes('res.cloudinary.com')) {
+    return url;
   }
 
-  // If it's a local path like "upload/screenshots/xxx.png", convert to storage key
+  // If it's a local path like "upload/screenshots/xxx.png"
   if (url.startsWith('upload/')) {
     return url.replace('upload/', '');
   }
 
-  // Already a clean key
   return url;
 }
 
 /**
  * Get the display URL for a stored file
- * Handles both old local paths and new cloud URLs
+ * Handles both old local paths and new Cloudinary URLs
  */
 export function getFileUrl(url: string): string {
   if (!url) return '';
 
-  // If it's already a full URL (http/https), return as-is (cloud public URL)
+  // If it's already a full URL (Cloudinary), return as-is
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
   }
@@ -205,11 +226,6 @@ export function getFileUrl(url: string): string {
     return `/api/videos/stream?key=${encodeURIComponent(key)}`;
   }
 
-  // If cloud is configured and it's a key without prefix, construct public URL
-  if (isCloudConfigured && !url.startsWith('/')) {
-    return getPublicUrl(url);
-  }
-
   // Fallback
   return url;
 }
@@ -222,8 +238,8 @@ export function isStorageConfigured(): boolean {
 }
 
 /**
- * Get the bucket name (exported for use in upload complete route)
+ * Get the Cloudinary cloud name (exported for use in other modules)
  */
-export function getBucketName(): string {
-  return S3_BUCKET_NAME;
+export function getCloudName(): string {
+  return CLOUDINARY_CLOUD_NAME || '';
 }

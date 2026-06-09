@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
-import { isStorageConfigured, getSignedFileUrl, extractStorageKey } from '@/lib/storage';
+import { isStorageConfigured, getCloudName } from '@/lib/storage';
 
 export async function GET(
   request: NextRequest,
@@ -13,11 +13,13 @@ export async function GET(
     // Prevent directory traversal
     const sanitized = filename.replace(/\.\./g, '').replace(/\//g, '');
 
-    // If R2 is configured, redirect to signed URL
+    // If Cloudinary is configured, redirect to Cloudinary URL
     if (isStorageConfigured()) {
-      const storageKey = `screenshots/${sanitized}`;
-      const signedUrl = await getSignedFileUrl(storageKey);
-      return NextResponse.redirect(signedUrl);
+      const cloudName = getCloudName();
+      // Remove extension for public_id
+      const publicId = sanitized.replace(/\.[^.]+$/, '');
+      const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/screenshots/${publicId}`;
+      return NextResponse.redirect(cloudinaryUrl);
     }
 
     // Fallback: serve from local filesystem

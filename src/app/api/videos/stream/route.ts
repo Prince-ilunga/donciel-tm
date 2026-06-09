@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSignedFileUrl, isStorageConfigured } from '@/lib/storage';
+import { isStorageConfigured, getCloudName } from '@/lib/storage';
 
 /**
- * Stream a video from R2 storage via signed URL redirect.
- * Used when R2 is configured and videos are stored in the cloud.
+ * Stream a video from Cloudinary.
+ * When Cloudinary is configured, videos are served directly via their URLs.
+ * This route is only used as a fallback for locally-stored videos.
  *
  * Query params:
  * - key: The storage key (e.g., "videos/12345-abc.mp4")
@@ -21,12 +22,15 @@ export async function GET(request: NextRequest) {
     const sanitized = key.replace(/\.\./g, '').replace(/\/\//g, '/');
 
     if (isStorageConfigured()) {
-      // Generate a signed URL for R2 (valid for 24 hours for video streaming)
-      const signedUrl = await getSignedFileUrl(sanitized, 86400);
-      return NextResponse.redirect(signedUrl);
+      // Redirect to Cloudinary video URL
+      const cloudName = getCloudName();
+      // Extract public_id (remove extension)
+      const publicId = sanitized.replace(/\.[^.]+$/, '');
+      const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/video/upload/${publicId}`;
+      return NextResponse.redirect(cloudinaryUrl);
     }
 
-    return NextResponse.json({ error: 'Stockage R2 non configuré' }, { status: 503 });
+    return NextResponse.json({ error: 'Stockage cloud non configuré' }, { status: 503 });
   } catch (error) {
     console.error('Video stream error:', error);
     return NextResponse.json({ error: 'Erreur lors du streaming' }, { status: 500 });

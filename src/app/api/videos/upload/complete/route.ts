@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { uploadFile, isStorageConfigured, getS3Client, getBucketName } from '@/lib/storage';
-import {
-  GetObjectCommand,
-  DeleteObjectCommand,
-} from '@aws-sdk/client-s3';
+import { uploadFile, isStorageConfigured } from '@/lib/storage';
+import { v2 as cloudinary } from 'cloudinary';
 import path from 'path';
 import fs from 'fs';
 
@@ -57,41 +54,28 @@ export async function POST(request: NextRequest) {
     let fileUrl: string;
 
     if (isStorageConfigured()) {
-      // ─── Cloud Mode: Assemble chunks from cloud and upload final video ───
-      const client = getS3Client();
-      const bucketName = getBucketName();
+      // ─── Cloud Mode: Assemble chunks and upload to Cloudinary ───
       const chunks: Buffer[] = [];
 
       for (let i = 0; i < session.totalChunks; i++) {
-        const chunkKey = `chunks/${uploadId}/${i}`;
-        const response = await client.send(
-          new GetObjectCommand({
-            Bucket: bucketName,
-            Key: chunkKey,
-          })
-        );
+        // Chunks were stored locally by uploadChunk()
+        const chunkFilename = `chunks_${uploadId}_${i}`;
+        const chunkPath = path.join(CHUNK_DIR, chunkFilename);
 
-        if (response.Body) {
-          const bytes = await response.Body.transformToByteArray();
-          chunks.push(Buffer.from(bytes));
+        if (fs.existsSync(chunkPath)) {
+          const chunkData = fs.readFileSync(chunkPath);
+          chunks.push(chunkData);
+          // Clean up chunk file
+          try { fs.unlinkSync(chunkPath); } catch {}
         }
-
-        // Delete chunk from cloud after reading
-        await client.send(
-          new DeleteObjectCommand({
-            Bucket: bucketName,
-            Key: chunkKey,
-          })
-        ).catch(() => {});
       }
 
       // Combine all chunks
       const finalBuffer = Buffer.concat(chunks);
 
-      // Upload final video to cloud
-      const storageKey = `videos/${uniqueName}`;
+      // Upload to Cloudinary as video
       const contentType = ext.toLowerCase() === '.webm' ? 'video/webm' : 'video/mp4';
-      fileUrl = await uploadFile(storageKey, finalBuffer, contentType);
+      fileUrl = await uploadFile(`videos/${uniqueName}`, finalBuffer, contentType);
     } else {
       // ─── Local Mode: Assemble chunks from disk ───
       fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -99,10 +83,14 @@ export async function POST(request: NextRequest) {
       const writeStream = fs.createWriteStream(finalPath);
 
       for (let i = 0; i < session.totalChunks; i++) {
-        const chunkPath = path.join(CHUNK_DIR, `${uploadId}_${i}`);
-        const chunkData = fs.readFileSync(chunkPath);
-        writeStream.write(chunkData);
-        try { fs.unlinkSync(chunkPath); } catch {}
+        const chunkFilename = `chunks_${uploadId}_${i}`;
+        const chunkPath = path.join(CHUNK_DIR, chunkFilename);
+
+        if (fs.existsSync(chunkPath)) {
+          const chunkData = fs.readFileSync(chunkPath);
+          writeStream.write(chunkData);
+          try { fs.unlinkSync(chunkPath); } catch {}
+        }
       }
 
       await new Promise<void>((resolve, reject) => {

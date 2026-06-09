@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser, isAdmin } from '@/lib/auth';
-import { deleteFile, extractStorageKey, isStorageConfigured } from '@/lib/storage';
+import { deleteFile, isStorageConfigured } from '@/lib/storage';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -35,11 +35,8 @@ export async function DELETE(
     // Delete the file from storage
     try {
       if (isStorageConfigured()) {
-        // Delete from R2
-        const storageKey = extractStorageKey(video.url);
-        if (storageKey) {
-          await deleteFile(storageKey);
-        }
+        // Delete from Cloudinary — pass the full URL or key
+        await deleteFile(video.url);
       } else {
         // Delete from local filesystem
         const filePath = path.join(process.cwd(), video.url);

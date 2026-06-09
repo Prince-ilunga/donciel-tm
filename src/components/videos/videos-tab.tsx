@@ -61,10 +61,10 @@ export function VideosTab() {
 
   const filteredVideos = videos.filter((v: any) => v.category === activeCategory);
 
-  // Helper to get the correct video URL (R2 or local)
+  // Helper to get the correct video URL (Cloudinary or local)
   const getVideoUrl = (url: string) => {
     if (!url) return '';
-    // If it's already a full URL (R2 public URL), use directly
+    // If it's already a full URL (Cloudinary), use directly
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
     // If it's a local path, serve via API streaming route
     if (url.startsWith('upload/videos/')) {

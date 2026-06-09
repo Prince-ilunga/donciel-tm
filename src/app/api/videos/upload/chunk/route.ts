@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { db } from '@/lib/db';
-import { uploadChunk, isStorageConfigured } from '@/lib/storage';
 import path from 'path';
 import fs from 'fs';
 
@@ -42,16 +41,12 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await chunkFile.arrayBuffer());
 
-    if (isStorageConfigured()) {
-      // Upload chunk directly to R2 as a temporary part
-      const chunkKey = `chunks/${uploadId}/${chunkIndex}`;
-      await uploadChunk(chunkKey, buffer, 'application/octet-stream');
-    } else {
-      // Fallback: write chunk to local disk
-      fs.mkdirSync(CHUNK_DIR, { recursive: true });
-      const chunkPath = path.join(CHUNK_DIR, `${uploadId}_${chunkIndex}`);
-      fs.writeFileSync(chunkPath, buffer);
-    }
+    // Store chunks locally (for both Cloudinary and local modes)
+    // Cloudinary doesn't support chunked uploads — we assemble on the complete route
+    fs.mkdirSync(CHUNK_DIR, { recursive: true });
+    const chunkFilename = `chunks_${uploadId}_${chunkIndex}`;
+    const chunkPath = path.join(CHUNK_DIR, chunkFilename);
+    fs.writeFileSync(chunkPath, buffer);
 
     // Update received chunks in database
     const receivedChunks: number[] = JSON.parse(session.receivedChunks);
