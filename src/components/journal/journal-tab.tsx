@@ -18,6 +18,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Sheet,
@@ -52,6 +54,7 @@ import {
   Heart,
   Layers,
   X,
+  Trash2,
 } from "lucide-react";
 
 import {
@@ -83,6 +86,7 @@ import {
   isValid,
 } from "date-fns";
 import { fr } from "date-fns/locale";
+import { toast } from "sonner";
 
 // ─── Types ───────────────────────────────────────────────────
 interface DayTradeData {
@@ -138,17 +142,41 @@ const FRENCH_DAY_NAMES = [
 
 // ─── Main Component ──────────────────────────────────────────
 export function JournalTab() {
-  const { language, setScreenshotViewerUrl, setSelectedTradeId, setShowTradeDetail } = useAppStore();
+  const { user, language, setScreenshotViewerUrl, setSelectedTradeId, setShowTradeDetail } = useAppStore();
   const { trades, loading, refetch } = useTrades();
 
   // Fetch on mount
   React.useEffect(() => { refetch(); }, [refetch]);
   const isMobile = useIsMobile();
+  const isAdminUser = user?.role === "admin";
 
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; pair: string; direction: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteTrade = useCallback(async () => {
+    if (!deleteTarget || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/trades/${deleteTarget.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Delete failed");
+      }
+      toast.success(language === "fr" ? "Trade supprimé !" : "Trade deleted!");
+      setDeleteTarget(null);
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || (language === "fr" ? "Erreur lors de la suppression" : "Delete failed"));
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deleteTarget, isDeleting, language, refetch]);
 
   // Group trades by date
   const tradesByDate = useMemo(() => {
@@ -315,6 +343,7 @@ export function JournalTab() {
               trade={trade}
               index={index}
               language={language}
+              isAdmin={isAdminUser}
               isExpanded={expandedTradeId === trade.id}
               onToggleExpand={() =>
                 setExpandedTradeId((prev) =>
@@ -323,6 +352,7 @@ export function JournalTab() {
               }
               onScreenshotClick={setScreenshotViewerUrl}
               onTradeDetailClick={handleTradeDetailClick}
+              onDeleteClick={(id) => setDeleteTarget({ id, pair: trade.pair, direction: trade.direction })}
             />
           ))}
         </div>
@@ -347,6 +377,10 @@ export function JournalTab() {
     formatDateHeader,
     setScreenshotViewerUrl,
     handleTradeDetailClick,
+    isAdminUser,
+    deleteTarget,
+    isDeleting,
+    handleDeleteTrade,
   ]);
 
   if (loading) {
@@ -544,6 +578,36 @@ export function JournalTab() {
           </Sheet>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              {language === "fr" ? "Supprimer ce trade ?" : "Delete this trade?"}
+            </DialogTitle>
+            <DialogDescription>
+              {deleteTarget && (
+                language === "fr"
+                  ? `Voulez-vous supprimer le trade ${deleteTarget.direction} ${deleteTarget.pair} ? Cette action est irréversible.`
+                  : `Delete the ${deleteTarget.direction} ${deleteTarget.pair} trade? This action cannot be undone.`
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              {language === "fr" ? "Annuler" : "Cancel"}
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteTrade} disabled={isDeleting}>
+              {isDeleting
+                ? (language === "fr" ? "Suppression..." : "Deleting...")
+                : (language === "fr" ? "Supprimer" : "Delete")
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -553,18 +617,22 @@ function TradeCard({
   trade,
   index,
   language,
+  isAdmin,
   isExpanded,
   onToggleExpand,
   onScreenshotClick,
   onTradeDetailClick,
+  onDeleteClick,
 }: {
   trade: TradeData;
   index: number;
   language: "fr" | "en";
+  isAdmin: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
   onScreenshotClick: (url: string | null) => void;
   onTradeDetailClick: (tradeId: string) => void;
+  onDeleteClick: (tradeId: string) => void;
 }) {
   const isLong = trade.direction === "LONG";
   const isWin = trade.result === "WIN";
@@ -664,6 +732,15 @@ function TradeCard({
                     </div>
                   )}
                 </div>
+                {isAdmin && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDeleteClick(trade.id); }}
+                    className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title={language === "fr" ? "Supprimer ce trade" : "Delete this trade"}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <ChevronDown
                   className={cn(
                     "w-4 h-4 text-muted-foreground transition-transform duration-200",

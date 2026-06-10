@@ -68,6 +68,7 @@ import {
   FileEdit,
   Filter,
   ChevronDown,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -217,7 +218,7 @@ function calculateAuto(formData: TradeFormData) {
 
 // ─── Main Component ──────────────────────────────────────────
 export function SetupTab() {
-  const { language, setSelectedTradeId, setShowTradeDetail, setShowTradeForm } = useAppStore();
+  const { user, language, setSelectedTradeId, setShowTradeDetail, setShowTradeForm } = useAppStore();
   const { stats, loading: statsLoading, refetch: refetchStats } = useStats();
   const { trades, loading: tradesLoading, refetch: refetchTrades } = useTrades();
 
@@ -369,7 +370,9 @@ export function SetupTab() {
       <TradeVerificationList
         trades={currentTrades}
         language={language}
+        isAdmin={user?.role === "admin"}
         onTradeClick={handleTradeClick}
+        onTradeDeleted={handleTradeCreated}
         loading={tradesLoading}
       />
 
@@ -400,12 +403,16 @@ function SetupStatCard({ label, value }: { label: string; value: string | number
 function TradeVerificationList({
   trades,
   language,
+  isAdmin,
   onTradeClick,
+  onTradeDeleted,
   loading,
 }: {
   trades: any[];
   language: "fr" | "en";
+  isAdmin: boolean;
   onTradeClick: (id: string) => void;
+  onTradeDeleted: () => void;
   loading: boolean;
 }) {
   const [filters, setFilters] = useState({
@@ -416,6 +423,29 @@ function TradeVerificationList({
     timing: "",
   });
   const [showFilters, setShowFilters] = useState(false);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; pair: string; direction: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteTrade = useCallback(async () => {
+    if (!deleteTarget || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/trades/${deleteTarget.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Delete failed");
+      }
+      toast.success(language === "fr" ? "Trade supprimé !" : "Trade deleted!");
+      setDeleteTarget(null);
+      onTradeDeleted();
+    } catch (error: any) {
+      toast.error(error.message || (language === "fr" ? "Erreur lors de la suppression" : "Delete failed"));
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deleteTarget, isDeleting, language, onTradeDeleted]);
 
   // Stats
   const longCount = trades.filter(t => t.direction === "LONG").length;
@@ -535,6 +565,7 @@ function TradeVerificationList({
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">{t(language, "date")}</TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider">{t(language, "setup")}</TableHead>
                     <TableHead className="text-xs font-semibold uppercase tracking-wider text-right">RR</TableHead>
+                    {isAdmin && <TableHead className="text-xs font-semibold uppercase tracking-wider w-12"></TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -570,6 +601,17 @@ function TradeVerificationList({
                           {trade.rr !== null ? (trade.rr >= 0 ? "+" : "") + trade.rr.toFixed(2) : "—"}
                         </span>
                       </TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: trade.id, pair: trade.pair, direction: trade.direction }); }}
+                            className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            title={language === "fr" ? "Supprimer ce trade" : "Delete this trade"}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -579,12 +621,14 @@ function TradeVerificationList({
             {/* Mobile Cards */}
             <div className="md:hidden divide-y divide-border">
               {filteredTrades.map((trade, idx) => (
-                <button
+                <div
                   key={trade.id}
-                  onClick={() => onTradeClick(trade.id)}
                   className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    onClick={() => onTradeClick(trade.id)}
+                    className="flex items-center gap-3 min-w-0 flex-1"
+                  >
                     <span className="text-xs font-mono text-muted-foreground w-6">{idx + 1}</span>
                     <div className={cn(
                       "w-7 h-7 rounded-full flex items-center justify-center shrink-0",
@@ -606,21 +650,60 @@ function TradeVerificationList({
                         {trade.date ? format(new Date(trade.date), "dd/MM") : "—"}
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right shrink-0 ml-3">
+                  </button>
+                  <div className="flex items-center gap-2 shrink-0 ml-3">
                     <span className={cn(
                       "font-mono text-sm font-bold",
                       trade.rr !== null && trade.rr >= 0 ? "text-profit" : "text-loss"
                     )}>
                       {trade.rr !== null ? (trade.rr >= 0 ? "+" : "") + trade.rr.toFixed(2) : "—"}
                     </span>
+                    {isAdmin && (
+                      <button
+                        onClick={() => setDeleteTarget({ id: trade.id, pair: trade.pair, direction: trade.direction })}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                        title={language === "fr" ? "Supprimer ce trade" : "Delete this trade"}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </>
         )}
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-destructive" />
+              {language === "fr" ? "Supprimer ce trade ?" : "Delete this trade?"}
+            </DialogTitle>
+            <DialogDescription>
+              {deleteTarget && (
+                language === "fr"
+                  ? `Voulez-vous supprimer le trade ${deleteTarget.direction} ${deleteTarget.pair} ? Cette action est irréversible.`
+                  : `Delete the ${deleteTarget.direction} ${deleteTarget.pair} trade? This action cannot be undone.`
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              {language === "fr" ? "Annuler" : "Cancel"}
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteTrade} disabled={isDeleting}>
+              {isDeleting
+                ? (language === "fr" ? "Suppression..." : "Deleting...")
+                : (language === "fr" ? "Supprimer" : "Delete")
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

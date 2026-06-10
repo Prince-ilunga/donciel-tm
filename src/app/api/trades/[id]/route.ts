@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser, isAdmin } from '@/lib/auth';
 import { getContractSize } from '@/lib/utils';
 
 export async function GET(
@@ -193,8 +193,10 @@ export async function DELETE(
 
     const { id } = await params;
 
+    // Admin can delete any trade; regular users can only delete their own
+    const isUserAdmin = isAdmin(result.user);
     const existingTrade = await db.trade.findFirst({
-      where: { id, userId: result.user.id },
+      where: isUserAdmin ? { id } : { id, userId: result.user.id },
       include: { screenshots: true },
     });
 
