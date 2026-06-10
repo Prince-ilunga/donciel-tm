@@ -26,10 +26,20 @@ import {
   PanelLeft,
   Target,
   FolderOpen,
+  Download,
+  Trash2,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { ExecutionTab } from "@/components/execution/execution-tab";
 import { SetupTab } from "@/components/setup/setup-tab";
 import { DashboardTab } from "@/components/dashboard/dashboard-tab";
@@ -60,6 +70,9 @@ export function MainApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showClearDialog, setShowClearDialog] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const mountedRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -71,6 +84,57 @@ export function MainApp() {
     }
   }, []);
   const isAdmin = user?.role === "admin";
+
+  // ─── Export PDF ────────────────────────────────────────────
+  const handleExportPDF = useCallback(async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const res = await fetch(`/api/export?lang=${language}`);
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Export failed");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `DONCIEL-Trade-Journal-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success(language === "fr" ? "PDF exporté avec succès !" : "PDF exported successfully!");
+    } catch (error: any) {
+      toast.error(error.message || (language === "fr" ? "Erreur lors de l'export" : "Export failed"));
+    } finally {
+      setIsExporting(false);
+    }
+  }, [language, isExporting]);
+
+  // ─── Clear All Trades ──────────────────────────────────────
+  const handleClearTrades = useCallback(async () => {
+    if (isClearing) return;
+    setIsClearing(true);
+    try {
+      const res = await fetch("/api/trades/clear", { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Clear failed");
+      }
+      const data = await res.json();
+      toast.success(
+        language === "fr"
+          ? `${data.deletedTrades} trades supprimés !`
+          : `${data.deletedTrades} trades deleted!`
+      );
+      setShowClearDialog(false);
+    } catch (error: any) {
+      toast.error(error.message || (language === "fr" ? "Erreur lors de la suppression" : "Clear failed"));
+    } finally {
+      setIsClearing(false);
+    }
+  }, [language, isClearing]);
 
   const handleLogout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -273,6 +337,30 @@ export function MainApp() {
             {t(language, navItems.find(n => n.id === activeTab)?.key as Parameters<typeof t>[1] || "executionDonciel")}
           </h2>
           <div className="ml-auto flex items-center gap-2">
+            {/* Export PDF */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 h-8 text-xs"
+              onClick={handleExportPDF}
+              title={language === "fr" ? "Exporter en PDF" : "Export PDF"}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+            {/* Clear All Trades (Admin only) */}
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 h-8 text-xs text-destructive hover:text-destructive"
+                onClick={() => setShowClearDialog(true)}
+                title={language === "fr" ? "Supprimer tous les trades" : "Clear all trades"}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{language === "fr" ? "Effacer" : "Clear"}</span>
+              </Button>
+            )}
             {isAdmin && (
               <Badge className="text-xs bg-primary">
                 <Crown className="w-3 h-3 mr-1" />
@@ -280,6 +368,35 @@ export function MainApp() {
               </Badge>
             )}
           </div>
+
+        {/* Clear Trades Confirmation Dialog */}
+        <Dialog open={showClearDialog} onOpenChange={setShowClearDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-destructive" />
+                {language === "fr" ? "Supprimer tous les trades ?" : "Delete all trades?"}
+              </DialogTitle>
+              <DialogDescription>
+                {language === "fr"
+                  ? "Cette action supprimera définitivement tous vos trades et leurs captures d'écran. Cette action est irréversible."
+                  : "This will permanently delete all your trades and their screenshots. This action cannot be undone."
+                }
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setShowClearDialog(false)}>
+                {language === "fr" ? "Annuler" : "Cancel"}
+              </Button>
+              <Button variant="destructive" onClick={handleClearTrades} disabled={isClearing}>
+                {isClearing
+                  ? (language === "fr" ? "Suppression..." : "Deleting...")
+                  : (language === "fr" ? "Supprimer tout" : "Delete all")
+                }
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         </header>
 
         {/* Tab content */}
