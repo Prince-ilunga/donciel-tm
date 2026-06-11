@@ -27,6 +27,7 @@ import {
   Target,
   FolderOpen,
   Download,
+  Newspaper,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import React, { useState, useCallback } from "react";
@@ -42,6 +43,7 @@ import { VideosTab } from "@/components/videos/videos-tab";
 import { NotesTab } from "@/components/notes/notes-tab";
 import { AdminTab } from "@/components/admin/admin-tab";
 import { RoleManagementTab } from "@/components/admin/role-management-tab";
+import { NewsTab } from "@/components/news/news-tab";
 import { DoncielLogo } from "@/components/shared/donciel-logo";
 
 const navItems: { id: TabId; icon: typeof LayoutDashboard; key: string; adminOnly?: boolean }[] = [
@@ -52,6 +54,7 @@ const navItems: { id: TabId; icon: typeof LayoutDashboard; key: string; adminOnl
   { id: "timing", icon: Clock, key: "timingAnalysis" },
   { id: "videos", icon: Video, key: "setupVideos" },
   { id: "notes", icon: StickyNote, key: "prepNotes" },
+  { id: "news", icon: Newspaper, key: "newsFundamental" },
   { id: "admin", icon: ShieldCheck, key: "adminVerification", adminOnly: true },
   { id: "roles", icon: Crown, key: "roleManagement" },
 ];
@@ -132,6 +135,7 @@ export function MainApp() {
       case "timing": return <TimingTab />;
       case "videos": return <VideosTab />;
       case "notes": return <NotesTab />;
+      case "news": return <NewsTab />;
       case "admin": return <AdminTab />;
       case "roles": return <RoleManagementTab />;
       default: return <ExecutionTab />;
