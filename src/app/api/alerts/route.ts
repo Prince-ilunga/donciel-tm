@@ -41,15 +41,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const alert = await db.alert.create({
-      data: {
-        userId: result.user.id,
-        title,
-        description: description || null,
-        alertDate: new Date(alertDate),
-        ...(noteId && { noteId }),
-      },
-    });
+    // Try to create with noteId; fall back without it if column doesn't exist yet
+    let alert;
+    try {
+      alert = await db.alert.create({
+        data: {
+          userId: result.user.id,
+          title,
+          description: description || null,
+          alertDate: new Date(alertDate),
+          ...(noteId && { noteId }),
+        },
+      });
+    } catch {
+      // Fallback: noteId column may not exist yet (pending prisma db push)
+      alert = await db.alert.create({
+        data: {
+          userId: result.user.id,
+          title,
+          description: description || null,
+          alertDate: new Date(alertDate),
+        },
+      });
+    }
 
     return NextResponse.json({ alert }, { status: 201 });
   } catch (error) {

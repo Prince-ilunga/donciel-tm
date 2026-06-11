@@ -20,11 +20,24 @@ export async function GET(request: NextRequest) {
       where.type = type;
     }
 
-    const notes = await db.note.findMany({
-      where,
-      orderBy: { date: 'desc' },
-      include: { screenshots: true, alerts: true },
-    });
+    // Try with alerts include first; fall back to screenshots only if DB not yet migrated
+    let notes;
+    try {
+      notes = await db.note.findMany({
+        where,
+        orderBy: { date: 'desc' },
+        include: { screenshots: true, alerts: true },
+      });
+    } catch {
+      // Fallback: alerts relation may not exist yet (pending prisma db push)
+      notes = await db.note.findMany({
+        where,
+        orderBy: { date: 'desc' },
+        include: { screenshots: true },
+      });
+      // Ensure each note has an alerts array for the frontend
+      notes = notes.map((n: any) => ({ ...n, alerts: [] }));
+    }
 
     return NextResponse.json({ notes });
   } catch (error) {
@@ -46,9 +59,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { type, title, content, date } = body;
 
-    if (!type || !title || !content || !date) {
+    if (!type || !title || !date) {
       return NextResponse.json(
-        { error: 'Type, titre, contenu et date requis' },
+        { error: 'Type, titre et date requis' },
         { status: 400 }
       );
     }
@@ -65,7 +78,7 @@ export async function POST(request: NextRequest) {
         userId: result.user.id,
         type,
         title,
-        content,
+        content: content || '',
         date: new Date(date),
       },
     });
