@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, alertDate } = body;
+    const { title, description, alertDate, noteId } = body;
 
     if (!title || !alertDate) {
       return NextResponse.json(
@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
         title,
         description: description || null,
         alertDate: new Date(alertDate),
+        ...(noteId && { noteId }),
       },
     });
 
