@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DONCIEL TM — Design System Prompt Complet</title>
+<style>
+  @page { size: A4; margin: 18mm 20mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #ffffff; color: #1a1a1a; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 10pt; line-height: 1.55; }
+
+  h1 { font-size: 22pt; font-weight: 800; color: #111; margin-bottom: 4pt; letter-spacing: -0.5px; }
+  h2 { font-size: 14pt; font-weight: 700; color: #222; margin-top: 20pt; margin-bottom: 6pt; border-bottom: 2px solid #e5e5e5; padding-bottom: 4pt; }
+  h3 { font-size: 11.5pt; font-weight: 700; color: #333; margin-top: 14pt; margin-bottom: 4pt; }
+  h4 { font-size: 10pt; font-weight: 700; color: #444; margin-top: 10pt; margin-bottom: 3pt; }
+
+  p { margin-bottom: 6pt; }
+  code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; background: #f3f4f6; padding: 1pt 4pt; border-radius: 3pt; font-size: 8.5pt; color: #c41e3a; }
+  pre { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6pt; padding: 10pt 14pt; margin: 8pt 0 12pt 0; overflow-x: auto; font-size: 8pt; line-height: 1.5; font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; white-space: pre-wrap; word-break: break-all; color: #333; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8pt 0 14pt 0; font-size: 8.5pt; }
+  th { background: #f1f3f5; font-weight: 700; text-align: left; padding: 5pt 8pt; border-bottom: 2px solid #d0d0d0; }
+  td { padding: 4pt 8pt; border-bottom: 1px solid #e8e8e8; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .token-col { font-family: 'Cascadia Code', monospace; color: #9333ea; font-size: 8pt; }
+  .value-col { font-family: 'Cascadia Code', monospace; color: #c41e3a; font-size: 8pt; }
+
+  .prompt-box { background: #fefce8; border: 1px solid #fbbf24; border-left: 4px solid #f59e0b; border-radius: 6pt; padding: 12pt 16pt; margin: 12pt 0; }
+  .prompt-box p { margin-bottom: 4pt; font-size: 9.5pt; }
+
+  .note { background: #f0fdf4; border: 1px solid #86efac; border-radius: 6pt; padding: 8pt 12pt; margin: 8pt 0; font-size: 9pt; color: #166534; }
+
+  .section-divider { page-break-before: always; }
+  .toc { margin: 12pt 0; }
+  .toc a { display: block; padding: 3pt 0; color: #555; text-decoration: none; font-size: 9.5pt; }
+  .toc a:hover { color: #111; }
+  .toc-num { display: inline-block; width: 24pt; font-weight: 700; color: #333; }
+
+  .color-swatch { display: inline-block; width: 14pt; height: 14pt; border-radius: 3pt; vertical-align: middle; margin-right: 4pt; border: 1px solid #ccc; }
+  .swatch-light { background: oklch(0.15 0 0); }
+  .swatch-dark { background: oklch(0.92 0 0); }
+  .swatch-profit { background: oklch(0.72 0.22 145); }
+  .swatch-loss { background: oklch(0.65 0.24 25); }
+  .swatch-gold { background: oklch(0.8 0.17 75); }
+  .swatch-emerald { background: oklch(0.7 0.2 160); }
+
+  ul, ol { margin: 4pt 0 8pt 18pt; }
+  li { margin-bottom: 2pt; }
+</style>
+</head>
+<body>
+
+<h1>DONCIEL<sup style="font-size:10pt;">TM</sup> — Design System Prompt Complet</h1>
+<p style="color:#666; font-size:10pt;">Document de reference pour reproduire le design exact de l'application DONCIEL TM</p>
+
+<div class="toc">
+  <h3>Table des matieres</h3>
+  <a><span class="toc-num">1</span> Prompt maitre (copier-coller pour recréer le design)</a>
+  <a><span class="toc-num">2</span> Systeme de couleurs complet (tokens CSS)</a>
+  <a><span class="toc-num">3</span> Typographie et echelle de texte</a>
+  <a><span class="toc-num">4</span> Structure de layout (sidebar, header, contenu)</a>
+  <a><span class="toc-num">5</span> Composants UI (Card, Button, Badge, Dialog)</a>
+  <a><span class="toc-num">6</span> Grilles responsives</a>
+  <a><span class="toc-num">7</span> Effets visuels (shadows, blur, gradients, animations)</a>
+  <a><span class="toc-num">8</span> Etats interactifs (hover, active, focus, disabled)</a>
+  <a><span class="toc-num">9</span> Icones et conteneurs d'icones</a>
+  <a><span class="toc-num">10</span> Patterns specifiques (badges trading, screenshots, empty states)</a>
+  <a><span class="toc-num">11</span> Mode sombre/clair — regles d'inversion</a>
+  <a><span class="toc-num">12</span> CSS global custom (scrollbar, transitions, effets)</a>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>1. Prompt Maitre — A copier-coller</h2>
+
+<div class="prompt-box">
+<p><strong>Utilisez ce prompt pour recréer le design DONCIEL TM sur une autre application :</strong></p>
+</div>
+
+<pre>Construis une application web professionnelle avec le design system suivant :
+
+## PHILOSOPHIE DESIGN
+- Design monochromatique neutre (noir/gris/blanc) comme base
+- 4 couleurs semantiques domain-specific pour le trading : profit (vert), loss (rouge), gold (ambre), emerald (teal)
+- Aucune couleur primaire huee (pas de bleu, violet, indigo par defaut)
+- Aspect premium, epure, financier — inspiré des dashboards de trading professionnels
+- Mode sombre par defaut, mode clair disponible
+- Typographie : Geist Sans pour le texte, Geist Mono pour toutes les donnees numeriques
+- Superscript TM apres le nom de marque
+
+## SYSTEME DE COULEURS (CSS Variables oklch)
+Mode clair :
+- background: oklch(0.985 0 0) — foreground: oklch(0.12 0 0)
+- card: oklch(0.995 0 0) — card-foreground: oklch(0.12 0 0)
+- primary: oklch(0.15 0 0) — primary-foreground: oklch(0.99 0 0)
+- secondary: oklch(0.95 0 0) — muted: oklch(0.95 0 0)
+- muted-foreground: oklch(0.5 0 0) — accent: oklch(0.92 0 0)
+- border: oklch(0.88 0 0) — input: oklch(0.88 0 0)
+- destructive: oklch(0.577 0.245 27.325)
+
+Mode sombre :
+- background: oklch(0.1 0 0) — foreground: oklch(0.96 0 0)
+- card: oklch(0.14 0 0) — card-foreground: oklch(0.96 0 0)
+- primary: oklch(0.92 0 0) — primary-foreground: oklch(0.1 0 0)
+- secondary: oklch(0.2 0 0) — muted: oklch(0.2 0 0)
+- muted-foreground: oklch(0.65 0 0) — accent: oklch(0.22 0 0)
+- border: oklch(0.22 0 0) — input: oklch(0.22 0 0)
+- destructive: oklch(0.65 0.22 25)
+
+Couleurs domain (identiques dans les 2 modes avec luminosite augmentee en sombre) :
+- profit: oklch(0.65 0.2 145) / dark: oklch(0.72 0.22 145) — Vert pour gains, WIN, LONG
+- loss: oklch(0.6 0.22 25) / dark: oklch(0.65 0.24 25) — Rouge pour pertes, LOSS, SHORT
+- gold: oklch(0.75 0.15 75) / dark: oklch(0.8 0.17 75) — Ambre pour breakeven, pending
+- emerald: oklch(0.6 0.17 160) / dark: oklch(0.7 0.2 160) — Teal pour accents decoratifs, gradients
+
+Utilise les couleurs domain avec modificateurs d'opacite :
+- bg-profit/15 text-profit border-profit/20 — etat gain
+- bg-loss/15 text-loss border-loss/20 — etat perte
+- bg-gold/15 text-gold border-gold/20 — etat neutre
+
+## LAYOUT PRINCIPAL
+- Shell : flex h-screen overflow-hidden bg-background
+- Sidebar : fixed lg:static, w-64 expanded, w-14 collapsed, bg-sidebar border-r border-sidebar-border, transition-all duration-300 ease-in-out
+- Header : h-14 border-b border-border, px-4, bg-background/80 backdrop-blur-sm sticky top-0 z-30
+- Contenu : p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto
+
+## SIDEBAR NAVIGATION
+- Element actif : bg-primary text-primary-foreground shadow-md shadow-primary/20
+- Element inactif : text-sidebar-foreground hover:bg-sidebar-accent
+- Bouton : w-full flex items-center rounded-lg gap-3 px-3 py-2.5 text-sm font-medium
+- Icone : w-4.5 h-4.5 shrink-0
+- Badge Admin : ml-auto, bg-primary, Crown icon
+- Boutons bas : theme toggle (Sun/Moon), langue (Globe), deconnexion (LogOut)
+
+## TYOGRAPHIE
+- text-5xl font-bold — Hero branding
+- text-3xl font-bold font-mono — Valeurs RR cumulatif
+- text-2xl font-bold font-mono — Stats numeriques (RR, P&L)
+- text-xl font-bold — Sous-titres, titres dialog
+- text-lg font-bold — Logo, en-tetes carte
+- text-lg font-semibold — Sections
+- text-sm font-semibold — Titres carte, table headers
+- text-sm font-medium — Corps texte, labels
+- text-sm text-muted-foreground — Descriptions
+- text-xs font-semibold uppercase tracking-wider — Micro-labels
+- text-[10px] — Badges, superscript TM
+- Prefix positif : "+" devant toutes les valeurs numeriques positives
+
+## COMPOSANTS
+Card : bg-card text-card-foreground rounded-xl border shadow-sm p-4
+Card avec glow : + metric-glow (box-shadow: 0 0 20px oklch(0.5 0 0 / 8%))
+Card glossy : metric-glossy (linear-gradient 135deg, border semitransparent)
+
+Button default : bg-primary text-primary-foreground shadow-xs rounded-md h-9 px-4
+Button ghost : hover:bg-accent hover:text-accent-foreground
+Button destructive : bg-destructive text-white
+Button sm : h-8 px-3
+Button icon : size-9
+
+Badge WIN : bg-profit/15 text-profit border-profit/20
+Badge LOSS : bg-loss/15 text-loss border-loss/20
+Badge BE : bg-gold/15 text-gold border-gold/20
+Badge LONG : bg-profit/15 text-profit border-profit/20
+Badge SHORT : bg-loss/15 text-loss border-loss/20
+Badge default : bg-primary text-primary-foreground
+Badge language : variant outline, text-[10px] font-mono
+
+Dialog overlay : fixed inset-0 z-50 bg-black/50
+Dialog content : bg-background fixed center z-50 rounded-lg border p-6 shadow-lg
+Dialog trade form : sm:max-w-2xl
+Dialog trade detail : sm:max-w-5xl
+
+## GRILLES RESPONSIVES
+- Stats row : grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4
+- Metrics row : grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3
+- Two-column : grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6
+- Chart row : grid grid-cols-1 lg:grid-cols-2 gap-4
+- Three-column : grid grid-cols-1 md:grid-cols-3 gap-4
+- Form grid : grid grid-cols-1 sm:grid-cols-2 gap-4
+- Param grid : grid grid-cols-2 sm:grid-cols-3 gap-3
+
+## EFFETS VISUELS
+- Shadow : shadow-sm (cards), shadow-md (nav active), shadow-lg (dialogs, CTA)
+- Shadow coloree : shadow-primary/20 (active), shadow-profit/10 (wins)
+- Backdrop blur : bg-background/80 backdrop-blur-sm (header)
+- Gradient texte : bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent
+- Progress bar : h-1.5, bg-primary/20 track, bg-primary fill, transition-all duration-500
+- Screenshot overlay : bg-gradient-to-t from-black/70 to-transparent
+
+## ANIMATIONS
+- Transition globale : 150ms cubic-bezier(0.4, 0, 0.2, 1) sur bg, border, color, shadow, transform
+- Sidebar : transition-all duration-300 ease-in-out
+- Nav items : transition-all duration-200
+- Progress : transition-all duration-500
+- Hover carte : hover:border-primary/30 transition-colors cursor-pointer
+- Dialog : animate-in/out fade-in/out zoom-in-95/zoom-out-95
+
+## ICONES
+- Lucide React, tailles : w-4 h-4 (standard), w-3.5 h-3.5 (petit), w-5 h-5 (dialog)
+- Conteneur icone : w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center
+- Variantes conteneur : bg-profit/10, bg-loss/10, bg-gold/10
+
+## AUTHENTIFICATION (Ecran Login/Register)
+- Layout split : hidden lg:flex lg:w-1/2 (gauche decorative) + w-full lg:w-1/2 (droite formulaire)
+- Gauche : bg-primary/5 avec gradient overlay et cercles decoratifs bg-primary/5
+- Formulaire : Card border-0 shadow-none en mode split, border + shadow en mobile
+- Logo : text-5xl font-bold tracking-tight + sup TM
+
+## MODE SOMBRE/CLAIR
+- Toggle : classe "dark" sur html, via next-themes
+- Toutes les couleurs via CSS variables — inversion automatique
+- primary s'inverse : noir en clair → blanc en sombre
+- card reste legerement au-dessus de background dans les 2 modes
+- Chart tooltips : backgroundColor var(--popover), border var(--border)
+
+## CUSTOM CSS
+Scrollbar : width 6px, thumb oklch(0.5 0 0 / 30%), border-radius 3px, transparent track
+Metric glow : box-shadow 0 0 20px oklch(0.5 0 0 / 8%)
+Metric glossy : linear-gradient(135deg, oklch(0.18/0.97 0 0 / 80%), oklch(0.13/0.93 0 0 / 90%))
+Trade field focus : translateY(-1px) + box-shadow 0 4px 12px oklch(0.9 0 0 / 10%)
+Radius : --radius 0.625rem (10px), sm 6px, md 8px, lg 10px, xl 14px
+
+## RECHARTS CONFIG
+- Tooltip : bg var(--popover), border var(--border), radius 8px, text var(--popover-foreground)
+- Barres : radius [4,4,0,0] (coins arrondis en haut)
+- Area charts : linearGradient opacity 0.3 → 0
+- Legende : pas de bordure, horizontale, petits cercles
+- Grille : dashed, opacity 0.2
+
+## DONNEES CONDITIONNELLES
+- Valeur positive → text-profit, prefix "+"
+- Valeur negative → text-loss
+- Valeur zero → text-gold
+- Toujours font-mono pour les chiffres</pre>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>2. Systeme de Couleurs Complet</h2>
+
+<h3>2.1 Tokens semantiques standard (shadcn/ui)</h3>
+
+<table>
+<tr><th>Token</th><th>Mode Clair</th><th>Mode Sombre</th><th>Usage</th></tr>
+<tr><td class="token-col">--background</td><td class="value-col">oklch(0.985 0 0)</td><td class="value-col">oklch(0.1 0 0)</td><td>Fond de page</td></tr>
+<tr><td class="token-col">--foreground</td><td class="value-col">oklch(0.12 0 0)</td><td class="value-col">oklch(0.96 0 0)</td><td>Texte principal</td></tr>
+<tr><td class="token-col">--card</td><td class="value-col">oklch(0.995 0 0)</td><td class="value-col">oklch(0.14 0 0)</td><td>Surface carte</td></tr>
+<tr><td class="token-col">--card-foreground</td><td class="value-col">oklch(0.12 0 0)</td><td class="value-col">oklch(0.96 0 0)</td><td>Texte carte</td></tr>
+<tr><td class="token-col">--popover</td><td class="value-col">oklch(0.995 0 0)</td><td class="value-col">oklch(0.14 0 0)</td><td>Dropdowns, tooltips</td></tr>
+<tr><td class="token-col">--primary</td><td class="value-col">oklch(0.15 0 0)</td><td class="value-col">oklch(0.92 0 0)</td><td>CTA, nav active, boutons</td></tr>
+<tr><td class="token-col">--primary-foreground</td><td class="value-col">oklch(0.99 0 0)</td><td class="value-col">oklch(0.1 0 0)</td><td>Texte sur primary</td></tr>
+<tr><td class="token-col">--secondary</td><td class="value-col">oklch(0.95 0 0)</td><td class="value-col">oklch(0.2 0 0)</td><td>Boutons secondaires</td></tr>
+<tr><td class="token-col">--muted</td><td class="value-col">oklch(0.95 0 0)</td><td class="value-col">oklch(0.2 0 0)</td><td>Fonds attenues</td></tr>
+<tr><td class="token-col">--muted-foreground</td><td class="value-col">oklch(0.5 0 0)</td><td class="value-col">oklch(0.65 0 0)</td><td>Texte secondaire</td></tr>
+<tr><td class="token-col">--accent</td><td class="value-col">oklch(0.92 0 0)</td><td class="value-col">oklch(0.22 0 0)</td><td>Etats hover</td></tr>
+<tr><td class="token-col">--destructive</td><td class="value-col">oklch(0.577 0.245 27.325)</td><td class="value-col">oklch(0.65 0.22 25)</td><td>Suppression, danger</td></tr>
+<tr><td class="token-col">--border</td><td class="value-col">oklch(0.88 0 0)</td><td class="value-col">oklch(0.22 0 0)</td><td>Bordures</td></tr>
+<tr><td class="token-col">--ring</td><td class="value-col">oklch(0.15 0 0)</td><td class="value-col">oklch(0.92 0 0)</td><td>Focus rings</td></tr>
+<tr><td class="token-col">--sidebar</td><td class="value-col">oklch(0.97 0 0)</td><td class="value-col">oklch(0.12 0 0)</td><td>Fond sidebar</td></tr>
+<tr><td class="token-col">--sidebar-accent</td><td class="value-col">oklch(0.92 0 0)</td><td class="value-col">oklch(0.22 0 0)</td><td>Hover sidebar</td></tr>
+</table>
+
+<h3>2.2 Couleurs domain trading</h3>
+
+<table>
+<tr><th>Token</th><th>Clair</th><th>Sombre</th><th>Semantique</th></tr>
+<tr><td class="token-col">--profit</td><td class="value-col">oklch(0.65 0.2 145)</td><td class="value-col">oklch(0.72 0.22 145)</td><td><span class="color-swatch swatch-profit"></span> Gains, WIN, LONG, positif</td></tr>
+<tr><td class="token-col">--loss</td><td class="value-col">oklch(0.6 0.22 25)</td><td class="value-col">oklch(0.65 0.24 25)</td><td><span class="color-swatch swatch-loss"></span> Pertes, LOSS, SHORT, negatif</td></tr>
+<tr><td class="token-col">--gold</td><td class="value-col">oklch(0.75 0.15 75)</td><td class="value-col">oklch(0.8 0.17 75)</td><td><span class="color-swatch swatch-gold"></span> Breakeven, BE, pending, neutre</td></tr>
+<tr><td class="token-col">--emerald</td><td class="value-col">oklch(0.6 0.17 160)</td><td class="value-col">oklch(0.7 0.2 160)</td><td><span class="color-swatch swerald"></span> Accents decoratifs, gradients</td></tr>
+</table>
+
+<h3>2.3 Modificateurs d'opacite courants</h3>
+
+<table>
+<tr><th>Pattern</th><th>Opacite</th><th>Usage</th></tr>
+<tr><td><code>bg-primary/5</code></td><td>5%</td><td>Teinte tres subtile, cercles decoratifs</td></tr>
+<tr><td><code>bg-primary/10</code></td><td>10%</td><td>Conteneurs icones, fonds badges</td></tr>
+<tr><td><code>bg-profit/15</code></td><td>15%</td><td>Fond badge WIN, fond carte gain</td></tr>
+<tr><td><code>bg-loss/15</code></td><td>15%</td><td>Fond badge LOSS, fond carte perte</td></tr>
+<tr><td><code>border-profit/20</code></td><td>20%</td><td>Bordure subtile gain</td></tr>
+<tr><td><code>border-profit/30</code></td><td>30%</td><td>Bordure active gain</td></tr>
+<tr><td><code>shadow-primary/20</code></td><td>20%</td><td>Ombre coloree nav active</td></tr>
+</table>
+
+<h3>2.4 Couleurs des graphiques (Recharts)</h3>
+
+<table>
+<tr><th>Nom</th><th>Valeur oklch</th><th>Usage</th></tr>
+<tr><td>Chart Primary</td><td class="value-col">oklch(0.65 0.2 160)</td><td>Barres, aires, RR cumulatif</td></tr>
+<tr><td>Chart Gold</td><td class="value-col">oklch(0.75 0.18 50)</td><td>Moyenne mobile, lignes</td></tr>
+<tr><td>Chart Purple</td><td class="value-col">oklch(0.7 0.14 280)</td><td>Donnees mensuelles</td></tr>
+<tr><td>Chart Orange</td><td class="value-col">oklch(0.8 0.17 30)</td><td>Chart-4</td></tr>
+<tr><td>Chart Pink</td><td class="value-col">oklch(0.75 0.22 340)</td><td>Chart-5</td></tr>
+</table>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>3. Typographie et Echelle de Texte</h2>
+
+<h3>3.1 Polices</h3>
+<ul>
+  <li><strong>Sans-serif</strong> : Geist Sans (<code>var(--font-geist-sans)</code>) — texte general</li>
+  <li><strong>Monospace</strong> : Geist Mono (<code>var(--font-geist-mono)</code>) — TOUTES les donnees numeriques (RR, P&L, prix, paires)</li>
+</ul>
+
+<h3>3.2 Echelle typographique</h3>
+
+<table>
+<tr><th>Classes</th><th>Taille</th><th>Usage</th></tr>
+<tr><td><code>text-5xl font-bold tracking-tight</code></td><td>3rem</td><td>Hero branding auth</td></tr>
+<tr><td><code>text-3xl font-bold font-mono</code></td><td>1.875rem</td><td>RR cumulatif, grande stat</td></tr>
+<tr><td><code>text-2xl font-bold font-mono</code></td><td>1.5rem</td><td>Valeurs stats (RR, P&L)</td></tr>
+<tr><td><code>text-xl font-bold</code></td><td>1.25rem</td><td>Sous-titres, titres dialog</td></tr>
+<tr><td><code>text-lg font-bold</code></td><td>1.125rem</td><td>Logo, en-tetes carte</td></tr>
+<tr><td><code>text-lg font-semibold</code></td><td>1.125rem</td><td>Sections</td></tr>
+<tr><td><code>text-base font-bold</code></td><td>1rem</td><td>Labels phase</td></tr>
+<tr><td><code>text-sm font-semibold</code></td><td>0.875rem</td><td>Titres carte, table headers</td></tr>
+<tr><td><code>text-sm font-medium</code></td><td>0.875rem</td><td>Corps texte, labels</td></tr>
+<tr><td><code>text-sm text-muted-foreground</code></td><td>0.875rem</td><td>Descriptions, texte secondaire</td></tr>
+<tr><td><code>text-xs font-semibold uppercase tracking-wider</code></td><td>0.75rem</td><td>Micro-labels, en-tetes tableau</td></tr>
+<tr><td><code>text-xs font-medium</code></td><td>0.75rem</td><td>Labels formulaire</td></tr>
+<tr><td><code>text-[10px]</code></td><td>10px</td><td>Badges, superscript TM</td></tr>
+</table>
+
+<h3>3.3 Traitements speciaux</h3>
+<ul>
+  <li><strong>Texte gradient</strong> : <code>bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent</code></li>
+  <li><strong>Superscript TM</strong> : <code>&lt;sup className="text-[10px] text-primary ml-0.5"&gt;TM&lt;/sup&gt;</code></li>
+  <li><strong>Prefix positif</strong> : <code>{value >= 0 ? "+" : ""}</code> devant RR et P&L</li>
+  <li><strong>Couleur conditionnelle</strong> : positif → <code>text-profit</code>, negatif → <code>text-loss</code>, zero → <code>text-gold</code></li>
+</ul>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>4. Structure de Layout</h2>
+
+<h3>4.1 Shell principal</h3>
+<pre>&lt;div className="flex h-screen overflow-hidden bg-background"&gt;
+  {/* Mobile overlay */}
+  {sidebarOpen && &lt;div className="fixed inset-0 bg-black/50 z-40 lg:hidden" /&gt;}
+  
+  {/* Sidebar */}
+  &lt;aside className="fixed lg:static inset-y-0 left-0 z-50 bg-sidebar border-r border-sidebar-border 
+    flex flex-col transition-all duration-300 ease-in-out lg:translate-x-0 overflow-hidden"
+    &gt;...&lt;/aside&gt;
+  
+  {/* Main content */}
+  &lt;main className="flex-1 flex flex-col overflow-hidden"&gt;
+    &lt;header className="h-14 border-b border-border flex items-center px-4 gap-3 
+      bg-background/80 backdrop-blur-sm sticky top-0 z-30"&gt;...&lt;/header&gt;
+    &lt;div className="flex-1 overflow-y-auto"&gt;
+      {renderTab()}
+    &lt;/div&gt;
+  &lt;/main&gt;
+&lt;/div&gt;</pre>
+
+<h3>4.2 Dimensions sidebar</h3>
+<table>
+<tr><th>Etat</th><th>Largeur</th><th>Padding</th></tr>
+<tr><td>Expanded</td><td><code>w-64</code> (16rem)</td><td><code>p-4</code></td></tr>
+<tr><td>Collapsed</td><td><code>w-14</code> (3.5rem)</td><td><code>p-2</code></td></tr>
+<tr><td>Mobile ouvert</td><td><code>w-64</code></td><td><code>p-4</code></td></tr>
+</table>
+
+<h3>4.3 Conteneur de page (chaque onglet)</h3>
+<pre>className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto"</pre>
+
+<h3>4.4 Ecran authentification (split layout)</h3>
+<pre>&lt;div className="min-h-screen flex"&gt;
+  {/* Cote gauche decoratif */}
+  &lt;div className="hidden lg:flex lg:w-1/2 bg-primary/5 relative overflow-hidden"&gt;
+    &lt;div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-primary/5" /&gt;
+    &lt;div className="absolute -bottom-20 -right-20 w-64 h-64 rounded-full bg-primary/5" /&gt;
+    &lt;div className="absolute -top-20 -left-20 w-48 h-48 rounded-full bg-primary/5" /&gt;
+  &lt;/div&gt;
+  {/* Cote droit formulaire */}
+  &lt;div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8"&gt;
+    &lt;Card className="w-full max-w-md border-0 shadow-none lg:border lg:shadow-sm"&gt;...&lt;/Card&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>5. Composants UI</h2>
+
+<h3>5.1 Card</h3>
+<pre>Base    : bg-card text-card-foreground rounded-xl border shadow-sm
+Header  : flex flex-col gap-1.5 px-6
+Content : px-6
+Override: p-4 (compact), p-6 (spacieux), overflow-hidden, metric-glow</pre>
+
+<h3>5.2 Button</h3>
+<table>
+<tr><th>Variante</th><th>Classes</th></tr>
+<tr><td>Default</td><td><code>bg-primary text-primary-foreground shadow-xs hover:bg-primary/90</code></td></tr>
+<tr><td>Destructive</td><td><code>bg-destructive text-white shadow-xs hover:bg-destructive/90</code></td></tr>
+<tr><td>Outline</td><td><code>border bg-background shadow-xs hover:bg-accent</code></td></tr>
+<tr><td>Ghost</td><td><code>hover:bg-accent hover:text-accent-foreground</code></td></tr>
+<tr><td>Secondary</td><td><code>bg-secondary text-secondary-foreground hover:bg-secondary/80</code></td></tr>
+</table>
+<p>Tailles : <code>h-9 px-4</code> (default), <code>h-8 px-3</code> (sm), <code>h-10 px-6</code> (lg), <code>size-9</code> (icon)</p>
+
+<h3>5.3 Badge trading (domain-specific)</h3>
+<pre>WIN  : className="bg-profit/15 text-profit border-profit/20 hover:bg-profit/20"
+LOSS : className="bg-loss/15 text-loss border-loss/20 hover:bg-loss/20"
+BE   : className="bg-gold/15 text-gold border-gold/20 hover:bg-gold/20"
+LONG : className="bg-profit/15 text-profit border-profit/20"
+SHORT: className="bg-loss/15 text-loss border-loss/20"</pre>
+
+<h3>5.4 Dialog</h3>
+<pre>Overlay : fixed inset-0 z-50 bg-black/50
+Content : bg-background fixed center z-50 rounded-lg border p-6 shadow-lg
+           animate-in fade-in-0 zoom-in-95 / animate-out fade-out-0 zoom-out-95
+Tailles : sm:max-w-md (delete), sm:max-w-lg (notes), sm:max-w-2xl (trade form), sm:max-w-5xl (trade detail)</pre>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>6. Grilles Responsives</h2>
+
+<table>
+<tr><th>Pattern</th><th>Classes</th><th>Usage</th></tr>
+<tr><td>Stats 4 colonnes</td><td><code>grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4</code></td><td>Execution, Distribution</td></tr>
+<tr><td>Metrics 5 colonnes</td><td><code>grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3</code></td><td>Dashboard</td></tr>
+<tr><td>Deux colonnes</td><td><code>grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6</code></td><td>Setup, Charts</td></tr>
+<tr><td>Graphiques</td><td><code>grid grid-cols-1 lg:grid-cols-2 gap-4</code></td><td>Distribution, Timing</td></tr>
+<tr><td>Trois colonnes</td><td><code>grid grid-cols-1 md:grid-cols-3 gap-4</code></td><td>Timing</td></tr>
+<tr><td>Formulaire</td><td><code>grid grid-cols-1 sm:grid-cols-2 gap-4</code></td><td>Trade form</td></tr>
+<tr><td>Parametres</td><td><code>grid grid-cols-2 sm:grid-cols-3 gap-3</code></td><td>Trade detail</td></tr>
+<tr><td>Categories</td><td><code>grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3</code></td><td>Videos</td></tr>
+</table>
+
+<p><strong>Breakpoints</strong> : sm=640px, md=768px, lg=1024px</p>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>7. Effets Visuels</h2>
+
+<h3>7.1 Ombres</h3>
+<table>
+<tr><th>Classe</th><th>Usage</th></tr>
+<tr><td><code>shadow-sm</code></td><td>Cartes par defaut</td></tr>
+<tr><td><code>shadow-xs</code></td><td>Boutons</td></tr>
+<tr><td><code>shadow-md</code></td><td>Nav active</td></tr>
+<tr><td><code>shadow-lg</code></td><td>Dialogs, CTA, carte etendue</td></tr>
+<tr><td><code>shadow-primary/20</code></td><td>Ombre coloree nav active, CTA</td></tr>
+<tr><td><code>shadow-primary/10</code></td><td>Categorie active</td></tr>
+</table>
+
+<h3>7.2 Blur & Glass</h3>
+<pre>Header      : bg-background/80 backdrop-blur-sm
+Glass class : backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+Mobile      : bg-black/50</pre>
+
+<h3>7.3 Gradients</h3>
+<pre>Auth gauche     : bg-gradient-to-br from-primary/10 via-transparent to-primary/5
+Texte gradient   : bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent
+Video thumbnail  : bg-gradient-to-br from-primary/20 to-primary/5
+Screenshot overlay: bg-gradient-to-t from-black/70 to-transparent
+Area chart fill  : SVG linearGradient, color opacity 0.3 → 0</pre>
+
+<h3>7.4 Progress bars</h3>
+<pre>Standard : h-1.5, track bg-primary/20, fill bg-primary, transition-all duration-500
+Top line : h-1, meme pattern
+Upload   : h-2</pre>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>8. Etats Interactifs</h2>
+
+<h3>8.1 Navigation</h3>
+<pre>Active  : bg-primary text-primary-foreground shadow-md shadow-primary/20
+Inactive: text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
+Bouton  : w-full flex items-center rounded-lg gap-3 px-3 py-2.5 text-sm font-medium transition-all duration-200</pre>
+
+<h3>8.2 Cartes</h3>
+<pre>Cliquable    : hover:border-primary/30 transition-colors cursor-pointer
+Avec fond    : hover:bg-primary/5 ou hover:bg-muted/50
+Trade row    : hover:bg-muted/50 transition-colors cursor-pointer
+Suppression  : hover:text-destructive hover:bg-destructive/10 transition-colors</pre>
+
+<h3>8.3 Toggle direction</h3>
+<pre>LONG on  : data-[state=on]:bg-profit/15 data-[state=on]:text-profit data-[state=on]:border-profit/30
+SHORT on : data-[state=on]:bg-loss/15 data-[state=on]:text-loss data-[state=on]:border-loss/30</pre>
+
+<h3>8.4 Categorie/tab active</h3>
+<pre>Active  : border-primary bg-primary/10 shadow-lg shadow-primary/10
+Inactive: border-border hover:border-primary/30 bg-card</pre>
+
+<h3>8.5 Focus & disabled</h3>
+<pre>Focus   : focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]
+Disabled: disabled:pointer-events-none disabled:opacity-50
+Field   : .trade-field:focus-within { transform: translateY(-1px); box-shadow: 0 4px 12px ... }</pre>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>9. Icones et Conteneurs</h2>
+
+<h3>9.1 Tailles Lucide</h3>
+<table>
+<tr><th>Classes</th><th>Taille</th><th>Usage</th></tr>
+<tr><td><code>w-4 h-4</code></td><td>16px</td><td>Nav, boutons, inline, badges</td></tr>
+<tr><td><code>w-3.5 h-3.5</code></td><td>14px</td><td>Petits boutons, filtres</td></tr>
+<tr><td><code>w-3 h-3</code></td><td>12px</td><td>Badge icons, indicateurs</td></tr>
+<tr><td><code>w-5 h-5</code></td><td>20px</td><td>Dialog, auth, menu mobile</td></tr>
+<tr><td><code>w-8 h-8</code></td><td>32px</td><td>Phase icons, dialog title</td></tr>
+<tr><td><code>w-12 h-12</code></td><td>48px</td><td>Empty states, play button</td></tr>
+</table>
+
+<h3>9.2 Conteneur icone standard</h3>
+<pre>w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center</pre>
+<p>Variantes : <code>bg-profit/10</code>, <code>bg-loss/10</code>, <code>bg-gold/10</code>, <code>w-7 h-7 rounded-full</code>, <code>w-10 h-10 rounded-xl</code></p>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>10. Patterns Specifiques</h2>
+
+<h3>10.1 Badges trading</h3>
+<pre>Resultat trade :
+  &lt;Badge className="bg-profit/15 text-profit border-profit/20 hover:bg-profit/20"&gt;WIN&lt;/Badge&gt;
+  &lt;Badge className="bg-loss/15 text-loss border-loss/20 hover:bg-loss/20"&gt;LOSS&lt;/Badge&gt;
+  &lt;Badge className="bg-gold/15 text-gold border-gold/20 hover:bg-gold/20"&gt;BE&lt;/Badge&gt;
+
+Direction :
+  &lt;Badge className="bg-profit/15 text-profit border-profit/20"&gt;LONG&lt;/Badge&gt;
+  &lt;Badge className="bg-loss/15 text-loss border-loss/20"&gt;SHORT&lt;/Badge&gt;</pre>
+
+<h3>10.2 Screenshot overlay</h3>
+<pre>&lt;div className="group relative aspect-video rounded-xl overflow-hidden border border-border 
+  hover:border-foreground/30 transition-all duration-200"&gt;
+  &lt;img className="group-hover:scale-105 transition-transform duration-200" /&gt;
+  &lt;div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors 
+    flex items-center justify-center"&gt;
+    &lt;Eye className="opacity-0 group-hover:opacity-100 transition-opacity" /&gt;
+  &lt;/div&gt;
+  &lt;div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 
+    to-transparent p-2"&gt;
+    &lt;span className="text-xs text-white font-medium uppercase tracking-wider"&gt;Label&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+
+<h3>10.3 Empty state</h3>
+<pre>&lt;Card className="p-12 text-center"&gt;
+  &lt;Icon className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" /&gt;
+  &lt;p className="text-muted-foreground"&gt;{message}&lt;/p&gt;
+  &lt;p className="text-sm text-muted-foreground/70 mt-1"&gt;{subMessage}&lt;/p&gt;
+  &lt;Button variant="outline" className="mt-4 gap-2"&gt;
+    &lt;Plus className="w-4 h-4" /&gt; {actionText}
+  &lt;/Button&gt;
+&lt;/Card&gt;</pre>
+
+<h3>10.4 Donnees conditionnelles</h3>
+<pre>className={cn("text-2xl font-bold font-mono", value >= 0 ? "text-profit" : "text-loss")}
+{value >= 0 ? "+" : ""}{value.toFixed(1)}</pre>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>11. Mode Sombre/Clair</h2>
+
+<h3>11.1 Mecanisme</h3>
+<p>Toggle via la classe <code>.dark</code> sur l'element <code>&lt;html&gt;</code>, gere par <code>next-themes</code>.</p>
+
+<h3>11.2 Regles d'inversion</h3>
+<table>
+<tr><th>Element</th><th>Clair</th><th>Sombre</th></tr>
+<tr><td>primary</td><td>Noir (oklch 0.15)</td><td>Blanc (oklch 0.92)</td></tr>
+<tr><td>primary-foreground</td><td>Blanc</td><td>Noir</td></tr>
+<tr><td>background</td><td>oklch 0.985</td><td>oklch 0.1</td></tr>
+<tr><td>card</td><td>oklch 0.995</td><td>oklch 0.14</td></tr>
+<tr><td>border</td><td>oklch 0.88</td><td>oklch 0.22</td></tr>
+<tr><td>muted</td><td>oklch 0.95</td><td>oklch 0.2</td></tr>
+<tr><td>profit</td><td>oklch 0.65 (chroma 0.2)</td><td>oklch 0.72 (chroma 0.22) — plus lumineux</td></tr>
+<tr><td>loss</td><td>oklch 0.6 (chroma 0.22)</td><td>oklch 0.65 (chroma 0.24) — plus lumineux</td></tr>
+</table>
+
+<div class="note">
+  <strong>Regle cle :</strong> Les couleurs domain (profit, loss, gold, emerald) augmentent leur luminosite et chroma en mode sombre pour maintenir le contraste et la lisibilite sur fond noir.
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>12. CSS Global Custom</h2>
+
+<h3>12.1 Scrollbar</h3>
+<pre>::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: oklch(0.5 0 0 / 30%); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: oklch(0.5 0 0 / 50%); }</pre>
+
+<h3>12.2 Transitions globales</h3>
+<pre>* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}</pre>
+
+<h3>12.3 Effets custom</h3>
+<pre>.metric-glow { box-shadow: 0 0 20px oklch(0.5 0 0 / 8%); }
+
+.metric-glossy {
+  background: linear-gradient(135deg, oklch(0.97 0 0 / 80%), oklch(0.93 0 0 / 90%));
+  border: 1px solid oklch(0.75 0 0 / 50%);
+}
+.dark .metric-glossy {
+  background: linear-gradient(135deg, oklch(0.18 0 0 / 80%), oklch(0.13 0 0 / 90%));
+  border: 1px solid oklch(0.35 0 0 / 40%);
+}
+
+.trade-field:focus-within {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px oklch(0.9 0 0 / 10%);
+}</pre>
+
+<h3>12.4 Recharts tooltip</h3>
+<pre>contentStyle={{
+  backgroundColor: "var(--popover)",
+  border: "1px solid var(--border)",
+  borderRadius: "8px",
+  color: "var(--popover-foreground)",
+}}</pre>
+
+<h3>12.5 Radius system</h3>
+<pre>--radius: 0.625rem (10px)
+--radius-sm: calc(var(--radius) - 4px) = 6px
+--radius-md: calc(var(--radius) - 2px) = 8px
+--radius-lg: var(--radius) = 10px
+--radius-xl: calc(var(--radius) + 4px) = 14px</pre>
+
+<p>Usage : <code>rounded-md</code> (boutons, badges), <code>rounded-lg</code> (nav, inputs), <code>rounded-xl</code> (cartes, icones), <code>rounded-full</code> (avatars, indicateurs)</p>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="section-divider"></div>
+<h2>13. Stack Technique Recommandee</h2>
+
+<table>
+<tr><th>Categorie</th><th>Technologie</th></tr>
+<tr><td>Framework</td><td>Next.js 16 (App Router)</td></tr>
+<tr><td>Langage</td><td>TypeScript 5</td></tr>
+<tr><td>Styling</td><td>Tailwind CSS 4</td></tr>
+<tr><td>Composants UI</td><td>shadcn/ui (New York style)</td></tr>
+<tr><td>Icones</td><td>Lucide React</td></tr>
+<tr><td>State client</td><td>Zustand</td></tr>
+<tr><td>State serveur</td><td>TanStack Query</td></tr>
+<tr><td>Graphiques</td><td>Recharts</td></tr>
+<tr><td>Theme</td><td>next-themes (dark mode)</td></tr>
+<tr><td>Notifications</td><td>Sonner (toast)</td></tr>
+<tr><td>Animations</td><td>tw-animate-css + transitions CSS</td></tr>
+<tr><td>Polices</td><td>Geist Sans + Geist Mono</td></tr>
+<tr><td>ORM</td><td>Prisma</td></tr>
+<tr><td>Auth</td><td>NextAuth.js v4 + JWT</td></tr>
+</table>
+
+</body>
+</html>

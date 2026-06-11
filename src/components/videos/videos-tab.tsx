@@ -238,38 +238,7 @@ export function VideosTab() {
   );
 }
 
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB per chunk (smaller = more reliable on slow connections)
-
-/** Upload a single chunk via XHR to get real-time progress events */
-function uploadChunkViaXHR(
-  fd: FormData,
-  onProgress: (pct: number) => void
-): Promise<{ ok: boolean; status: number; data: any }> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    // Use XTransformPort=3000 to route through Caddy's zero-timeout handler
-    xhr.open("POST", "/api/videos/upload/chunk?XTransformPort=3000");
-    xhr.withCredentials = true;
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
-      }
-    };
-
-    xhr.onload = () => {
-      let data: any = null;
-      try { data = JSON.parse(xhr.responseText); } catch {}
-      resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, data });
-    };
-
-    xhr.onerror = () => reject(new Error("Network error"));
-    xhr.ontimeout = () => reject(new Error("Request timed out"));
-    xhr.timeout = 15 * 60 * 1000; // 15 min timeout per chunk (for slow connections)
-
-    xhr.send(fd);
-  });
-}
+const MAX_VIDEO_SIZE = 500 * 1024 * 1024; // 500 MB
 
 function AddVideoDialog({
   open,
@@ -290,7 +259,6 @@ function AddVideoDialog({
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState("");
 
   const handleSubmit = async () => {
     if (!title || !file) {
@@ -300,119 +268,89 @@ function AddVideoDialog({
     setIsSubmitting(true);
     setUploadProgress(0);
 
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
     try {
-      // Step 1: Initialize chunked upload (via XTransformPort for zero timeout)
-      setUploadStatus(language === "fr" ? "Initialisation..." : "Initializing...");
-      const initRes = await fetch("/api/videos/upload/init?XTransformPort=3000", {
+      // Step 1: Get a signed upload URL from our server
+      const signRes = await fetch("/api/videos/sign-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name, category: selectedCategory }),
+      });
+      if (!signRes.ok) {
+        const data = await signRes.json();
+        throw new Error(data.error || "Failed to get upload credentials");
+      }
+      const { signature, timestamp, folder, publicId, apiKey, cloudName } = await signRes.json();
+
+      // Step 2: Upload directly to Cloudinary from the client
+      setUploadProgress(5);
+      const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/video/upload`;
+      const cloudinaryFormData = new FormData();
+      cloudinaryFormData.append("file", file);
+      cloudinaryFormData.append("api_key", apiKey);
+      cloudinaryFormData.append("timestamp", timestamp);
+      cloudinaryFormData.append("signature", signature);
+      cloudinaryFormData.append("folder", folder);
+      cloudinaryFormData.append("public_id", publicId);
+
+      const cloudinaryResult: string = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", cloudinaryUrl);
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 95));
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              resolve(data.secure_url);
+            } catch {
+              reject(new Error("Invalid Cloudinary response"));
+            }
+          } else {
+            reject(new Error(language === "fr" ? "Erreur Cloudinary" : "Cloudinary upload failed"));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error"));
+        xhr.timeout = 30 * 60 * 1000;
+        xhr.ontimeout = () => reject(new Error(language === "fr" ? "Délai d'attente dépassé" : "Request timed out"));
+        xhr.send(cloudinaryFormData);
+      });
+
+      // Step 3: Save the video record to our database
+      setUploadProgress(97);
+      const saveRes = await fetch("/api/videos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          filename: file.name,
-          totalSize: file.size,
-          totalChunks,
-          category: selectedCategory,
           title,
-          description,
+          category: selectedCategory,
+          description: description || null,
+          url: cloudinaryResult,
         }),
       });
 
-      if (!initRes.ok) {
-        const data = await initRes.json();
-        throw new Error(data.error || "Init failed");
+      if (!saveRes.ok) {
+        const data = await saveRes.json();
+        throw new Error(data.error || "Failed to save video record");
       }
 
-      const { uploadId } = await initRes.json();
-
-      // Step 2: Upload each chunk using XHR for real-time progress
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, file.size);
-        const chunkBlob = file.slice(start, end);
-
-        setUploadStatus(
-          language === "fr"
-            ? `Upload du morceau ${i + 1}/${totalChunks}...`
-            : `Uploading chunk ${i + 1}/${totalChunks}...`
-        );
-
-        const fd = new FormData();
-        fd.append("uploadId", uploadId);
-        fd.append("chunkIndex", i.toString());
-        fd.append("chunk", chunkBlob, file.name);
-
-        // Upload chunk with retry (up to 3 attempts) using XHR
-        let chunkSuccess = false;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            const result = await uploadChunkViaXHR(fd, (chunkPct) => {
-              // Progress for this chunk = base progress + (chunk progress / total chunks)
-              const basePct = Math.round((i / totalChunks) * 100);
-              const chunkContrib = Math.round((chunkPct / 100) * (100 / totalChunks));
-              setUploadProgress(Math.min(basePct + chunkContrib, 99));
-            });
-
-            if (result.ok) {
-              chunkSuccess = true;
-              break;
-            }
-
-            if (attempt === 3) {
-              throw new Error(result.data?.error || `Chunk ${i + 1} failed (HTTP ${result.status})`);
-            }
-          } catch (err: any) {
-            if (attempt === 3) throw err;
-            // Wait before retry (exponential backoff)
-            setUploadStatus(
-              language === "fr"
-                ? `Nouvel essai morceau ${i + 1} (tentative ${attempt + 1}/3)...`
-                : `Retrying chunk ${i + 1} (attempt ${attempt + 1}/3)...`
-            );
-            await new Promise((r) => setTimeout(r, 1000 * attempt));
-          }
-        }
-
-        if (!chunkSuccess) {
-          throw new Error(`Chunk ${i + 1} failed after 3 attempts`);
-        }
-
-        // Update progress after chunk completes
-        const pct = Math.round(((i + 1) / totalChunks) * 100);
-        setUploadProgress(pct);
-      }
-
-      // Step 3: Complete the upload (assemble chunks on server)
-      setUploadStatus(language === "fr" ? "Assemblage de la vidéo..." : "Assembling video...");
       setUploadProgress(100);
-      const completeRes = await fetch("/api/videos/upload/complete?XTransformPort=3000", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ uploadId }),
-      });
-
-      if (!completeRes.ok) {
-        const data = await completeRes.json();
-        throw new Error(data.error || "Assembly failed");
-      }
-
       toast.success(language === "fr" ? "Vidéo ajoutée !" : "Video added!");
       onOpenChange(false);
       setTitle("");
       setDescription("");
       setFile(null);
       setUploadProgress(0);
-      setUploadStatus("");
       onVideoAdded();
     } catch (err: any) {
       toast.error(err.message || (language === "fr" ? "Erreur lors de l'upload" : "Upload failed"));
     }
     setIsSubmitting(false);
-    // Don't reset progress immediately so user can see where it failed
-    setTimeout(() => {
-      setUploadProgress(0);
-      setUploadStatus("");
-    }, 3000);
   };
 
   return (
@@ -455,7 +393,7 @@ function AddVideoDialog({
             {file && (
               <p className="text-[10px] text-muted-foreground mt-1">
                 {(file.size / 1024 / 1024).toFixed(1)} Mo
-                {file.size > 500 * 1024 * 1024 && (
+                {file.size > MAX_VIDEO_SIZE && (
                   <span className="text-red-500 ml-1">
                     {language === "fr" ? "(dépasse 500 Mo !)" : "(exceeds 500 MB!)"}
                   </span>
@@ -466,7 +404,7 @@ function AddVideoDialog({
           {isSubmitting && (
             <div className="space-y-1">
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{uploadStatus || (language === "fr" ? "Upload en cours..." : "Uploading...")}</span>
+                <span>{language === "fr" ? "Upload en cours..." : "Uploading..."}</span>
                 <span>{uploadProgress}%</span>
               </div>
               <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
@@ -480,7 +418,7 @@ function AddVideoDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>{t(language, "cancel")}</Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || (!!file && file.size > 500 * 1024 * 1024)}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || (!!file && file.size > MAX_VIDEO_SIZE)}>
             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 mr-1" />}
             {t(language, "save")}
           </Button>

@@ -61,7 +61,11 @@ export async function uploadFile(
     // Remove file extension from public_id (Cloudinary uses it as the resource identifier)
     const publicIdNoExt = publicId.replace(/\.[^.]+$/, '');
 
-    const result = await cloudinary.uploader.upload(
+    // Use upload_large for files > 20MB (uses chunked upload internally)
+    const fileSizeMB = buffer.length / (1024 * 1024);
+    const uploadFn = fileSizeMB > 20 ? cloudinary.uploader.upload_large : cloudinary.uploader.upload;
+
+    const result = await uploadFn(
       `data:${contentType};base64,${buffer.toString('base64')}`,
       {
         folder,

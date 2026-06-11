@@ -3,6 +3,10 @@ import { db } from '@/lib/db';
 import { getAuthUser, isAdmin } from '@/lib/auth';
 import { uploadFile, isStorageConfigured } from '@/lib/storage';
 
+// Allow large video uploads (up to 500MB)
+export const maxDuration = 300; // 5 minutes timeout for Vercel
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const result = await getAuthUser();
@@ -52,17 +56,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-    const title = formData.get('title') as string | null;
-    const category = formData.get('category') as string | null;
-    const description = formData.get('description') as string | null;
+    const contentType = request.headers.get('content-type') || '';
 
-    if (!file) {
-      return NextResponse.json(
-        { error: 'Fichier vidéo requis' },
-        { status: 400 }
-      );
+    let title: string | null = null;
+    let category: string | null = null;
+    let description: string | null = null;
+    let fileUrl: string | null = null;
+
+    if (contentType.includes('application/json')) {
+      // JSON body: client already uploaded to Cloudinary, just save the record
+      const body = await request.json();
+      title = body.title;
+      category = body.category;
+      description = body.description || null;
+      fileUrl = body.url;
+    } else {
+      // FormData: server-side upload (fallback for local storage)
+      const formData = await request.formData();
+      const file = formData.get('file') as File | null;
+      title = formData.get('title') as string | null;
+      category = formData.get('category') as string | null;
+      description = formData.get('description') as string | null;
+
+      if (!file) {
+        return NextResponse.json(
+          { error: 'Fichier vidéo requis' },
+          { status: 400 }
+        );
+      }
+
+      // Generate unique filename
+      const ext = file.name.split('.').pop() || 'mp4';
+      const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
+
+      // Read file data
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+
+      if (isStorageConfigured()) {
+        const storageKey = `videos/${filename}`;
+        const mimeType = ext.toLowerCase() === 'webm' ? 'video/webm' : 'video/mp4';
+        fileUrl = await uploadFile(storageKey, buffer, mimeType);
+      } else {
+        // Fallback: local filesystem
+        const path = await import('path');
+        const fs = await import('fs/promises');
+        const uploadDir = path.join(process.cwd(), 'upload', 'videos');
+        await fs.mkdir(uploadDir, { recursive: true });
+        const filepath = path.join(uploadDir, filename);
+        await fs.writeFile(filepath, buffer);
+        fileUrl = `upload/videos/${filename}`;
+      }
     }
 
     if (!title || !category) {
@@ -72,37 +116,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!fileUrl) {
+      return NextResponse.json(
+        { error: 'URL du fichier requise' },
+        { status: 400 }
+      );
+    }
+
     if (!['STRUCTURE', 'BIAIS', 'ZONES', 'MODELS', 'SETUPS'].includes(category)) {
       return NextResponse.json(
         { error: 'Catégorie invalide' },
         { status: 400 }
       );
-    }
-
-    // Generate unique filename
-    const ext = file.name.split('.').pop() || 'mp4';
-    const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
-
-    // Read file data
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    let fileUrl: string;
-
-    if (isStorageConfigured()) {
-      // Upload to Cloudflare R2
-      const storageKey = `videos/${filename}`;
-      const contentType = ext.toLowerCase() === 'webm' ? 'video/webm' : 'video/mp4';
-      fileUrl = await uploadFile(storageKey, buffer, contentType);
-    } else {
-      // Fallback: local filesystem
-      const path = await import('path');
-      const fs = await import('fs/promises');
-      const uploadDir = path.join(process.cwd(), 'upload', 'videos');
-      await fs.mkdir(uploadDir, { recursive: true });
-      const filepath = path.join(uploadDir, filename);
-      await fs.writeFile(filepath, buffer);
-      fileUrl = `upload/videos/${filename}`;
     }
 
     // Save video record

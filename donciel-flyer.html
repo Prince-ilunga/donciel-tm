@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>DONCIEL TM - Journal de Trading Professionnel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    @page { size: A4; margin: 0; }
+
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #0B0F1A;
+      --gold: #D4AF37;
+      --gold-light: #F5D76E;
+      --gold-dark: #A8872B;
+      --text: #F0F0F0;
+      --text2: rgba(240, 240, 240, 0.65);
+      --text3: rgba(240, 240, 240, 0.35);
+      --border: rgba(212, 175, 55, 0.15);
+      --border2: rgba(212, 175, 55, 0.30);
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Poster container: exact A4 at 96 DPI ── */
+    .poster {
+      position: relative;
+      width: 794px;
+      height: 1123px;
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    /* ── Subtle radial glow top-right ── */
+    .glow-tr {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 360px;
+      height: 360px;
+      background: radial-gradient(circle at top right, rgba(212,175,55,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Subtle radial glow bottom-left ── */
+    .glow-bl {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 260px;
+      height: 260px;
+      background: radial-gradient(circle at bottom left, rgba(212,175,55,0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── Grid pattern ── */
+    .grid-bg {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(212,175,55,0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212,175,55,0.018) 1px, transparent 1px);
+      background-size: 36px 36px;
+      pointer-events: none;
+    }
+
+    /* ── Corner brackets ── */
+    .corner { position: absolute; width: 28px; height: 28px; pointer-events: none; z-index: 2; }
+    .c-tl { top: 20px; left: 20px; border-top: 1.5px solid rgba(212,175,55,0.18); border-left: 1.5px solid rgba(212,175,55,0.18); }
+    .c-tr { top: 20px; right: 20px; border-top: 1.5px solid rgba(212,175,55,0.18); border-right: 1.5px solid rgba(212,175,55,0.18); }
+    .c-bl { bottom: 20px; left: 20px; border-bottom: 1.5px solid rgba(212,175,55,0.18); border-left: 1.5px solid rgba(212,175,55,0.18); }
+    .c-br { bottom: 20px; right: 20px; border-bottom: 1.5px solid rgba(212,175,55,0.18); border-right: 1.5px solid rgba(212,175,55,0.18); }
+
+    /* ── Horizontal accent lines ── */
+    .hline { position: absolute; height: 1px; pointer-events: none; }
+    .hline-1 { top: 52px; right: 0; width: 200px; background: linear-gradient(90deg, transparent, rgba(212,175,55,0.12), transparent); }
+    .hline-2 { bottom: 56px; left: 0; width: 200px; background: linear-gradient(90deg, transparent, rgba(212,175,55,0.10), transparent); }
+
+    /* ── Content ── */
+    .content {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 56px 32px;
+    }
+
+    /* ── Top bar ── */
+    .top-bar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .top-label { font-size: 9px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--text3); }
+    .top-ver   { font-size: 9px; font-weight: 500; letter-spacing: 2px; color: var(--text3); }
+
+    /* ── Hero ── */
+    .hero { text-align: center; margin-bottom: 24px; }
+
+    .logo-mark {
+      width: 72px; height: 72px;
+      margin: 0 auto 18px;
+      background: linear-gradient(135deg, rgba(212,175,55,0.10) 0%, rgba(212,175,55,0.03) 100%);
+      border: 1.5px solid var(--border2);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 50px rgba(212,175,55,0.07), inset 0 1px 0 rgba(212,175,55,0.08);
+    }
+    .logo-mark span {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 38px; font-weight: 700;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    .brand-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 48px; font-weight: 700; letter-spacing: 6px;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 45%, var(--gold) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      line-height: 1; margin-bottom: 4px;
+    }
+    .brand-name sup { font-size: 14px; letter-spacing: 0; vertical-align: super; line-height: 0; }
+
+    .tagline {
+      font-size: 13px; font-weight: 400; letter-spacing: 4px; text-transform: uppercase;
+      color: var(--text2); margin-top: 8px;
+    }
+    .tagline-en {
+      font-size: 10px; font-weight: 300; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--text3); margin-top: 3px;
+    }
+
+    /* ── Divider ── */
+    .divider { width: 50px; height: 1.5px; background: linear-gradient(90deg, transparent, var(--gold), transparent); margin: 22px auto; }
+
+    /* ── Features ── */
+    .features-section { width: 100%; margin-bottom: 18px; }
+    .features-label {
+      font-size: 9px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase;
+      color: var(--gold-dark); text-align: center; margin-bottom: 14px;
+    }
+    .features-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%;
+    }
+    .feature-card {
+      padding: 12px 14px;
+      background: rgba(212,175,55,0.025);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .feature-icon {
+      width: 32px; height: 32px; flex-shrink: 0;
+      background: rgba(212,175,55,0.07);
+      border: 1px solid rgba(212,175,55,0.10);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .feature-icon svg {
+      width: 16px; height: 16px; stroke: var(--gold); fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .feature-info { flex: 1; }
+    .feature-title { font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 2px; letter-spacing: 0.2px; }
+    .feature-desc { font-size: 9.5px; font-weight: 400; color: var(--text2); line-height: 1.35; }
+
+    .feature-card-full {
+      grid-column: 1 / -1;
+      padding: 10px 14px;
+      background: rgba(212,175,55,0.025);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    /* ── Stats ── */
+    .stats-row {
+      width: 100%;
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+      margin-bottom: 18px;
+    }
+    .stat-card {
+      padding: 12px 10px;
+      background: linear-gradient(135deg, rgba(212,175,55,0.05) 0%, rgba(212,175,55,0.01) 100%);
+      border: 1px solid var(--border);
+      border-radius: 10px; text-align: center;
+    }
+    .stat-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 20px; font-weight: 700; color: var(--gold); line-height: 1;
+    }
+    .stat-label { font-size: 8.5px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text2); margin-top: 5px; }
+
+    /* ── CTA ── */
+    .cta-section {
+      width: 100%;
+      background: linear-gradient(135deg, rgba(212,175,55,0.07) 0%, rgba(212,175,55,0.02) 100%);
+      border: 1.5px solid var(--border2);
+      border-radius: 14px;
+      padding: 22px 28px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .cta-label {
+      font-size: 9px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase;
+      color: var(--gold-dark); margin-bottom: 10px;
+    }
+    .cta-url {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 18px; font-weight: 600; color: var(--gold-light);
+      letter-spacing: 0.5px; margin-bottom: 8px;
+    }
+    .cta-box {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px; font-weight: 500; color: var(--gold);
+      letter-spacing: 0.4px;
+      background: rgba(212,175,55,0.05);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 18px;
+      display: inline-block;
+    }
+
+    /* ── QR visual ── */
+    .qr-area { display: flex; justify-content: center; margin-top: 12px; }
+    .qr-box {
+      width: 76px; height: 76px; background: #fff; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .qr-inner {
+      width: 62px; height: 62px;
+      display: grid; grid-template-columns: repeat(9,1fr); grid-template-rows: repeat(9,1fr); gap: 0.5px;
+    }
+    .qc { background: #0B0F1A; border-radius: 0.3px; }
+    .qw { background: #FFFFFF; }
+
+    /* ── Bottom info ── */
+    .bottom-row {
+      width: 100%;
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid rgba(212,175,55,0.06);
+      margin-top: auto;
+    }
+    .bottom-left  { font-size: 8px; font-weight: 400; color: var(--text3); letter-spacing: 1px; }
+    .bottom-right { font-size: 8px; font-weight: 500; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; }
+
+    /* ── Bilingual ── */
+    .lang-row { display: flex; justify-content: center; gap: 16px; margin-bottom: 12px; }
+    .lang-badge {
+      font-size: 8px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--text3); padding: 3px 10px; border: 1px solid rgba(255,255,255,0.05); border-radius: 16px;
+    }
+    .lang-badge.active { color: var(--gold); border-color: var(--border); }
+  </style>
+</head>
+<body>
+  <div class="poster">
+    <div class="glow-tr"></div>
+    <div class="glow-bl"></div>
+    <div class="grid-bg"></div>
+    <div class="hline hline-1"></div>
+    <div class="hline hline-2"></div>
+    <div class="corner c-tl"></div>
+    <div class="corner c-tr"></div>
+    <div class="corner c-bl"></div>
+    <div class="corner c-br"></div>
+
+    <div class="content">
+      <!-- Top bar -->
+      <div class="top-bar">
+        <span class="top-label">Application de Trading</span>
+        <span class="top-ver">v1.0</span>
+      </div>
+
+      <!-- Hero -->
+      <div class="hero">
+        <div class="logo-mark"><span>D</span></div>
+        <div class="brand-name">DONCIEL<sup>TM</sup></div>
+        <div class="tagline">Journal de Trading Professionnel</div>
+        <div class="tagline-en">Professional Trading Journal</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Features -->
+      <div class="features-section">
+        <div class="features-label">Fonctionnalites</div>
+        <div class="features-grid">
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></div>
+            <div class="feature-info">
+              <div class="feature-title">Tableau de Bord</div>
+              <div class="feature-desc">Statistiques en temps reel et indicateurs cles</div>
+            </div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+            <div class="feature-info">
+              <div class="feature-title">Journal de Trading</div>
+              <div class="feature-desc">Suivi complet de vos executions et analyses</div>
+            </div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+            <div class="feature-info">
+              <div class="feature-title">Analyse Temporelle</div>
+              <div class="feature-desc">Optimisez vos heures de trading</div>
+            </div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></div>
+            <div class="feature-info">
+              <div class="feature-title">Distribution RR</div>
+              <div class="feature-desc">Visualisation du Risk/Reward en detail</div>
+            </div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
+            <div class="feature-info">
+              <div class="feature-title">Videos & Setups</div>
+              <div class="feature-desc">Videos educatives et gestion de setups</div>
+            </div>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+            <div class="feature-info">
+              <div class="feature-title">Notes & Export PDF</div>
+              <div class="feature-desc">Notes detaillees et export integre</div>
+            </div>
+          </div>
+          <div class="feature-card-full">
+            <div class="feature-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+            <div class="feature-info">
+              <div class="feature-title">Gestion des Roles & Administration</div>
+              <div class="feature-desc">Verification admin, gestion des utilisateurs et controle d'acces avance</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-value">FX</div>
+          <div class="stat-label">Forex</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">CR</div>
+          <div class="stat-label">Crypto</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">FR / EN</div>
+          <div class="stat-label">Bilingue</div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta-section">
+        <div class="cta-label">Commencez Maintenant</div>
+        <div class="cta-url">donciel-trading.vercel.app</div>
+        <div class="cta-box">https://donciel-trading.vercel.app</div>
+        <div class="qr-area">
+          <div class="qr-box">
+            <div class="qr-inner">
+              <div class="qc"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qc"></div>
+              <div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div>
+              <div class="qc"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div>
+              <div class="qw"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div>
+              <div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qc" style="background:#D4AF37;border-radius:1px;"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div>
+              <div class="qw"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div>
+              <div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qc"></div>
+              <div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div>
+              <div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div><div class="qw"></div><div class="qc"></div><div class="qc"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bilingual -->
+      <div class="lang-row">
+        <span class="lang-badge active">Francais</span>
+        <span class="lang-badge">English</span>
+      </div>
+
+      <!-- Bottom -->
+      <div class="bottom-row">
+        <span class="bottom-left">DONCIEL TM - Tous droits reserves</span>
+        <span class="bottom-right">Mode Sombre / Clair</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

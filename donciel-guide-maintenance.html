@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guide de Maintenance - DONCIEL TM</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 20mm;
+    }
+
+    @media print {
+      .page-break { page-break-before: always; }
+      .avoid-break { page-break-inside: avoid; }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #1a1a2e;
+      background: #ffffff;
+    }
+
+    /* ── Cover Page ── */
+    .cover {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      color: #ffffff;
+      page-break-after: always;
+      padding: 40mm 20mm;
+    }
+
+    .cover-logo {
+      font-size: 48pt;
+      font-weight: 800;
+      letter-spacing: 12px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .cover-subtitle {
+      font-size: 18pt;
+      font-weight: 300;
+      letter-spacing: 3px;
+      margin-bottom: 40px;
+      color: #b8b8d0;
+    }
+
+    .cover-divider {
+      width: 120px;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #7c6ff7, transparent);
+      margin: 30px auto;
+    }
+
+    .cover-title {
+      font-size: 24pt;
+      font-weight: 600;
+      margin-top: 20px;
+      color: #ffffff;
+    }
+
+    .cover-date {
+      font-size: 12pt;
+      color: #9898b8;
+      margin-top: 30px;
+      letter-spacing: 1px;
+    }
+
+    .cover-version {
+      font-size: 10pt;
+      color: #7878a0;
+      margin-top: 10px;
+    }
+
+    /* ── Table of Contents ── */
+    .toc {
+      padding: 0;
+    }
+
+    .toc h2 {
+      font-size: 22pt;
+      color: #302b63;
+      border-bottom: 3px solid #7c6ff7;
+      padding-bottom: 10px;
+      margin-bottom: 30px;
+    }
+
+    .toc-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .toc-list li {
+      padding: 8px 0;
+      border-bottom: 1px dotted #d0d0e0;
+      font-size: 12pt;
+    }
+
+    .toc-list li a {
+      text-decoration: none;
+      color: #302b63;
+    }
+
+    .toc-list li .toc-section {
+      font-weight: 700;
+      color: #7c6ff7;
+      margin-right: 10px;
+    }
+
+    .toc-list li .toc-sub {
+      padding-left: 30px;
+      font-size: 11pt;
+      color: #555;
+      border-bottom: none;
+    }
+
+    /* ── Section Headers ── */
+    .part-header {
+      background: linear-gradient(135deg, #302b63, #24243e);
+      color: #ffffff;
+      padding: 30px 40px;
+      margin: 0 -20mm 30px -20mm;
+      padding-left: 20mm;
+      padding-right: 20mm;
+    }
+
+    .part-header h1 {
+      font-size: 26pt;
+      font-weight: 800;
+      letter-spacing: 2px;
+    }
+
+    .part-header p {
+      font-size: 12pt;
+      color: #b8b8d0;
+      margin-top: 8px;
+    }
+
+    h2 {
+      font-size: 18pt;
+      color: #302b63;
+      border-bottom: 2px solid #7c6ff7;
+      padding-bottom: 8px;
+      margin-top: 30px;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-size: 14pt;
+      color: #4a4580;
+      margin-top: 24px;
+      margin-bottom: 12px;
+    }
+
+    h4 {
+      font-size: 12pt;
+      color: #5c5799;
+      margin-top: 18px;
+      margin-bottom: 8px;
+    }
+
+    p {
+      margin-bottom: 10px;
+    }
+
+    /* ── Tables ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 10pt;
+    }
+
+    thead th {
+      background: #302b63;
+      color: #ffffff;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 10pt;
+    }
+
+    tbody td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #e0e0f0;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f5f5fa;
+    }
+
+    tbody tr:hover {
+      background: #eaeaf5;
+    }
+
+    /* ── Code Blocks ── */
+    .code-block {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin: 12px 0;
+      font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+      font-size: 10pt;
+      line-height: 1.7;
+      overflow-x: auto;
+      page-break-inside: avoid;
+    }
+
+    .code-block .prompt {
+      color: #89b4fa;
+    }
+
+    .code-block .command {
+      color: #a6e3a1;
+    }
+
+    .code-block .comment {
+      color: #6c7086;
+    }
+
+    code {
+      background: #e8e8f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 10pt;
+      color: #302b63;
+    }
+
+    /* ── Info Boxes ── */
+    .info-box {
+      border-left: 4px solid #7c6ff7;
+      background: #f0f0ff;
+      padding: 14px 18px;
+      margin: 16px 0;
+      border-radius: 0 6px 6px 0;
+      page-break-inside: avoid;
+    }
+
+    .info-box.warning {
+      border-left-color: #f59e0b;
+      background: #fffbeb;
+    }
+
+    .info-box.danger {
+      border-left-color: #ef4444;
+      background: #fef2f2;
+    }
+
+    .info-box.success {
+      border-left-color: #10b981;
+      background: #f0fdf4;
+    }
+
+    .info-box strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .info-box.warning strong { color: #92400e; }
+    .info-box.danger strong { color: #991b1b; }
+    .info-box.success strong { color: #065f46; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 9pt;
+      font-weight: 600;
+      margin: 2px 4px 2px 0;
+    }
+
+    .badge-purple { background: #7c6ff7; color: #fff; }
+    .badge-blue { background: #3b82f6; color: #fff; }
+    .badge-green { background: #10b981; color: #fff; }
+    .badge-orange { background: #f59e0b; color: #fff; }
+    .badge-red { background: #ef4444; color: #fff; }
+    .badge-gray { background: #6b7280; color: #fff; }
+
+    /* ── Feature Grid ── */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .feature-card {
+      border: 1px solid #e0e0f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: #fafafe;
+      page-break-inside: avoid;
+    }
+
+    .feature-card h4 {
+      margin-top: 0;
+      color: #302b63;
+      font-size: 11pt;
+    }
+
+    .feature-card p {
+      font-size: 10pt;
+      color: #555;
+      margin-bottom: 0;
+    }
+
+    /* ── Step List ── */
+    .step-list {
+      list-style: none;
+      padding: 0;
+      margin: 16px 0;
+    }
+
+    .step-list li {
+      padding: 12px 16px 12px 50px;
+      position: relative;
+      margin-bottom: 8px;
+      background: #f8f8fc;
+      border-radius: 6px;
+      border: 1px solid #e0e0f0;
+      page-break-inside: avoid;
+    }
+
+    .step-list li::before {
+      content: attr(data-step);
+      position: absolute;
+      left: 14px;
+      top: 12px;
+      width: 26px;
+      height: 26px;
+      background: #7c6ff7;
+      color: #fff;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 26px;
+      font-size: 12pt;
+      font-weight: 700;
+    }
+
+    /* ── File Tree ── */
+    .file-tree {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      border-radius: 6px;
+      padding: 18px 22px;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 10pt;
+      line-height: 1.8;
+      margin: 12px 0;
+      page-break-inside: avoid;
+    }
+
+    .file-tree .dir { color: #89b4fa; font-weight: 600; }
+    .file-tree .file { color: #a6e3a1; }
+    .file-tree .desc { color: #6c7086; }
+
+    /* ── Footer ── */
+    .page-footer {
+      margin-top: 40px;
+      padding-top: 16px;
+      border-top: 1px solid #d0d0e0;
+      font-size: 9pt;
+      color: #888;
+      text-align: center;
+    }
+
+    /* ── Utilities ── */
+    .mt-20 { margin-top: 20px; }
+    .mb-20 { margin-bottom: 20px; }
+    .text-center { text-align: center; }
+    .text-sm { font-size: 10pt; }
+    .text-muted { color: #777; }
+
+    ul, ol {
+      margin-left: 20px;
+      margin-bottom: 12px;
+    }
+
+    li {
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- COVER PAGE -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">DONCIEL TM</div>
+  <div class="cover-subtitle">Journal de Trading Professionnel</div>
+  <div class="cover-divider"></div>
+  <div class="cover-title">Guide de Maintenance</div>
+  <div style="margin-top: 20px; font-size: 13pt; color: #9898b8;">
+    Elements a conserver &amp; Mode d'emploi de mise a jour
+  </div>
+  <div class="cover-date">Mars 2026</div>
+  <div class="cover-version">Version 1.0 | Document confidentiel</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="toc">
+  <h2>Table des Matieres</h2>
+  <ul class="toc-list">
+    <li><span class="toc-section">PARTIE 1</span> Elements a Conserver</li>
+    <li class="toc-sub">1.1 Comptes et Acces</li>
+    <li class="toc-sub">1.2 Variables d'Environnement (.env)</li>
+    <li class="toc-sub">1.3 Architecture Technique</li>
+    <li class="toc-sub">1.4 Structure du Projet</li>
+    <li class="toc-sub">1.5 Fonctionnalites de l'Application</li>
+    <li class="toc-sub">1.6 Fichiers Critiques</li>
+    <li class="toc-sub">1.7 Modeles de Base de Donnees (Prisma)</li>
+    <li class="toc-sub">1.8 Dependances Cles</li>
+    <li><span class="toc-section">PARTIE 2</span> Mode d'Emploi - Mise a Jour</li>
+    <li class="toc-sub">2.1 Mise a jour du code source</li>
+    <li class="toc-sub">2.2 Mise a jour des dependances</li>
+    <li class="toc-sub">2.3 Mise a jour de la base de donnees</li>
+    <li class="toc-sub">2.4 Deploiement sur Vercel</li>
+    <li class="toc-sub">2.5 Verification apres deploiement</li>
+    <li class="toc-sub">2.6 Sauvegarde de la base de donnees</li>
+    <li class="toc-sub">2.7 En cas de probleme</li>
+    <li class="toc-sub">2.8 Checklist de maintenance</li>
+  </ul>
+</div>
+
+<div class="page-break"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- PART 1 HEADER -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="part-header">
+  <h1>PARTIE 1</h1>
+  <p>Elements a Conserver</p>
+</div>
+
+<!-- ── 1.1 Comptes et Acces ── -->
+<h2>1.1 Comptes et Acces</h2>
+<p>
+  Les comptes suivants sont essentiels au fonctionnement de l'application DONCIEL TM.
+  Conservez ces informations en lieu sur et assurez-vous que les acces restent valides.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Service</th>
+      <th>Identifiant / URL</th>
+      <th>Role</th>
+      <th>Priorite</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>GitHub</strong></td>
+      <td><code>Prince-ilunga/donciel-tm</code></td>
+      <td>Depot de code source</td>
+      <td><span class="badge badge-red">Critique</span></td>
+    </tr>
+    <tr>
+      <td><strong>Vercel</strong></td>
+      <td><code>https://donciel-trading.vercel.app</code></td>
+      <td>Hebergement &amp; deploiement</td>
+      <td><span class="badge badge-red">Critique</span></td>
+    </tr>
+    <tr>
+      <td><strong>Neon PostgreSQL</strong></td>
+      <td>Connection string dans <code>.env</code></td>
+      <td>Base de donnees hebergee</td>
+      <td><span class="badge badge-red">Critique</span></td>
+    </tr>
+    <tr>
+      <td><strong>Cloudinary</strong></td>
+      <td>Cloud name, API key &amp; secret dans <code>.env</code></td>
+      <td>Stockage medias (captures d'ecran, videos)</td>
+      <td><span class="badge badge-orange">Important</span></td>
+    </tr>
+    <tr>
+      <td><strong>JWT / NextAuth</strong></td>
+      <td>NEXTAUTH_SECRET dans <code>.env</code></td>
+      <td>Securite d'authentification</td>
+      <td><span class="badge badge-red">Critique</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="info-box warning">
+  <strong>Attention</strong>
+  Ne partagez jamais les cles d'API ou les secrets JWT publiquement.
+  Utilisez toujours le tableau de bord Vercel pour configurer les variables d'environnement en production.
+</div>
+
+<div class="page-break"></div>
+
+<!-- ── 1.2 Variables d'Environnement ── -->
+<h2>1.2 Variables d'Environnement (.env)</h2>
+<p>
+  Le fichier <code>.env</code> contient toutes les configurations sensibles de l'application.
+  Ces variables doivent etre definies a la fois localement et sur Vercel.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Variable</th>
+      <th>Description</th>
+      <th>Exemple</th>
+      <th>Obligatoire</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>DATABASE_URL</code></td>
+      <td>URL de connexion Neon PostgreSQL</td>
+      <td><code>postgresql://user:pass@ep-xxx.neon.tech/db</code></td>
+      <td><span class="badge badge-red">Oui</span></td>
+    </tr>
+    <tr>
+      <td><code>NEXTAUTH_SECRET</code></td>
+      <td>Secret pour le chiffrement JWT NextAuth</td>
+      <td><code>votre-secret-aleatoire</code></td>
+      <td><span class="badge badge-red">Oui</span></td>
+    </tr>
+    <tr>
+      <td><code>CLOUDINARY_CLOUD_NAME</code></td>
+      <td>Nom du cloud Cloudinary</td>
+      <td><code>donciel-tm</code></td>
+      <td><span class="badge badge-orange">Prod</span></td>
+    </tr>
+    <tr>
+      <td><code>CLOUDINARY_API_KEY</code></td>
+      <td>Cle API Cloudinary</td>
+      <td><code>123456789012345</code></td>
+      <td><span class="badge badge-orange">Prod</span></td>
+    </tr>
+    <tr>
+      <td><code>CLOUDINARY_API_SECRET</code></td>
+      <td>Secret API Cloudinary</td>
+      <td><code>abcdefg...</code></td>
+      <td><span class="badge badge-orange">Prod</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="info-box">
+  <strong>Note</strong>
+  En developpement local, <code>DATABASE_URL</code> peut pointer vers un fichier SQLite local
+  (ex: <code>file:/home/z/my-project/db/custom.db</code>).
+  En production sur Vercel, elle doit pointer vers l'instance Neon PostgreSQL.
+</div>
+
+<!-- ── 1.3 Architecture Technique ── -->
+<h2>1.3 Architecture Technique</h2>
+<p>
+  L'application est construite avec les technologies modernes suivantes :
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Composant</th>
+      <th>Technologie</th>
+      <th>Version</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Framework</td>
+      <td>Next.js (App Router)</td>
+      <td>16.x</td>
+    </tr>
+    <tr>
+      <td>Langage</td>
+      <td>TypeScript</td>
+      <td>5.x</td>
+    </tr>
+    <tr>
+      <td>Base de donnees</td>
+      <td>Prisma ORM + Neon PostgreSQL</td>
+      <td>Prisma 6.x</td>
+    </tr>
+    <tr>
+      <td>Stockage medias</td>
+      <td>Cloudinary</td>
+      <td>2.x</td>
+    </tr>
+    <tr>
+      <td>Deploiement</td>
+      <td>Vercel</td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td>UI Components</td>
+      <td>shadcn/ui + Radix UI</td>
+      <td>Derniere</td>
+    </tr>
+    <tr>
+      <td>Style CSS</td>
+      <td>Tailwind CSS</td>
+      <td>4.x</td>
+    </tr>
+    <tr>
+      <td>State Management</td>
+      <td>Zustand</td>
+      <td>5.x</td>
+    </tr>
+    <tr>
+      <td>Authentification</td>
+      <td>NextAuth.js (JWT + bcryptjs)</td>
+      <td>4.x</td>
+    </tr>
+    <tr>
+      <td>Graphiques</td>
+      <td>Recharts</td>
+      <td>2.x</td>
+    </tr>
+    <tr>
+      <td>Runtime</td>
+      <td>Bun</td>
+      <td>&mdash;</td>
+    </tr>
+    <tr>
+      <td>React</td>
+      <td>React 19</td>
+      <td>19.x</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ── 1.4 Structure du Projet ── -->
+<h2>1.4 Structure du Projet</h2>
+<p>
+  L'arborescence du projet suit la convention Next.js App Router :
+</p>
+
+<div class="file-tree">
+<span class="dir">donciel-tm/</span>
+  <span class="dir">src/</span>
+    <span class="dir">app/</span>            <span class="desc">&mdash; Pages et API routes (App Router)</span>
+      <span class="dir">api/</span>          <span class="desc">&mdash; Endpoints API (auth, trades, upload, videos, etc.)</span>
+    <span class="dir">components/</span>      <span class="desc">&mdash; Composants React reutilisables</span>
+      <span class="dir">layout/</span>       <span class="desc">&mdash; Navigation, sidebar, header</span>
+      <span class="dir">ui/</span>           <span class="desc">&mdash; Composants shadcn/ui</span>
+    <span class="dir">stores/</span>          <span class="desc">&mdash; Etat global Zustand</span>
+    <span class="dir">lib/</span>             <span class="desc">&mdash; Utilitaires (auth, db, i18n, cloudinary)</span>
+  <span class="dir">prisma/</span>              <span class="desc">&mdash; Schema de base de donnees</span>
+  <span class="dir">public/</span>              <span class="desc">&mdash; Fichiers statiques</span>
+  <span class="file">package.json</span>        <span class="desc">&mdash; Dependances et scripts</span>
+  <span class="file">.env</span>                <span class="desc">&mdash; Variables d'environnement (NE PAS COMMITTER)</span>
+  <span class="file">next.config.ts</span>      <span class="desc">&mdash; Configuration Next.js</span>
+  <span class="file">tailwind.config.ts</span>  <span class="desc">&mdash; Configuration Tailwind CSS</span>
+</div>
+
+<!-- ── 1.5 Fonctionnalites ── -->
+<h2>1.5 Fonctionnalites de l'Application</h2>
+<p>
+  DONCIEL TM offre les fonctionnalites suivantes :
+</p>
+
+<div class="feature-grid">
+  <div class="feature-card">
+    <h4>Execution DONCIEL</h4>
+    <p>Phases de progression (Phase Initiale, Phase 1, Phase 2) avec cycles valides et RR cumule.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Setup</h4>
+    <p>Gestion des donnees DONCIEL et trades personnalises. Saisie, verification et filtres.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Journal de Trading</h4>
+    <p>Calendrier interactif pour visualiser les trades par date. Details complets de chaque trade.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Distribution RR</h4>
+    <p>Graphiques d'analyse Risk-Reward : par direction, setup, session, market condition, timeframe, actif.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Timing Analysis</h4>
+    <p>Performance temporelle : par jour, heure, mois, session. Graphiques en barres et courbes.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Videos du Setup</h4>
+    <p>Categories : Structure du Marche, Biais, Zones de Valeur, Modeles d'Entrees, Setups.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Notes de Preparation</h4>
+    <p>Notes journalieres, hebdomadaires et mensuelles pour la preparation de trading.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Gestion des Roles</h4>
+    <p>Admin : verification des membres, approbation/rejet. Statistiques individuelles et globales.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Export PDF</h4>
+    <p>Export des donnees et des trades en format PDF pour archivage.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Mode Sombre / Clair</h4>
+    <p>Interface adaptable avec theme sombre et clair. Basculement instantane.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Internationalisation FR/EN</h4>
+    <p>Interface completement traduite en francais et anglais.</p>
+  </div>
+  <div class="feature-card">
+    <h4>Captures d'ecran</h4>
+    <p>Upload de captures d'ecran (analyse, entree, sortie) pour chaque trade via Cloudinary.</p>
+  </div>
+</div>
+
+<div class="page-break"></div>
+
+<!-- ── 1.6 Fichiers Critiques ── -->
+<h2>1.6 Fichiers Critiques</h2>
+<p>
+  Les fichiers suivants sont essentiels au bon fonctionnement de l'application.
+  Toute modification doit etre effectuee avec precaution.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Fichier</th>
+      <th>Role</th>
+      <th>Action si perdu</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>prisma/schema.prisma</code></td>
+      <td>Structure de la base de donnees (modeles User, Trade, Screenshot, Video, Note, CustomPair, UploadSession)</td>
+      <td><span class="badge badge-red">Restaurer depuis Git</span></td>
+    </tr>
+    <tr>
+      <td><code>src/lib/auth.ts</code></td>
+      <td>Authentification JWT (login, register, session)</td>
+      <td><span class="badge badge-red">Restaurer depuis Git</span></td>
+    </tr>
+    <tr>
+      <td><code>src/lib/db.ts</code></td>
+      <td>Client Prisma (connexion a la base de donnees)</td>
+      <td><span class="badge badge-red">Restaurer depuis Git</span></td>
+    </tr>
+    <tr>
+      <td><code>src/lib/i18n.ts</code></td>
+      <td>Traductions FR/EN completes (500+ cles)</td>
+      <td><span class="badge badge-red">Restaurer depuis Git</span></td>
+    </tr>
+    <tr>
+      <td><code>src/components/layout/main-app.tsx</code></td>
+      <td>Navigation principale et structure de l'application</td>
+      <td><span class="badge badge-orange">Restaurer depuis Git</span></td>
+    </tr>
+    <tr>
+      <td><code>src/stores/app-store.ts</code></td>
+      <td>Etat global Zustand (onglet actif, langue, utilisateur)</td>
+      <td><span class="badge badge-orange">Restaurer depuis Git</span></td>
+    </tr>
+    <tr>
+      <td><code>.env</code></td>
+      <td>Variables d'environnement (secrets)</td>
+      <td><span class="badge badge-red">Reconfigurer manuellement</span></td>
+    </tr>
+    <tr>
+      <td><code>package.json</code></td>
+      <td>Liste des dependances et scripts</td>
+      <td><span class="badge badge-gray">Restaurer depuis Git</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="info-box danger">
+  <strong>Danger</strong>
+  Le fichier <code>.env</code> n'est JAMAIS committe dans Git. En cas de perte, les secrets doivent
+  etre regenere depuis les consoles respectives (Neon, Cloudinary, etc.).
+</div>
+
+<!-- ── 1.7 Modeles de Base de Donnees ── -->
+<h2>1.7 Modeles de Base de Donnees (Prisma)</h2>
+<p>
+  Le schema Prisma definit les modeles suivants dans la base PostgreSQL :
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Modele</th>
+      <th>Description</th>
+      <th>Champs cles</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>User</strong></td>
+      <td>Utilisateurs de l'application</td>
+      <td>email, password, name, role (admin/user), status (pending/approved/rejected), language (fr/en)</td>
+    </tr>
+    <tr>
+      <td><strong>Trade</strong></td>
+      <td>Enregistrements de trades</td>
+      <td>date, pair, direction, session, marketCondition, timeframe, setup, structure, entryModel, entryPrice, stopLoss, takeProfit, exitPrice, rr, pnl, result, emotions, confluence, mistakes, lessons</td>
+    </tr>
+    <tr>
+      <td><strong>Screenshot</strong></td>
+      <td>Captures d'ecran des trades</td>
+      <td>type (analysis/entry/exit), url</td>
+    </tr>
+    <tr>
+      <td><strong>Video</strong></td>
+      <td>Videos educatives</td>
+      <td>category (STRUCTURE/BIAIS/ZONES/MODELS/SETUPS), title, description, url</td>
+    </tr>
+    <tr>
+      <td><strong>Note</strong></td>
+      <td>Notes de preparation</td>
+      <td>type (DAY/WEEK/MONTH), title, content, date</td>
+    </tr>
+    <tr>
+      <td><strong>CustomPair</strong></td>
+      <td>Paires de devises personnalisees</td>
+      <td>name</td>
+    </tr>
+    <tr>
+      <td><strong>UploadSession</strong></td>
+      <td>Sessions d'upload chunked</td>
+      <td>uploadId, filename, totalSize, totalChunks, category, receivedChunks</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="info-box">
+  <strong>Relations</strong>
+  Un <code>User</code> possede plusieurs <code>Trade</code>, <code>Note</code>, <code>CustomPair</code> et <code>Video</code>.
+  Un <code>Trade</code> possede plusieurs <code>Screenshot</code>. La suppression d'un utilisateur
+  entraine la suppression en cascade de toutes ses donnees associees.
+</div>
+
+<div class="page-break"></div>
+
+<!-- ── 1.8 Dependances Cles ── -->
+<h2>1.8 Dependances Cles</h2>
+<p>
+  Les dependances principales du projet (extrait du <code>package.json</code>) :
+</p>
+
+<h3>Dependances de Production</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Version</th>
+      <th>Usage</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>next</td><td>^16.1.1</td><td>Framework principal</td></tr>
+    <tr><td>react / react-dom</td><td>^19.0.0</td><td>Bibliotheque UI</td></tr>
+    <tr><td>@prisma/client</td><td>^6.11.1</td><td>ORM base de donnees</td></tr>
+    <tr><td>prisma</td><td>^6.11.1</td><td>CLI Prisma</td></tr>
+    <tr><td>next-auth</td><td>^4.24.11</td><td>Authentification</td></tr>
+    <tr><td>bcryptjs</td><td>^3.0.3</td><td>Hachage mots de passe</td></tr>
+    <tr><td>jose</td><td>^6.2.3</td><td>JWT signing/verification</td></tr>
+    <tr><td>cloudinary</td><td>^2.10.0</td><td>Stockage medias</td></tr>
+    <tr><td>zustand</td><td>^5.0.6</td><td>State management</td></tr>
+    <tr><td>recharts</td><td>^2.15.4</td><td>Graphiques</td></tr>
+    <tr><td>@tanstack/react-query</td><td>^5.82.0</td><td>Requetes asynchrones</td></tr>
+    <tr><td>@tanstack/react-table</td><td>^8.21.3</td><td>Tableaux de donnees</td></tr>
+    <tr><td>jspdf / jspdf-autotable</td><td>^4.2.1 / ^5.0.8</td><td>Generation PDF</td></tr>
+    <tr><td>pdf-lib</td><td>^1.17.1</td><td>Manipulation PDF</td></tr>
+    <tr><td>date-fns</td><td>^4.1.0</td><td>Manipulation de dates</td></tr>
+    <tr><td>zod</td><td>^4.0.2</td><td>Validation de schemas</td></tr>
+    <tr><td>react-hook-form</td><td>^7.60.0</td><td>Gestion de formulaires</td></tr>
+    <tr><td>framer-motion</td><td>^12.23.2</td><td>Animations</td></tr>
+    <tr><td>lucide-react</td><td>^0.525.0</td><td>Icones</td></tr>
+    <tr><td>next-themes</td><td>^0.4.6</td><td>Gestion themes sombre/clair</td></tr>
+    <tr><td>next-intl</td><td>^4.3.4</td><td>Internationalisation</td></tr>
+    <tr><td>sonner</td><td>^2.0.6</td><td>Notifications toast</td></tr>
+    <tr><td>sharp</td><td>^0.34.3</td><td>Traitement d'images</td></tr>
+  </tbody>
+</table>
+
+<h3>Dependances de Developpement</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Version</th>
+      <th>Usage</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>tailwindcss</td><td>^4</td><td>Framework CSS</td></tr>
+    <tr><td>@tailwindcss/postcss</td><td>^4</td><td>Plugin PostCSS Tailwind</td></tr>
+    <tr><td>typescript</td><td>^5</td><td>Compilateur TypeScript</td></tr>
+    <tr><td>eslint / eslint-config-next</td><td>^9 / ^16.1.1</td><td>Linting</td></tr>
+    <tr><td>bun-types</td><td>^1.3.4</td><td>Types Bun</td></tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<!-- PART 2 HEADER -->
+<!-- ══════════════════════════════════════════════════════════════════ -->
+<div class="part-header">
+  <h1>PARTIE 2</h1>
+  <p>Mode d'Emploi &mdash; Mise a Jour</p>
+</div>
+
+<!-- ── 2.1 Mise a jour du code ── -->
+<h2>2.1 Mise a jour du code source</h2>
+<p>
+  Pour recuperer les dernieres modifications du depot GitHub :
+</p>
+
+<div class="code-block">
+<span class="prompt">$</span> <span class="command">git pull origin main</span>
+</div>
+
+<div class="info-box">
+  <strong>Bonne pratique</strong>
+  Avant de tirer les modifications, assurez-vous d'avoir commite vos propres changements
+  avec <code>git add .</code> et <code>git commit -m "message"</code> pour eviter les conflits.
+</div>
+
+<!-- ── 2.2 Mise a jour des dependances ── -->
+<h2>2.2 Mise a jour des dependances</h2>
+<p>
+  Apres avoir mis a jour le code source, installez les eventuelles nouvelles dependances :
+</p>
+
+<div class="code-block">
+<span class="prompt">$</span> <span class="command">bun install</span>
+</div>
+
+<p>Cela mettra a jour le dossier <code>node_modules</code> selon le fichier <code>package.json</code> et <code>bun.lock</code>.</p>
+
+<h3>Scripts disponibles</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Commande</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>bun run dev</code></td><td>Lance le serveur de developpement sur le port 3000</td></tr>
+    <tr><td><code>bun run build</code></td><td>Genere le client Prisma puis compile le projet</td></tr>
+    <tr><td><code>bun run start</code></td><td>Lance le serveur de production</td></tr>
+    <tr><td><code>bun run lint</code></td><td>Verifie la qualite du code avec ESLint</td></tr>
+  </tbody>
+</table>
+
+<!-- ── 2.3 Mise a jour de la base de donnees ── -->
+<h2>2.3 Mise a jour de la base de donnees</h2>
+<p>
+  Si le schema Prisma (<code>prisma/schema.prisma</code>) a ete modifie, vous devez synchroniser
+  la base de donnees :
+</p>
+
+<div class="code-block">
+<span class="prompt">$</span> <span class="command">bun run db:push</span>
+<span class="comment"># ou equivalemment: bunx prisma db push</span>
+</div>
+
+<h3>Commandes Prisma utiles</h3>
+<table>
+  <thead>
+    <tr>
+      <th>Commande</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>bun run db:push</code></td><td>Pousse le schema vers la DB (sans migration)</td></tr>
+    <tr><td><code>bun run db:generate</code></td><td>Regenere le client Prisma</td></tr>
+    <tr><td><code>bun run db:migrate</code></td><td>Cree et applique une migration</td></tr>
+    <tr><td><code>bun run db:reset</code></td><td>Reinitialise la base de donnees (dangereux !)</td></tr>
+  </tbody>
+</table>
+
+<div class="info-box danger">
+  <strong>Danger</strong>
+  La commande <code>db:reset</code> supprime toutes les donnees de la base.
+  Ne l'utilisez qu'en cas de reinitialisation complete. Effectuez toujours une sauvegarde avant.
+</div>
+
+<div class="page-break"></div>
+
+<!-- ── 2.4 Deploiement sur Vercel ── -->
+<h2>2.4 Deploiement sur Vercel</h2>
+<p>
+  Le deploiement est automatique : chaque push sur la branche <code>main</code> declenche un
+  nouveau deploiement sur Vercel.
+</p>
+
+<div class="code-block">
+<span class="prompt">$</span> <span class="command">git push origin main</span>
+</div>
+
+<ol class="step-list">
+  <li data-step="1">Effectuez vos modifications en local et testez avec <code>bun run dev</code></li>
+  <li data-step="2">Commitez vos changements : <code>git add .</code> puis <code>git commit -m "description"</code></li>
+  <li data-step="3">Poussez sur GitHub : <code>git push origin main</code></li>
+  <li data-step="4">Vercel detecte le push et lance le build automatiquement</li>
+  <li data-step="5">Une fois le build termine, le site est mis a jour sur <code>donciel-trading.vercel.app</code></li>
+</ol>
+
+<div class="info-box success">
+  <strong>Zero-downtime</strong>
+  Vercel deploie les nouvelles versions sans interruption de service. L'ancienne version
+  reste active jusqu'a ce que la nouvelle soit prete.
+</div>
+
+<!-- ── 2.5 Verification apres deploiement ── -->
+<h2>2.5 Verification apres deploiement</h2>
+<p>
+  Apres chaque deploiement, verifiez les points suivants :
+</p>
+
+<ol class="step-list">
+  <li data-step="1">Visitez <code>https://donciel-trading.vercel.app</code> et verifiez que la page d'accueil se charge</li>
+  <li data-step="2">Connectez-vous avec un compte existant et verifiez l'authentification</li>
+  <li data-step="3">Consultez le dashboard Vercel pour verifier les logs de build et d'execution</li>
+  <li data-step="4">Testez les fonctionnalites cles : ajout de trade, journal, graphiques</li>
+  <li data-step="5">Verifiez que l'upload de captures d'ecran fonctionne (Cloudinary)</li>
+</ol>
+
+<div class="info-box">
+  <strong>Dashboard Vercel</strong>
+  Accedez au dashboard a l'adresse <code>https://vercel.com/dashboard</code> pour voir les
+  deploiements, les logs en temps reel et les erreurs eventuelles.
+</div>
+
+<!-- ── 2.6 Sauvegarde de la base de donnees ── -->
+<h2>2.6 Sauvegarde de la base de donnees</h2>
+<p>
+  Il est recommande d'effectuer des sauvegardes regulieres de la base de donnees Neon PostgreSQL.
+</p>
+
+<h3>Option 1 : Neon Console</h3>
+<ol>
+  <li>Connectez-vous a <code>https://console.neon.tech</code></li>
+  <li>Selectionnez votre projet</li>
+  <li>Utilisez la fonctionnalite d'export ou de branch pour creer une sauvegarde</li>
+</ol>
+
+<h3>Option 2 : pg_dump en ligne de commande</h3>
+<div class="code-block">
+<span class="comment"># Sauvegarde complete de la base</span>
+<span class="prompt">$</span> <span class="command">pg_dump "postgresql://user:pass@ep-xxx.neon.tech/dbname" > backup_$(date +%Y%m%d).sql</span>
+
+<span class="comment"># Restauration</span>
+<span class="prompt">$</span> <span class="command">psql "postgresql://user:pass@ep-xxx.neon.tech/dbname" < backup_20260304.sql</span>
+</div>
+
+<div class="info-box warning">
+  <strong>Recommandation</strong>
+  Effectuez une sauvegarde au moins une fois par semaine, et systematiquement avant toute
+  modification du schema de base de donnees.
+</div>
+
+<div class="page-break"></div>
+
+<!-- ── 2.7 En cas de probleme ── -->
+<h2>2.7 En cas de probleme</h2>
+<p>
+  Guide de resolution des problemes courants :
+</p>
+
+<h3>Le site ne se charge pas</h3>
+<ul>
+  <li>Verifiez le statut du deploiement dans le dashboard Vercel</li>
+  <li>Consultez les logs d'erreur dans la section <em>Functions</em> de Vercel</li>
+  <li>Verifiez que les variables d'environnement sont correctes sur Vercel</li>
+</ul>
+
+<h3>Erreur de base de donnees</h3>
+<ul>
+  <li>Verifiez que <code>DATABASE_URL</code> est correct dans les variables Vercel</li>
+  <li>Assurez-vous que le schema Prisma est synchronise : <code>bun run db:push</code></li>
+  <li>Verifiez que la base Neon n'est pas en pause ( Neon met en pause les bases inactives)</li>
+</ul>
+
+<h3>Les uploads ne fonctionnent pas</h3>
+<ul>
+  <li>Verifiez les variables <code>CLOUDINARY_CLOUD_NAME</code>, <code>CLOUDINARY_API_KEY</code>, <code>CLOUDINARY_API_SECRET</code></li>
+  <li>Testez les identifiants dans la console Cloudinary</li>
+  <li>Verifiez les limites de stockage de votre plan Cloudinary</li>
+</ul>
+
+<h3>Erreur d'authentification</h3>
+<ul>
+  <li>Verifiez que <code>NEXTAUTH_SECRET</code> est defini sur Vercel</li>
+  <li>Regenerez le secret si necessaire et mettez a jour partout</li>
+  <li>Verifiez que la base de donnees contient bien les utilisateurs</li>
+</ul>
+
+<h3>Erreur de build Vercel</h3>
+<ul>
+  <li>Lisez attentivement les logs de build dans le dashboard Vercel</li>
+  <li>Verifiez que <code>bun run build</code> fonctionne en local sans erreur</li>
+  <li>Assurez-vous que <code>prisma generate</code> est execute avant le build (il est dans le script <code>build</code>)</li>
+</ul>
+
+<div class="info-box">
+  <strong>Ressources utiles</strong>
+  <ul>
+    <li>Documentation Vercel : <code>https://vercel.com/docs</code></li>
+    <li>Documentation Prisma : <code>https://www.prisma.io/docs</code></li>
+    <li>Documentation Neon : <code>https://neon.tech/docs</code></li>
+    <li>Documentation Cloudinary : <code>https://cloudinary.com/documentation</code></li>
+  </ul>
+</div>
+
+<!-- ── 2.8 Checklist ── -->
+<h2>2.8 Checklist de Maintenance</h2>
+<p>
+  Utilisez cette checklist pour chaque intervention de maintenance :
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:40px">#</th>
+      <th>Tache</th>
+      <th>Commande / Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1</td>
+      <td>Sauvegarder la base de donnees</td>
+      <td><code>pg_dump</code> ou Neon Console</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Recuperer le dernier code</td>
+      <td><code>git pull origin main</code></td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Installer les dependances</td>
+      <td><code>bun install</code></td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Synchroniser la base de donnees</td>
+      <td><code>bun run db:push</code> (si schema modifie)</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Tester en local</td>
+      <td><code>bun run dev</code> puis tests manuels</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Deployer en production</td>
+      <td><code>git push origin main</code></td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Verifier le deploiement</td>
+      <td>Visiter <code>donciel-trading.vercel.app</code></td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>Verifier les logs Vercel</td>
+      <td>Dashboard Vercel &gt; Logs</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>Confirmer les fonctionnalites</td>
+      <td>Tests manuels des fonctionnalites cles</td>
+    </tr>
+  </tbody>
+</table>
+
+<div style="margin-top: 50px; padding: 30px; background: #f0f0ff; border-radius: 8px; text-align: center;">
+  <p style="font-size: 12pt; color: #302b63; font-weight: 600;">
+    Fin du Guide de Maintenance DONCIEL TM
+  </p>
+  <p style="font-size: 10pt; color: #666; margin-top: 8px;">
+    Document genere le 4 mars 2026 | Version 1.0
+  </p>
+  <p style="font-size: 10pt; color: #666; margin-top: 4px;">
+    Pour toute question, consultez le depot GitHub : Prince-ilunga/donciel-tm
+  </p>
+</div>
+
+</body>
+</html>

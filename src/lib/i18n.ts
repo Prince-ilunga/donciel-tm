@@ -244,6 +244,7 @@ export const translations = {
     cumuleTotalRR: "CUMULÉ TOTAL DE RR",
     derniersTrades: "10 derniers trades",
     depuisPremierTrade: "depuis le premier trade",
+
   },
   en: {
     // App
@@ -490,6 +491,7 @@ export const translations = {
     cumuleTotalRR: "TOTAL CUMULATIVE RR",
     derniersTrades: "Last 10 trades",
     depuisPremierTrade: "since the first trade",
+
   }
 } as const;
 

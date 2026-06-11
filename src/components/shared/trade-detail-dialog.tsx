@@ -75,7 +75,7 @@ interface TradeDetail {
 }
 
 export function TradeDetailDialog() {
-  const { selectedTradeId, showTradeDetail, setShowTradeDetail, language, setScreenshotViewerUrl } = useAppStore();
+  const { selectedTradeId, showTradeDetail, setShowTradeDetail, language, setScreenshotViewerUrl, screenshotViewerUrl } = useAppStore();
   const { trades: allTrades, refetch: refetchTrades } = useTrades();
   const [trade, setTrade] = useState<TradeDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -111,12 +111,17 @@ export function TradeDetailDialog() {
 
   const handleOpenChange = useCallback((open: boolean) => {
     if (!open) {
+      if (screenshotViewerUrl) {
+        // Close screenshot viewer instead of the dialog
+        setScreenshotViewerUrl(null);
+        return;
+      }
       setShowTradeDetail(false);
       setTrade(null);
       setError(null);
       prevTradeIdRef.current = null;
     }
-  }, [setShowTradeDetail]);
+  }, [setShowTradeDetail, screenshotViewerUrl, setScreenshotViewerUrl]);
 
   useEffect(() => {
     if (showTradeDetail && selectedTradeId && selectedTradeId !== prevTradeIdRef.current) {
@@ -186,7 +191,7 @@ export function TradeDetailDialog() {
 
   // Get chart data for this trade
   const chartData = useMemo(() => {
-    if (!trade || !allTrades.length) return { last10RR: [], cumulativeRRUpToTrade: [], totalCumulativeRR: 0 };
+    if (!trade || !allTrades.length) return { last10RR: [], cumulativeRRLast10: [], totalRRLast10: 0, cumulativeRRUpToTrade: [], totalCumulativeRR: 0 };
 
     // Sort trades by date then createdAt
     const sorted = [...allTrades].sort((a, b) => {
@@ -210,7 +215,15 @@ export function TradeDetailDialog() {
       result: t.result,
     }));
 
-    // ─── CUMULE RR ISOLÉ: Cumulative RR from first trade up to this trade ───
+    // ─── CUMULE RR ISOLÉ: Cumulative RR of last 10 trades ───
+    let cumRRLast10 = 0;
+    const cumulativeRRLast10 = last10.map((t, i) => {
+      cumRRLast10 += (t.rr ?? 0);
+      return { index: i + 1, cumulativeRR: cumRRLast10 };
+    });
+    const totalRRLast10 = cumRRLast10;
+
+    // ─── CUMULE TOTAL DE RR: Cumulative RR from first trade up to this trade ───
     const upToCurrentIdx = currentIdx >= 0 ? currentIdx + 1 : sorted.length;
     const tradesUpToCurrent = sorted.slice(0, upToCurrentIdx);
 
@@ -222,7 +235,7 @@ export function TradeDetailDialog() {
 
     const totalCumulativeRR = cumRR;
 
-    return { last10RR, cumulativeRRUpToTrade, totalCumulativeRR };
+    return { last10RR, cumulativeRRLast10, totalRRLast10, cumulativeRRUpToTrade, totalCumulativeRR };
   }, [trade, allTrades]);
 
   // Chart dimensions
@@ -258,29 +271,38 @@ export function TradeDetailDialog() {
     );
   }, [chartData.last10RR]);
 
-  // Line chart for CUMULE RR ISOLÉ (from first trade up to this trade)
+  // Line chart for CUMULE RR ISOLÉ (last 10 trades)
   const cumulativeLineChart = useMemo(() => {
-    const data = chartData.cumulativeRRUpToTrade;
+    const data = chartData.cumulativeRRLast10;
     if (!data.length) return null;
     const values = data.map(d => d.cumulativeRR);
     const minVal = Math.min(...values, 0);
     const maxVal = Math.max(...values, 0);
     const range = maxVal - minVal || 1;
 
+    const chartWidth = CHART_W - CHART_PAD * 2;
+    const chartHeight = CHART_H - CHART_PAD * 2;
+
     const points = data.map((d, i) => ({
-      x: CHART_PAD + i * ((CHART_W - CHART_PAD * 2) / (data.length - 1 || 1)),
-      y: CHART_H - CHART_PAD - ((d.cumulativeRR - minVal) / range) * (CHART_H - CHART_PAD * 2),
+      x: CHART_PAD + (data.length === 1 ? chartWidth / 2 : i * (chartWidth / (data.length - 1))),
+      y: CHART_H - CHART_PAD - ((d.cumulativeRR - minVal) / range) * chartHeight,
     }));
 
     const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-    const areaD = `${pathD} L ${points[points.length - 1].x} ${CHART_H - CHART_PAD} L ${points[0].x} ${CHART_H - CHART_PAD} Z`;
+    const areaD = data.length > 1
+      ? `${pathD} L ${points[points.length - 1].x} ${CHART_H - CHART_PAD} L ${points[0].x} ${CHART_H - CHART_PAD} Z`
+      : `M ${points[0].x} ${CHART_H - CHART_PAD} L ${points[0].x} ${points[0].y} Z`;
 
     // Zero line Y
-    const zeroY = CHART_H - CHART_PAD - ((0 - minVal) / range) * (CHART_H - CHART_PAD * 2);
+    const zeroY = CHART_H - CHART_PAD - ((0 - minVal) / range) * chartHeight;
 
     // Determine color based on final cumulative RR
     const finalRR = values[values.length - 1];
     const lineColor = finalRR >= 0 ? "#22c55e" : "#ef4444";
+
+    // Total RR for display
+    const totalRR = chartData.totalRRLast10;
+    const totalRRColor = totalRR >= 0 ? "#22c55e" : "#ef4444";
 
     return (
       <svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="overflow-visible">
@@ -288,13 +310,26 @@ export function TradeDetailDialog() {
           <line x1={CHART_PAD} y1={zeroY} x2={CHART_W - CHART_PAD} y2={zeroY} stroke="currentColor" strokeOpacity={0.15} strokeDasharray="3,3" />
         )}
         <path d={areaD} fill={lineColor} opacity={0.1} />
-        <path d={pathD} fill="none" stroke={lineColor} strokeWidth={2} />
+        {data.length > 1 && (
+          <path d={pathD} fill="none" stroke={lineColor} strokeWidth={2} />
+        )}
         {points.map((p, i) => (
           <circle key={i} cx={p.x} cy={p.y} r={3} fill={lineColor} />
         ))}
+        {/* Total RR display at top-right corner */}
+        <text
+          x={CHART_W - CHART_PAD}
+          y={CHART_PAD - 4}
+          textAnchor="end"
+          fontSize={11}
+          fontWeight="bold"
+          fill={totalRRColor}
+        >
+          {totalRR >= 0 ? "+" : ""}{totalRR.toFixed(2)} RR
+        </text>
       </svg>
     );
-  }, [chartData.cumulativeRRUpToTrade]);
+  }, [chartData.cumulativeRRLast10, chartData.totalRRLast10]);
 
   // Resolve screenshot URL - handles all possible URL formats
   const resolveScreenshotUrl = useCallback((url: string): string => {
@@ -474,12 +509,13 @@ export function TradeDetailDialog() {
                       )}
                     </Card>
 
-                    {/* CUMULE RR ISOLÉ - Curve Chart (for this trade) */}
+                    {/* CUMULE RR ISOLÉ - Curve Chart (last 10 trades) */}
                     <Card className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
                           {t(language, "cumuleRRIsole")}
                         </span>
+                        <Badge variant="outline" className="text-[9px]">{t(language, "derniersTrades")}</Badge>
                       </div>
                       {cumulativeLineChart || (
                         <div className="h-[120px] flex items-center justify-center text-muted-foreground text-sm">
@@ -577,11 +613,11 @@ export function TradeDetailDialog() {
                 {/* Screenshots & Videos */}
                 <div className="space-y-3">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {language === "fr" ? "Captures & Vidéos" : "Screenshots & Videos"}
+                    {language === "fr" ? "Captures d'écran" : "Screenshots"}
                     {tradeScreenshots.length > 0 && <span className="ml-1 text-[10px]">({tradeScreenshots.length})</span>}
                   </h4>
                   {tradeScreenshots.length > 0 ? (
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-3">
                       {tradeScreenshots.map((screenshot) => {
                         const mediaSrc = resolveScreenshotUrl(screenshot.url);
                         if (!mediaSrc) return null;
@@ -596,7 +632,7 @@ export function TradeDetailDialog() {
                           <button
                             key={screenshot.id}
                             onClick={(e) => { e.stopPropagation(); setScreenshotViewerUrl(mediaSrc); }}
-                            className="group relative aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200"
+                            className="group relative w-full aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200"
                           >
                             {isVideo ? (
                               <video
@@ -617,7 +653,7 @@ export function TradeDetailDialog() {
                               <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 flex items-center justify-between">
-                              <span className="text-[10px] text-white font-medium uppercase tracking-wider">
+                              <span className="text-xs text-white font-medium uppercase tracking-wider">
                                 {typeLabel}
                               </span>
                               {isVideo && (
