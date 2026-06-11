@@ -21,6 +21,7 @@ model User {
   notes         Note[]
   customPairs   CustomPair[]
   videos        Video[]
+  alerts        Alert[]
 }
 
 model Trade {
@@ -81,15 +82,36 @@ model Video {
 }
 
 model Note {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      String   // DAY, WEEK, MONTH
-  title     String
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String   // DAY, WEEK, MONTH
+  title      String
   content   String
   date      DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  screenshots NoteScreenshot[]
+}
+
+model NoteScreenshot {
+  id       String @id @default(cuid())
+  noteId   String
+  note     Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  url      String // Cloudinary URL or local path
+  createdAt DateTime @default(now())
+}
+
+model Alert {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  alertDate   DateTime // When to trigger
+  triggered   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model CustomPair {

@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
     const notes = await db.note.findMany({
       where,
       orderBy: { date: 'desc' },
+      include: { screenshots: true },
     });
 
     return NextResponse.json({ notes });
