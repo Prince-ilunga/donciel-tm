@@ -135,3 +135,29 @@ Stage Summary:
 - Notes tab: Verified working - notes save and display correctly after save
 - Pushed to GitHub, Vercel will auto-deploy
 - User needs to call /api/auth/setup on production to create/reset admin user on Neon PostgreSQL
+
+---
+Task ID: 5
+Agent: Main
+Task: Add Fundamental Analysis tab with real-time news and AI interpretation
+
+Work Log:
+- Explored existing tab navigation architecture (3 files: app-store, main-app, i18n)
+- Created /api/news route: fetches real-time news via Web Search SDK for 5 assets (XAUUSD, EURUSD, GBPUSD, US30, US100), uses LLM for AI interpretation (direction, confidence, key factors, impact, recommendation)
+- Implemented 5-minute in-memory cache to avoid excessive API calls
+- Created NewsTab component with professional UI: asset selector cards, AI analysis card (direction badge, impact badge, key factors, recommendation), news feed with external links
+- Added 'news' to TabId union type in app-store.ts
+- Added Newspaper icon import and navItems entry in main-app.tsx
+- Added newsFundamental translation key in i18n.ts (FR + EN)
+- Tested with Agent Browser: XAUUSD loads 9 news items with AI interpretation, US30 shows HAUSSIER direction with high confidence
+- Verified existing tabs (Notes) still work perfectly - no perturbation
+- Committed and pushed to GitHub (commit e98041a)
+
+Stage Summary:
+- New "Analyse Fondamentale" tab fully functional
+- 5 assets: XAUUSD, EURUSD, GBPUSD, US30, US100
+- Real-time news from Web Search SDK (cached 5 min)
+- AI interpretation: direction, confidence, impact, key factors, recommendation
+- Bilingual FR/EN support
+- Professional UI matching existing DONCIEL design language
+- No changes to existing functionality
