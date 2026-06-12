@@ -1,0 +1,684 @@
+     1→"use client";
+     2→
+     3→import React, { useState, useCallback, useEffect, useMemo } from "react";
+     4→import { useAppStore } from "@/stores/app-store";
+     5→import { cn } from "@/lib/utils";
+     6→import { Card } from "@/components/ui/card";
+     7→import { Button } from "@/components/ui/button";
+     8→import { Badge } from "@/components/ui/badge";
+     9→import { Skeleton } from "@/components/ui/skeleton";
+    10→import { Separator } from "@/components/ui/separator";
+    11→import {
+    12→  ChartContainer,
+    13→  ChartTooltip,
+    14→  ChartTooltipContent,
+    15→} from "@/components/ui/chart";
+    16→import { Bar, BarChart, XAxis, YAxis, CartesianGrid } from "recharts";
+    17→import {
+    18→  Brain,
+    19→  RefreshCw,
+    20→  TrendingUp,
+    21→  TrendingDown,
+    22→  Minus,
+    23→  ExternalLink,
+    24→  Clock,
+    25→  AlertTriangle,
+    26→  Shield,
+    27→  Zap,
+    28→  Loader2,
+    29→  Globe,
+    30→  Calendar,
+    31→  CalendarDays,
+    32→  BarChart3,
+    33→  CalendarClock,
+    34→  Activity,
+    35→  Target,
+    36→  AlertCircle,
+    37→  Sparkles,
+    38→  ArrowUpRight,
+    39→  ArrowDownRight,
+    40→  MinusCircle,
+    41→} from "lucide-react";
+    42→
+    43→const ASSETS = [
+    44→  { id: "XAUUSD", emoji: "🥇", label_fr: "Or / Dollar", label_en: "Gold / Dollar", color: "from-amber-500/10 to-yellow-500/10" },
+    45→  { id: "EURUSD", emoji: "🇪🇺", label_fr: "Euro / Dollar", label_en: "Euro / Dollar", color: "from-blue-500/10 to-indigo-500/10" },
+    46→  { id: "GBPUSD", emoji: "🇬🇧", label_fr: "Livre / Dollar", label_en: "Pound / Dollar", color: "from-red-500/10 to-rose-500/10" },
+    47→  { id: "US30", emoji: "🏭", label_fr: "Dow Jones 30", label_en: "Dow Jones 30", color: "from-emerald-500/10 to-green-500/10" },
+    48→  { id: "US100", emoji: "💻", label_fr: "Nasdaq 100", label_en: "Nasdaq 100", color: "from-purple-500/10 to-violet-500/10" },
+    49→] as const;
+    50→
+    51→const DAYS_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    52→const DAYS_FR: Record<string, string> = { Mon: "Lun", Tue: "Mar", Wed: "Mer", Thu: "Jeu", Fri: "Ven", Sat: "Sam", Sun: "Dim" };
+    53→
+    54→const barChartConfig = {
+    55→  count: {
+    56→    label: "News",
+    57→    color: "hsl(var(--primary))",
+    58→  },
+    59→} as const;
+    60→
+    61→function DirectionIcon({ direction, size = "sm" }: { direction: string; size?: "sm" | "md" | "lg" }) {
+    62→  const s = size === "sm" ? "w-3.5 h-3.5" : size === "md" ? "w-4 h-4" : "w-5 h-5";
+    63→  const isUp = direction?.toUpperCase().includes("HAUSS") || direction?.toUpperCase().includes("BULL");
+    64→  const isDown = direction?.toUpperCase().includes("BAISS") || direction?.toUpperCase().includes("BEAR");
+    65→
+    66→  if (isUp) return <ArrowUpRight className={cn(s, "text-profit")} />;
+    67→  if (isDown) return <ArrowDownRight className={cn(s, "text-loss")} />;
+    68→  return <MinusCircle className={cn(s, "text-amber-500")} />;
+    69→}
+    70→
+    71→function DirectionBadge({ direction, confidence }: { direction: string; confidence: string }) {
+    72→  const isUp = direction?.toUpperCase().includes("HAUSS") || direction?.toUpperCase().includes("BULL");
+    73→  const isDown = direction?.toUpperCase().includes("BAISS") || direction?.toUpperCase().includes("BEAR");
+    74→  const isNeutral = !isUp && !isDown;
+    75→
+    76→  const confLevel = confidence?.toLowerCase() || "moyen";
+    77→  const confColor = confLevel.includes("élev") || confLevel.includes("high")
+    78→    ? "text-profit" : confLevel.includes("fai") || confLevel.includes("low")
+    79→    ? "text-muted-foreground" : "text-amber-500";
+    80→
+    81→  return (
+    82→    <div className="flex items-center gap-2">
+    83→      <Badge
+    84→        className={cn(
+    85→          "text-xs font-bold gap-1 px-3 py-1",
+    86→          isUp && "bg-profit/15 text-profit border-profit/30",
+    87→          isDown && "bg-loss/15 text-loss border-loss/30",
+    88→          isNeutral && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+    89→        )}
+    90→      >
+    91→        {isUp && <TrendingUp className="w-3.5 h-3.5" />}
+    92→        {isDown && <TrendingDown className="w-3.5 h-3.5" />}
+    93→        {isNeutral && <Minus className="w-3.5 h-3.5" />}
+    94→        {direction || "N/A"}
+    95→      </Badge>
+    96→      <span className={cn("text-[10px] font-medium", confColor)}>
+    97→        {confidence || ""}
+    98→      </span>
+    99→    </div>
+   100→  );
+   101→}
+   102→
+   103→function ImpactBadge({ impact }: { impact: string }) {
+   104→  const isHigh = impact?.toUpperCase().includes("ÉLEV") || impact?.toUpperCase().includes("HIGH");
+   105→  const isLow = impact?.toUpperCase().includes("FAI") || impact?.toUpperCase().includes("LOW");
+   106→
+   107→  return (
+   108→    <Badge
+   109→      variant="outline"
+   110→      className={cn(
+   111→        "text-[10px] gap-1",
+   112→        isHigh && "border-loss/40 text-loss",
+   113→        isLow && "border-muted-foreground/40 text-muted-foreground",
+   114→        !isHigh && !isLow && "border-amber-500/40 text-amber-500"
+   115→      )}
+   116→    >
+   117→      {isHigh && <Zap className="w-3 h-3" />}
+   118→      {!isHigh && !isLow && <Shield className="w-3 h-3" />}
+   119→      {!isHigh && isLow && <AlertTriangle className="w-3 h-3" />}
+   120→      {impact || "N/A"}
+   121→    </Badge>
+   122→  );
+   123→}
+   124→
+   125→function SentimentGauge({ sentiment }: { sentiment: string }) {
+   126→  const s = sentiment?.toLowerCase() || "neutre";
+   127→  const isVeryBull = s.includes("très haus") || s.includes("very bull") || s.includes("strongly bull");
+   128→  const isBull = s.includes("haus") || s.includes("bull") || s.includes("acheteur");
+   129→  const isVeryBear = s.includes("très bai") || s.includes("very bear") || s.includes("strongly bear");
+   130→  const isBear = s.includes("bai") || s.includes("bear") || s.includes("vendeur");
+   131→
+   132→  const value = isVeryBull ? 90 : isBull ? 70 : isVeryBear ? 10 : isBear ? 30 : 50;
+   133→  const label = isVeryBull ? (s.includes("haus") ? "Très Haussier" : "Very Bullish")
+   134→    : isBull ? (s.includes("haus") ? "Haussier" : "Bullish")
+   135→    : isVeryBear ? (s.includes("bai") ? "Très Baissier" : "Very Bearish")
+   136→    : isBear ? (s.includes("bai") ? "Baissier" : "Bearish")
+   137→    : (s.includes("neutre") ? "Neutre" : "Neutral");
+   138→
+   139→  const color = value >= 70 ? "bg-profit" : value >= 55 ? "bg-profit/60" : value <= 30 ? "bg-loss" : value <= 45 ? "bg-loss/60" : "bg-amber-500";
+   140→
+   141→  return (
+   142→    <div className="space-y-1.5">
+   143→      <div className="flex items-center justify-between">
+   144→        <span className="text-[10px] font-medium text-muted-foreground">Sentiment</span>
+   145→        <span className={cn("text-[10px] font-bold",
+   146→          value >= 55 ? "text-profit" : value <= 45 ? "text-loss" : "text-amber-500"
+   147→        )}>{label}</span>
+   148→      </div>
+   149→      <div className="h-2 rounded-full bg-muted overflow-hidden">
+   150→        <div
+   151→          className={cn("h-full rounded-full transition-all duration-700", color)}
+   152→          style={{ width: `${value}%` }}
+   153→        />
+   154→      </div>
+   155→    </div>
+   156→  );
+   157→}
+   158→
+   159→type PeriodFilter = "today" | "week";
+   160→
+   161→export function NewsTab() {
+   162→  const { language } = useAppStore();
+   163→  const [activeAsset, setActiveAsset] = useState<string>("XAUUSD");
+   164→  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("week");
+   165→  const [newsData, setNewsData] = useState<any>(null);
+   166→  const [loading, setLoading] = useState(false);
+   167→  const [error, setError] = useState<string | null>(null);
+   168→
+   169→  const fetchNews = useCallback(async (asset: string, period: PeriodFilter) => {
+   170→    setLoading(true);
+   171→    setError(null);
+   172→    try {
+   173→      const res = await fetch(`/api/news?asset=${asset}&lang=${language}&period=${period}`);
+   174→      if (!res.ok) {
+   175→        throw new Error("Erreur lors du chargement");
+   176→      }
+   177→      const data = await res.json();
+   178→      setNewsData(data);
+   179→    } catch {
+   180→      setError(language === "fr" ? "Erreur lors du chargement des news" : "Error loading news");
+   181→    }
+   182→    setLoading(false);
+   183→  }, [language]);
+   184→
+   185→  useEffect(() => {
+   186→    fetchNews(activeAsset, periodFilter);
+   187→  }, [activeAsset, periodFilter, fetchNews]);
+   188→
+   189→  const handleRefresh = () => {
+   190→    fetchNews(activeAsset, periodFilter);
+   191→  };
+   192→
+   193→  const currentAsset = ASSETS.find(a => a.id === activeAsset);
+   194→  const analysis = newsData?.analysis;
+   195→  const aiPowered = newsData?.aiPowered;
+   196→
+   197→  // Bar chart data
+   198→  const barChartData = useMemo(() => {
+   199→    if (!newsData?.dailyCounts) return [];
+   200→    const countMap: Record<string, number> = {};
+   201→    newsData.dailyCounts.forEach((d: any) => {
+   202→      countMap[d.day] = d.count;
+   203→    });
+   204→    return DAYS_ORDER.map(day => ({
+   205→      day: language === "fr" ? DAYS_FR[day] : day,
+   206→      count: countMap[day] || 0,
+   207→    }));
+   208→  }, [newsData, language]);
+   209→
+   210→  // Upcoming events count
+   211→  const upcomingCount = newsData?.upcomingEvents?.length || 0;
+   212→
+   213→  return (
+   214→    <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
+   215→      {/* Header */}
+   216→      <div className="flex items-center justify-between">
+   217→        <div>
+   218→          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent">
+   219→            {language === "fr" ? "Analyse Fondamentale" : "Fundamental Analysis"}
+   220→          </h2>
+   221→          <p className="text-sm text-muted-foreground mt-1">
+   222→            {language === "fr"
+   223→              ? "Interprétation IA spécialisée en finance sur données réelles"
+   224→              : "Finance-specialized AI interpretation on real-time data"}
+   225→          </p>
+   226→        </div>
+   227→        <Button
+   228→          variant="outline"
+   229→          className="gap-2"
+   230→          onClick={handleRefresh}
+   231→          disabled={loading}
+   232→        >
+   233→          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+   234→          {language === "fr" ? "Actualiser" : "Refresh"}
+   235→        </Button>
+   236→      </div>
+   237→
+   238→      {/* Asset Selector */}
+   239→      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+   240→        {ASSETS.map((asset) => {
+   241→          const isActive = activeAsset === asset.id;
+   242→          return (
+   243→            <button
+   244→              key={asset.id}
+   245→              onClick={() => setActiveAsset(asset.id)}
+   246→              className={cn(
+   247→                "p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 text-center",
+   248→                isActive
+   249→                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-lg shadow-primary/10"
+   250→                  : "border-border hover:border-primary/30 bg-card"
+   251→              )}
+   252→            >
+   253→              <div className="text-lg sm:text-2xl mb-1">{asset.emoji}</div>
+   254→              <div className="text-[10px] sm:text-sm font-bold">{asset.id}</div>
+   255→              <div className="text-[8px] sm:text-xs text-muted-foreground hidden sm:block">
+   256→                {language === "fr" ? asset.label_fr : asset.label_en}
+   257→              </div>
+   258→            </button>
+   259→          );
+   260→        })}
+   261→      </div>
+   262→
+   263→      {/* Period Filter */}
+   264→      <div className="flex items-center gap-2">
+   265→        <Button
+   266→          variant={periodFilter === "today" ? "default" : "outline"}
+   267→          size="sm"
+   268→          className={cn("gap-1.5", periodFilter === "today" && "shadow-sm")}
+   269→          onClick={() => setPeriodFilter("today")}
+   270→        >
+   271→          <Calendar className="w-3.5 h-3.5" />
+   272→          {language === "fr" ? "Aujourd'hui" : "Today"}
+   273→        </Button>
+   274→        <Button
+   275→          variant={periodFilter === "week" ? "default" : "outline"}
+   276→          size="sm"
+   277→          className={cn("gap-1.5", periodFilter === "week" && "shadow-sm")}
+   278→          onClick={() => setPeriodFilter("week")}
+   279→        >
+   280→          <CalendarDays className="w-3.5 h-3.5" />
+   281→          {language === "fr" ? "Cette Semaine" : "This Week"}
+   282→        </Button>
+   283→      </div>
+   284→
+   285→      {/* Loading State */}
+   286→      {loading && (
+   287→        <div className="space-y-4">
+   288→          <Card className="p-6">
+   289→            <Skeleton className="h-6 w-48 mb-4" />
+   290→            <div className="space-y-3">
+   291→              <Skeleton className="h-4 w-full" />
+   292→              <Skeleton className="h-4 w-3/4" />
+   293→              <Skeleton className="h-4 w-1/2" />
+   294→            </div>
+   295→          </Card>
+   296→          <Card className="p-6">
+   297→            <Skeleton className="h-6 w-32 mb-4" />
+   298→            <div className="space-y-3">
+   299→              <Skeleton className="h-16 w-full" />
+   300→              <Skeleton className="h-16 w-full" />
+   301→              <Skeleton className="h-16 w-full" />
+   302→            </div>
+   303→          </Card>
+   304→        </div>
+   305→      )}
+   306→
+   307→      {/* Error State */}
+   308→      {error && !loading && (
+   309→        <Card className="p-12 text-center">
+   310→          <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+   311→          <p className="text-muted-foreground">{error}</p>
+   312→          <Button onClick={handleRefresh} variant="outline" className="mt-4 gap-2">
+   313→            <RefreshCw className="w-4 h-4" />
+   314→            {language === "fr" ? "Réessayer" : "Retry"}
+   315→          </Button>
+   316→        </Card>
+   317→      )}
+   318→
+   319→      {/* Content */}
+   320→      {newsData && !loading && !error && (
+   321→        <div className="space-y-4">
+   322→          {/* ============================================ */}
+   323→          {/* DONCIEL-AI™ Finance Analysis Card            */}
+   324→          {/* ============================================ */}
+   325→          {analysis && (
+   326→            <Card className={cn(
+   327→              "p-4 sm:p-6 border-2 overflow-hidden relative",
+   328→              analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
+   329→                ? "border-profit/20 bg-gradient-to-br from-profit/5 to-transparent"
+   330→                : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
+   331→                ? "border-loss/20 bg-gradient-to-br from-loss/5 to-transparent"
+   332→                : "border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent"
+   333→            )}>
+   334→              {/* AI Powered Badge */}
+   335→              {aiPowered && (
+   336→                <div className="absolute top-3 right-3">
+   337→                  <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20">
+   338→                    <Sparkles className="w-3 h-3" />
+   339→                    DONCIEL-AI™
+   340→                  </Badge>
+   341→                </div>
+   342→              )}
+   343→
+   344→              {/* Header */}
+   345→              <div className="flex items-start justify-between gap-3 mb-4">
+   346→                <div className="flex items-center gap-2">
+   347→                  <div className={cn(
+   348→                    "w-11 h-11 rounded-xl flex items-center justify-center",
+   349→                    analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
+   350→                      ? "bg-profit/10" : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
+   351→                      ? "bg-loss/10" : "bg-amber-500/10"
+   352→                  )}>
+   353→                    <Brain className={cn(
+   354→                      "w-6 h-6",
+   355→                      analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
+   356→                        ? "text-profit" : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
+   357→                        ? "text-loss" : "text-amber-500"
+   358→                    )} />
+   359→                  </div>
+   360→                  <div>
+   361→                    <h3 className="font-bold text-sm">
+   362→                      {aiPowered
+   363→                        ? (language === "fr" ? "IA Finance Spécialisée" : "Finance AI Specialist")
+   364→                        : (language === "fr" ? "Interprétation IA" : "AI Interpretation")} — {activeAsset}
+   365→                    </h3>
+   366→                    <p className="text-[10px] text-muted-foreground">
+   367→                      {currentAsset && (language === "fr" ? currentAsset.label_fr : currentAsset.label_en)}
+   368→                      {periodFilter === "today"
+   369→                        ? (language === "fr" ? " · Aujourd'hui" : " · Today")
+   370→                        : (language === "fr" ? " · Cette semaine" : " · This Week")}
+   371→                      {aiPowered && (
+   372→                        <span className="ml-1 text-purple-500">
+   373→                          · {language === "fr" ? "Analyse CFA en temps réel" : "CFA-level real-time analysis"}
+   374→                        </span>
+   375→                      )}
+   376→                    </p>
+   377→                  </div>
+   378→                </div>
+   379→                <DirectionBadge direction={analysis.direction} confidence={analysis.confidence} />
+   380→              </div>
+   381→
+   382→              {/* Summary */}
+   383→              {analysis.summary && (
+   384→                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+   385→                  {analysis.summary}
+   386→                </p>
+   387→              )}
+   388→
+   389→              <Separator className="mb-4" />
+   390→
+   391→              {/* Sentiment Gauge */}
+   392→              {analysis.sentiment && (
+   393→                <div className="mb-4">
+   394→                  <SentimentGauge sentiment={analysis.sentiment} />
+   395→                </div>
+   396→              )}
+   397→
+   398→              {/* Key Factors + Right column */}
+   399→              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   400→                {/* Key Factors */}
+   401→                {analysis.keyFactors && analysis.keyFactors.length > 0 && (
+   402→                  <div className="sm:col-span-2">
+   403→                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+   404→                      {language === "fr" ? "Facteurs Clés" : "Key Factors"}
+   405→                    </h4>
+   406→                    <div className="space-y-1.5">
+   407→                      {analysis.keyFactors.map((factor: string, i: number) => (
+   408→                        <div key={i} className="flex items-start gap-2 text-sm">
+   409→                          <span className="text-primary font-bold text-xs mt-0.5">•</span>
+   410→                          <span>{factor}</span>
+   411→                        </div>
+   412→                      ))}
+   413→                    </div>
+   414→                  </div>
+   415→                )}
+   416→
+   417→                <div className="space-y-3">
+   418→                  {/* Impact */}
+   419→                  <div>
+   420→                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+   421→                      {language === "fr" ? "Impact" : "Impact"}
+   422→                    </h4>
+   423→                    {analysis.impact && <ImpactBadge impact={analysis.impact} />}
+   424→                  </div>
+   425→
+   426→                  {/* Recommendation */}
+   427→                  {analysis.recommendation && (
+   428→                    <div>
+   429→                      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+   430→                        {language === "fr" ? "Conseil" : "Advice"}
+   431→                      </h4>
+   432→                      <p className="text-xs bg-primary/5 border border-primary/10 rounded-lg p-2.5">
+   433→                        💡 {analysis.recommendation}
+   434→                      </p>
+   435→                    </div>
+   436→                  )}
+   437→                </div>
+   438→              </div>
+   439→
+   440→              {/* Short-term & Medium-term — only when AI is active */}
+   441→              {(analysis.shortTerm || analysis.mediumTerm) && (
+   442→                <>
+   443→                  <Separator className="my-4" />
+   444→                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   445→                    {analysis.shortTerm && (
+   446→                      <div className="p-3 rounded-lg border border-border bg-card/50">
+   447→                        <div className="flex items-center gap-1.5 mb-1.5">
+   448→                          <Activity className="w-3.5 h-3.5 text-amber-500" />
+   449→                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   450→                            {language === "fr" ? "Court Terme (Intraday)" : "Short Term (Intraday)"}
+   451→                          </span>
+   452→                        </div>
+   453→                        <p className="text-xs leading-relaxed">{analysis.shortTerm}</p>
+   454→                      </div>
+   455→                    )}
+   456→                    {analysis.mediumTerm && (
+   457→                      <div className="p-3 rounded-lg border border-border bg-card/50">
+   458→                        <div className="flex items-center gap-1.5 mb-1.5">
+   459→                          <Target className="w-3.5 h-3.5 text-primary" />
+   460→                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   461→                            {language === "fr" ? "Moyen Terme (Swing)" : "Medium Term (Swing)"}
+   462→                          </span>
+   463→                        </div>
+   464→                        <p className="text-xs leading-relaxed">{analysis.mediumTerm}</p>
+   465→                      </div>
+   466→                    )}
+   467→                  </div>
+   468→                </>
+   469→              )}
+   470→
+   471→              {/* Risk Warning */}
+   472→              {analysis.riskWarning && (
+   473→                <div className="mt-3 p-2.5 rounded-lg border border-loss/20 bg-loss/5">
+   474→                  <div className="flex items-start gap-2">
+   475→                    <AlertCircle className="w-3.5 h-3.5 text-loss mt-0.5 shrink-0" />
+   476→                    <p className="text-[11px] text-loss/80 leading-relaxed">
+   477→                      {analysis.riskWarning}
+   478→                    </p>
+   479→                  </div>
+   480→                </div>
+   481→              )}
+   482→            </Card>
+   483→          )}
+   484→
+   485→          {/* Weekly News Bar Chart */}
+   486→          {periodFilter === "week" && barChartData.length > 0 && (
+   487→            <Card className="p-4 sm:p-6">
+   488→              <div className="flex items-center justify-between mb-4">
+   489→                <div className="flex items-center gap-2">
+   490→                  <BarChart3 className="w-4 h-4 text-primary" />
+   491→                  <h3 className="font-bold text-sm">
+   492→                    {language === "fr" ? "News de la Semaine" : "Weekly News"}
+   493→                  </h3>
+   494→                </div>
+   495→                <div className="flex items-center gap-2">
+   496→                  {upcomingCount > 0 && (
+   497→                    <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 text-amber-500">
+   498→                      <CalendarClock className="w-3 h-3" />
+   499→                      {upcomingCount} {language === "fr" ? "à venir" : "upcoming"}
+   500→                    </Badge>
+   501→                  )}
+   502→                  <Badge variant="secondary" className="text-[10px]">
+   503→                    {newsData.news?.length || 0} {language === "fr" ? "news" : "news"}
+   504→                  </Badge>
+   505→                </div>
+   506→              </div>
+   507→              <ChartContainer config={barChartConfig} className="h-[180px] w-full">
+   508→                <BarChart data={barChartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+   509→                  <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/50" />
+   510→                  <XAxis
+   511→                    dataKey="day"
+   512→                    tickLine={false}
+   513→                    axisLine={false}
+   514→                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+   515→                  />
+   516→                  <YAxis
+   517→                    tickLine={false}
+   518→                    axisLine={false}
+   519→                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+   520→                    allowDecimals={false}
+   521→                  />
+   522→                  <ChartTooltip
+   523→                    content={<ChartTooltipContent />}
+   524→                  />
+   525→                  <Bar
+   526→                    dataKey="count"
+   527→                    fill="hsl(var(--primary))"
+   528→                    radius={[4, 4, 0, 0]}
+   529→                    maxBarSize={40}
+   530→                  />
+   531→                </BarChart>
+   532→              </ChartContainer>
+   533→            </Card>
+   534→          )}
+   535→
+   536→          {/* Upcoming Economic Events */}
+   537→          {periodFilter === "week" && newsData.upcomingEvents?.length > 0 && (
+   538→            <Card className="p-4 sm:p-6">
+   539→              <div className="flex items-center gap-2 mb-4">
+   540→                <CalendarClock className="w-4 h-4 text-amber-500" />
+   541→                <h3 className="font-bold text-sm">
+   542→                  {language === "fr" ? "Événements Économiques à Venir" : "Upcoming Economic Events"}
+   543→                </h3>
+   544→              </div>
+   545→              <div className="space-y-2 max-h-48 overflow-y-auto">
+   546→                {newsData.upcomingEvents.map((item: any, i: number) => (
+   547→                  <a
+   548→                    key={i}
+   549→                    href={item.url}
+   550→                    target="_blank"
+   551→                    rel="noopener noreferrer"
+   552→                    className="block group"
+   553→                  >
+   554→                    <div className="p-2.5 rounded-lg border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 transition-all duration-200">
+   555→                      <div className="flex items-start justify-between gap-2">
+   556→                        <div className="flex-1 min-w-0">
+   557→                          <h4 className="text-xs font-medium group-hover:text-amber-600 transition-colors line-clamp-2">
+   558→                            {item.title}
+   559→                          </h4>
+   560→                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+   561→                            {item.snippet}
+   562→                          </p>
+   563→                        </div>
+   564→                        <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+   565→                      </div>
+   566→                    </div>
+   567→                  </a>
+   568→                ))}
+   569→              </div>
+   570→            </Card>
+   571→          )}
+   572→
+   573→          {/* News Feed with AI Interpretation Tags */}
+   574→          <Card className="p-4 sm:p-6">
+   575→            <div className="flex items-center justify-between mb-4">
+   576→              <div className="flex items-center gap-2">
+   577→                <Globe className="w-4 h-4 text-primary" />
+   578→                <h3 className="font-bold text-sm">
+   579→                  {periodFilter === "today"
+   580→                    ? (language === "fr" ? "News du Jour" : "Today's News")
+   581→                    : (language === "fr" ? "News de la Semaine" : "This Week's News")} — {activeAsset}
+   582→                </h3>
+   583→                {newsData.news?.length > 0 && (
+   584→                  <Badge variant="secondary" className="text-[10px]">
+   585→                    {newsData.news.length}
+   586→                  </Badge>
+   587→                )}
+   588→              </div>
+   589→              {newsData.updatedAt && (
+   590→                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+   591→                  <Clock className="w-3 h-3" />
+   592→                  {new Date(newsData.updatedAt).toLocaleTimeString(
+   593→                    language === "fr" ? "fr-FR" : "en-US",
+   594→                    { hour: "2-digit", minute: "2-digit" }
+   595→                  )}
+   596→                </div>
+   597→              )}
+   598→            </div>
+   599→
+   600→            {newsData.news?.length > 0 ? (
+   601→              <div className="space-y-3 max-h-[500px] overflow-y-auto">
+   602→                {newsData.news.map((item: any, i: number) => (
+   603→                  <a
+   604→                    key={i}
+   605→                    href={item.url}
+   606→                    target="_blank"
+   607→                    rel="noopener noreferrer"
+   608→                    className="block group"
+   609→                  >
+   610→                    <div className="p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200">
+   611→                      <div className="flex items-start justify-between gap-2">
+   612→                        <div className="flex-1 min-w-0">
+   613→                          <div className="flex items-center gap-2 mb-1">
+   614→                            {/* AI Direction Tag */}
+   615→                            {item.aiDirection && (
+   616→                              <DirectionIcon direction={item.aiDirection} size="sm" />
+   617→                            )}
+   618→                            <h4 className="text-sm font-medium group-hover:text-primary transition-colors line-clamp-2">
+   619→                              {item.title}
+   620→                            </h4>
+   621→                          </div>
+   622→                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+   623→                            {item.snippet}
+   624→                          </p>
+   625→                          {/* AI Reason Tag */}
+   626→                          {item.aiReason && (
+   627→                            <div className="mt-1.5 flex items-start gap-1.5">
+   628→                              <Brain className="w-3 h-3 text-purple-500 mt-0.5 shrink-0" />
+   629→                              <p className="text-[10px] text-purple-500/80 leading-relaxed line-clamp-2">
+   630→                                {item.aiReason}
+   631→                              </p>
+   632→                            </div>
+   633→                          )}
+   634→                        </div>
+   635→                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+   636→                      </div>
+   637→                      <div className="flex items-center gap-2 mt-2">
+   638→                        {item.source && (
+   639→                          <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+   640→                            {item.source}
+   641→                          </Badge>
+   642→                        )}
+   643→                        {item.date && (
+   644→                          <span className="text-[9px] text-muted-foreground">
+   645→                            {new Date(item.date).toLocaleDateString(
+   646→                              language === "fr" ? "fr-FR" : "en-US",
+   647→                              { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
+   648→                            )}
+   649→                          </span>
+   650→                        )}
+   651→                        {item.aiDirection && (
+   652→                          <Badge className={cn(
+   653→                            "text-[8px] px-1.5 py-0 border-0",
+   654→                            item.aiDirection === "HAUSSIER" && "bg-profit/15 text-profit",
+   655→                            item.aiDirection === "BAISSIER" && "bg-loss/15 text-loss",
+   656→                            item.aiDirection === "NEUTRE" && "bg-amber-500/15 text-amber-500",
+   657→                          )}>
+   658→                            {item.aiDirection}
+   659→                          </Badge>
+   660→                        )}
+   661→                      </div>
+   662→                    </div>
+   663→                  </a>
+   664→                ))}
+   665→              </div>
+   666→            ) : (
+   667→              <p className="text-sm text-muted-foreground text-center py-8">
+   668→                {language === "fr" ? "Aucune news disponible" : "No news available"}
+   669→              </p>
+   670→            )}
+   671→          </Card>
+   672→
+   673→          {/* Disclaimer */}
+   674→          <p className="text-[10px] text-muted-foreground/60 text-center px-4">
+   675→            {language === "fr"
+   676→              ? "⚠️ DONCIEL-AI™ est fourni à titre informatif uniquement et ne constitue pas un conseil financier. L'IA analyse les données en temps réel mais les marchés restent imprévisibles. Toujours faire vos propres recherches avant de trader."
+   677→              : "⚠️ DONCIEL-AI™ is for informational purposes only and does not constitute financial advice. AI analyzes real-time data but markets remain unpredictable. Always do your own research before trading."}
+   678→          </p>
+   679→        </div>
+   680→      )}
+   681→    </div>
+   682→  );
+   683→}
+   684→

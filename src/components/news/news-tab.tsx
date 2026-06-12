@@ -122,26 +122,27 @@ function ImpactBadge({ impact }: { impact: string }) {
   );
 }
 
-function SentimentGauge({ sentiment }: { sentiment: string }) {
+function SentimentGauge({ sentiment, language }: { sentiment: string; language: string }) {
   const s = sentiment?.toLowerCase() || "neutre";
+  const isFr = language === "fr";
   const isVeryBull = s.includes("très haus") || s.includes("very bull") || s.includes("strongly bull");
   const isBull = s.includes("haus") || s.includes("bull") || s.includes("acheteur");
   const isVeryBear = s.includes("très bai") || s.includes("very bear") || s.includes("strongly bear");
   const isBear = s.includes("bai") || s.includes("bear") || s.includes("vendeur");
 
   const value = isVeryBull ? 90 : isBull ? 70 : isVeryBear ? 10 : isBear ? 30 : 50;
-  const label = isVeryBull ? (s.includes("haus") ? "Très Haussier" : "Very Bullish")
-    : isBull ? (s.includes("haus") ? "Haussier" : "Bullish")
-    : isVeryBear ? (s.includes("bai") ? "Très Baissier" : "Very Bearish")
-    : isBear ? (s.includes("bai") ? "Baissier" : "Bearish")
-    : (s.includes("neutre") ? "Neutre" : "Neutral");
+  const label = isVeryBull ? (isFr ? "Très Haussier" : "Very Bullish")
+    : isBull ? (isFr ? "Haussier" : "Bullish")
+    : isVeryBear ? (isFr ? "Très Baissier" : "Very Bearish")
+    : isBear ? (isFr ? "Baissier" : "Bearish")
+    : (isFr ? "Neutre" : "Neutral");
 
   const color = value >= 70 ? "bg-profit" : value >= 55 ? "bg-profit/60" : value <= 30 ? "bg-loss" : value <= 45 ? "bg-loss/60" : "bg-amber-500";
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium text-muted-foreground">Sentiment</span>
+        <span className="text-[10px] font-medium text-muted-foreground">{isFr ? "Sentiment" : "Sentiment"}</span>
         <span className={cn("text-[10px] font-bold",
           value >= 55 ? "text-profit" : value <= 45 ? "text-loss" : "text-amber-500"
         )}>{label}</span>
@@ -324,28 +325,18 @@ export function NewsTab() {
           {/* ============================================ */}
           {analysis && (
             <Card className={cn(
-              "p-4 sm:p-6 border-2 overflow-hidden relative",
+              "p-4 sm:p-6 border-2 overflow-hidden",
               analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
                 ? "border-profit/20 bg-gradient-to-br from-profit/5 to-transparent"
                 : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
                 ? "border-loss/20 bg-gradient-to-br from-loss/5 to-transparent"
                 : "border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent"
             )}>
-              {/* AI Powered Badge */}
-              {aiPowered && (
-                <div className="absolute top-3 right-3">
-                  <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20">
-                    <Sparkles className="w-3 h-3" />
-                    DONCIEL-AI™
-                  </Badge>
-                </div>
-              )}
-
               {/* Header */}
               <div className="flex items-start justify-between gap-3 mb-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <div className={cn(
-                    "w-11 h-11 rounded-xl flex items-center justify-center",
+                    "w-11 h-11 rounded-xl flex items-center justify-center shrink-0",
                     analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
                       ? "bg-profit/10" : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
                       ? "bg-loss/10" : "bg-amber-500/10"
@@ -357,12 +348,21 @@ export function NewsTab() {
                         ? "text-loss" : "text-amber-500"
                     )} />
                   </div>
-                  <div>
-                    <h3 className="font-bold text-sm">
-                      {aiPowered
-                        ? (language === "fr" ? "IA Finance Spécialisée" : "Finance AI Specialist")
-                        : (language === "fr" ? "Interprétation IA" : "AI Interpretation")} — {activeAsset}
-                    </h3>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-sm">
+                        {aiPowered
+                          ? (language === "fr" ? "IA Financière Spécialisée" : "Finance AI Specialist")
+                          : (language === "fr" ? "Interprétation IA" : "AI Interpretation")} — {activeAsset}
+                      </h3>
+                      {/* AI Powered Badge — inline with title */}
+                      {aiPowered && (
+                        <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+                          <Sparkles className="w-3 h-3" />
+                          DONCIEL-AI™
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-[10px] text-muted-foreground">
                       {currentAsset && (language === "fr" ? currentAsset.label_fr : currentAsset.label_en)}
                       {periodFilter === "today"
@@ -391,7 +391,7 @@ export function NewsTab() {
               {/* Sentiment Gauge */}
               {analysis.sentiment && (
                 <div className="mb-4">
-                  <SentimentGauge sentiment={analysis.sentiment} />
+                  <SentimentGauge sentiment={analysis.sentiment} language={language} />
                 </div>
               )}
 
@@ -489,7 +489,7 @@ export function NewsTab() {
                 <div className="flex items-center gap-2">
                   <BarChart3 className="w-4 h-4 text-primary" />
                   <h3 className="font-bold text-sm">
-                    {language === "fr" ? "News de la Semaine" : "Weekly News"}
+                    {language === "fr" ? "Actualités de la Semaine" : "Weekly News"}
                   </h3>
                 </div>
                 <div className="flex items-center gap-2">
@@ -500,7 +500,7 @@ export function NewsTab() {
                     </Badge>
                   )}
                   <Badge variant="secondary" className="text-[10px]">
-                    {newsData.news?.length || 0} {language === "fr" ? "news" : "news"}
+                    {newsData.news?.length || 0} {language === "fr" ? "actualités" : "news"}
                   </Badge>
                 </div>
               </div>
@@ -577,8 +577,8 @@ export function NewsTab() {
                 <Globe className="w-4 h-4 text-primary" />
                 <h3 className="font-bold text-sm">
                   {periodFilter === "today"
-                    ? (language === "fr" ? "News du Jour" : "Today's News")
-                    : (language === "fr" ? "News de la Semaine" : "This Week's News")} — {activeAsset}
+                    ? (language === "fr" ? "Actualités du Jour" : "Today's News")
+                    : (language === "fr" ? "Actualités de la Semaine" : "This Week's News")} — {activeAsset}
                 </h3>
                 {newsData.news?.length > 0 && (
                   <Badge variant="secondary" className="text-[10px]">
@@ -665,7 +665,7 @@ export function NewsTab() {
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">
-                {language === "fr" ? "Aucune news disponible" : "No news available"}
+                {language === "fr" ? "Aucune actualité disponible" : "No news available"}
               </p>
             )}
           </Card>
@@ -673,7 +673,7 @@ export function NewsTab() {
           {/* Disclaimer */}
           <p className="text-[10px] text-muted-foreground/60 text-center px-4">
             {language === "fr"
-              ? "⚠️ DONCIEL-AI™ est fourni à titre informatif uniquement et ne constitue pas un conseil financier. L'IA analyse les données en temps réel mais les marchés restent imprévisibles. Toujours faire vos propres recherches avant de trader."
+              ? "⚠️ DONCIEL-AI™ est fourni à titre informatif uniquement et ne constitue pas un conseil financier. L'IA analyse les données en temps réel mais les marchés restent imprévisibles. Effectuez toujours vos propres recherches avant de trader."
               : "⚠️ DONCIEL-AI™ is for informational purposes only and does not constitute financial advice. AI analyzes real-time data but markets remain unpredictable. Always do your own research before trading."}
           </p>
         </div>
