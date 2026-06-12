@@ -1,37 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
-import { getZAI } from '@/lib/zai';
+import { XMLParser } from 'fast-xml-parser';
 
 const ASSETS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'US30', 'US100'] as const;
 type Asset = (typeof ASSETS)[number];
-
-const ASSET_QUERIES: Record<Asset, { today: string[]; week: string[]; calendar: string[] }> = {
-  XAUUSD: {
-    today: ['gold price news today forex XAUUSD', 'XAUUSD analysis today forecast'],
-    week: ['gold XAUUSD news this week analysis', 'gold market forecast weekly Federal Reserve'],
-    calendar: ['gold XAUUSD economic calendar events this week'],
-  },
-  EURUSD: {
-    today: ['EURUSD news today forex euro dollar', 'EURUSD analysis today forecast'],
-    week: ['EURUSD euro dollar news this week analysis', 'ECB interest rate news this week'],
-    calendar: ['EURUSD economic calendar events euro zone this week'],
-  },
-  GBPUSD: {
-    today: ['GBPUSD news today forex pound dollar', 'GBPUSD analysis today forecast'],
-    week: ['GBPUSD pound dollar news this week analysis', 'Bank of England interest rate news this week'],
-    calendar: ['GBPUSD economic calendar events UK this week'],
-  },
-  US30: {
-    today: ['Dow Jones US30 news today stock market', 'US30 index analysis today forecast'],
-    week: ['US30 Dow Jones news this week analysis', 'US stock market weekly forecast Federal Reserve'],
-    calendar: ['US30 Dow Jones economic calendar events this week'],
-  },
-  US100: {
-    today: ['Nasdaq US100 news today tech stocks', 'US100 index analysis today forecast'],
-    week: ['US100 Nasdaq news this week analysis', 'Nasdaq tech stocks weekly forecast'],
-    calendar: ['Nasdaq US100 economic calendar events this week'],
-  },
-};
 
 const ASSET_LABELS: Record<Asset, { fr: string; en: string; emoji: string }> = {
   XAUUSD: { fr: 'Or / Dollar', en: 'Gold / Dollar', emoji: '🥇' },
@@ -41,37 +13,96 @@ const ASSET_LABELS: Record<Asset, { fr: string; en: string; emoji: string }> = {
   US100: { fr: 'Nasdaq 100', en: 'Nasdaq 100', emoji: '💻' },
 };
 
-// In-memory cache
-interface CacheEntry {
-  data: any;
-  timestamp: number;
-}
-const cache = new Map<string, CacheEntry>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+// Map assets to Investing.com RSS feed IDs and keyword filters
+const ASSET_RSS: Record<Asset, { feeds: { id: number; keywords: string[] }[] }> = {
+  XAUUSD: {
+    feeds: [
+      { id: 11, keywords: ['gold', 'xau', 'precious metal', 'commodities', 'fed', 'inflation', 'dollar'] },
+      { id: 1, keywords: ['gold', 'dollar', 'fed', 'inflation'] },
+    ],
+  },
+  EURUSD: {
+    feeds: [
+      { id: 1, keywords: ['euro', 'eur', 'ecb', 'eurozone', 'dollar', 'fed'] },
+      { id: 14, keywords: ['ecb', 'eurozone', 'europe', 'interest rate'] },
+    ],
+  },
+  GBPUSD: {
+    feeds: [
+      { id: 1, keywords: ['pound', 'sterling', 'gbp', 'boe', 'uk economy', 'britain'] },
+      { id: 14, keywords: ['boe', 'uk', 'britain', 'interest rate'] },
+    ],
+  },
+  US30: {
+    feeds: [
+      { id: 25, keywords: ['dow', 'us30', 'wall street', 'stock market', 'fed', 'jobs', 'inflation'] },
+      { id: 14, keywords: ['fed', 'us economy', 'jobs', 'gdp', 'inflation'] },
+    ],
+  },
+  US100: {
+    feeds: [
+      { id: 25, keywords: ['nasdaq', 'us100', 'tech', 'ai', 'magnificent', 'semiconductor'] },
+      { id: 14, keywords: ['fed', 'tech', 'ai', 'interest rate'] },
+    ],
+  },
+};
 
-async function searchWeb(query: string, num = 8, recencyDays = 7) {
+// In-memory cache
+interface CacheEntry { data: any; timestamp: number; }
+const cache = new Map<string, CacheEntry>();
+const CACHE_DURATION = 5 * 60 * 1000;
+
+const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+
+// Fetch and parse RSS feed from Investing.com
+async function fetchRSSFeed(feedId: number, keywords: string[]): Promise<any[]> {
   try {
-    const zai = await getZAI();
-    const results = await zai.functions.invoke('web_search', {
-      query,
-      num,
-      recency_days: recencyDays,
+    const url = `https://www.investing.com/rss/news_${feedId}.rss`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DONCIEL-TM/1.0; +https://donciel-trading.vercel.app)' },
+      signal: AbortSignal.timeout(10000),
     });
-    return Array.isArray(results) ? results : [];
+
+    if (!response.ok) return [];
+
+    const xml = await response.text();
+    const parsed = parser.parse(xml);
+    const items = parsed?.rss?.channel?.item;
+    if (!items) return [];
+
+    const list = Array.isArray(items) ? items : [items];
+
+    return list
+      .map((item: any) => ({
+        title: item.title || '',
+        snippet: item.title || '',
+        url: item.link || '',
+        source: item.author || 'Investing.com',
+        date: item.pubDate || null,
+      }))
+      .filter((item: any) => {
+        if (!item.title || !item.url) return false;
+        const text = item.title.toLowerCase();
+        return keywords.some(kw => text.includes(kw));
+      });
   } catch (error) {
-    console.error('Web search error:', error);
+    console.error(`RSS feed ${feedId} error:`, error);
     return [];
   }
 }
 
-async function analyzeWithAI(asset: Asset, newsItems: any[], language: string, period: string) {
+// Try AI analysis with ZAI SDK
+async function analyzeWithAI(asset: Asset, newsItems: any[], language: string, period: string): Promise<any | null> {
   try {
+    const { getZAI } = await import('@/lib/zai');
     const zai = await getZAI();
 
     const newsSummary = newsItems
       .slice(0, 8)
-      .map((item: any, i: number) => `${i + 1}. ${item.name}\n   ${item.snippet}`)
-      .join('\n\n');
+      .map((item: any, i: number) => `${i + 1}. ${item.title}`)
+      .join('\n');
+
+    if (!newsSummary.trim()) return null;
 
     const lang = language === 'fr' ? 'français' : 'English';
     const assetLabel = language === 'fr' ? ASSET_LABELS[asset].fr : ASSET_LABELS[asset].en;
@@ -115,22 +146,49 @@ Réponds au format JSON exact :
     const content = completion.choices[0]?.message?.content || '';
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]);
-      }
+      if (jsonMatch) return JSON.parse(jsonMatch[0]);
     } catch {}
     return null;
   } catch (error) {
-    console.error('AI analysis error:', error);
+    console.error('AI analysis unavailable:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
 
-// Parse news and group by day of the week
-function groupNewsByDay(newsItems: any[]) {
-  const days: Record<string, any[]> = {
-    Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [],
+// Generate basic analysis from news titles when AI is unavailable
+function generateBasicAnalysis(asset: Asset, newsItems: any[], language: string): any {
+  if (newsItems.length === 0) return null;
+
+  const titles = newsItems.slice(0, 5).map(n => n.title.toLowerCase()).join(' ');
+
+  // Simple keyword-based direction detection
+  const bullishWords = ['rise', 'gain', 'rally', 'surge', 'climb', 'bullish', 'support', 'up', 'high', 'strong', 'hausse', 'monte', 'soutien'];
+  const bearishWords = ['fall', 'drop', 'slide', 'slip', 'decline', 'bearish', 'pressure', 'down', 'low', 'weak', 'baisse', 'chute', 'recul'];
+
+  let bullScore = 0;
+  let bearScore = 0;
+  bullishWords.forEach(w => { if (titles.includes(w)) bullScore++; });
+  bearishWords.forEach(w => { if (titles.includes(w)) bearScore++; });
+
+  const direction = bullScore > bearScore ? 'HAUSSIER' : bearScore > bullScore ? 'BAISSIER' : 'NEUTRE';
+  const confidence = Math.abs(bullScore - bearScore) >= 3 ? 'élevé' : Math.abs(bullScore - bearScore) >= 1 ? 'moyen' : 'faible';
+
+  return {
+    summary: language === 'fr'
+      ? `Analyse basée sur ${newsItems.length} news récentes pour ${asset}. ${direction === 'HAUSSIER' ? 'Les indicateurs suggèrent une pression acheteuse.' : direction === 'BAISSIER' ? 'Les indicateurs suggèrent une pression vendeuse.' : 'Les signaux sont mitigés.'}`
+      : `Analysis based on ${newsItems.length} recent news for ${asset}. ${direction === 'HAUSSIER' ? 'Indicators suggest buying pressure.' : direction === 'BAISSIER' ? 'Indicators suggest selling pressure.' : 'Mixed signals.'}`,
+    direction,
+    confidence,
+    impact: newsItems.length >= 5 ? 'IMPACT MODÉRÉ' : 'IMPACT FAIBLE',
+    keyFactors: newsItems.slice(0, 3).map(n => n.title.length > 80 ? n.title.substring(0, 80) + '...' : n.title),
+    recommendation: language === 'fr'
+      ? 'Consultez les news détaillées pour une analyse complète avant de trader.'
+      : 'Review detailed news for complete analysis before trading.',
   };
+}
+
+function groupNewsByDay(newsItems: any[]) {
+  const days: Record<string, any[]> = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [] };
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   newsItems.forEach((item: any) => {
@@ -138,15 +196,12 @@ function groupNewsByDay(newsItems: any[]) {
       try {
         const d = new Date(item.date);
         if (!isNaN(d.getTime())) {
-          const dayKey = dayNames[d.getDay()];
-          days[dayKey].push(item);
+          days[dayNames[d.getDay()]].push(item);
           return;
         }
       } catch {}
     }
-    // If no valid date, put in today
-    const todayKey = dayNames[new Date().getDay()];
-    days[todayKey].push(item);
+    days[dayNames[new Date().getDay()]].push(item);
   });
 
   return days;
@@ -162,7 +217,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const asset = searchParams.get('asset') as Asset || 'XAUUSD';
     const language = searchParams.get('lang') || 'fr';
-    const period = searchParams.get('period') || 'week'; // 'today' or 'week'
+    const period = searchParams.get('period') || 'week';
 
     if (!ASSETS.includes(asset)) {
       return NextResponse.json({ error: 'Actif invalide' }, { status: 400 });
@@ -175,80 +230,61 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached.data);
     }
 
-    const queries = ASSET_QUERIES[asset];
-    const recencyDays = period === 'today' ? 1 : 7;
+    // Fetch from RSS feeds
+    const feedConfigs = ASSET_RSS[asset].feeds;
+    const allFeedResults = await Promise.all(
+      feedConfigs.map(fc => fetchRSSFeed(fc.id, fc.keywords))
+    );
 
-    // Search for news based on period
-    const [results1, results2, calendarResults] = await Promise.all([
-      searchWeb(queries[period][0], 6, recencyDays),
-      searchWeb(queries[period][1], 4, recencyDays),
-      period === 'week' ? searchWeb(queries.calendar[0], 5, 7) : Promise.resolve([]),
-    ]);
+    const allResults = allFeedResults.flat().sort((a, b) => {
+      return new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime();
+    });
 
-    const allResults = [...(results1 || []), ...(results2 || [])]
-      .filter((item: any) => item.name && item.snippet)
-      .sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-
-    // Deduplicate by name similarity
+    // Deduplicate
     const seen = new Set<string>();
     const uniqueResults = allResults.filter((item: any) => {
-      const key = item.name.toLowerCase().substring(0, 40);
+      const key = item.title.toLowerCase().substring(0, 40);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
 
-    // Calendar/upcoming events
-    const upcomingEvents = (calendarResults || [])
-      .filter((item: any) => item.name && item.snippet)
-      .slice(0, 5)
-      .map((item: any) => ({
-        title: item.name,
-        snippet: item.snippet,
-        url: item.url,
-        source: item.host_name,
-        date: item.date || null,
-      }));
+    // Filter by period
+    const now = new Date();
+    const periodStart = period === 'today'
+      ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    // Group news by day of week for bar chart
-    const newsByDay = groupNewsByDay(uniqueResults);
+    const filteredNews = uniqueResults.filter((item: any) => {
+      if (!item.date) return true;
+      try { return new Date(item.date) >= periodStart; } catch { return true; }
+    });
 
-    // Count news per day
-    const dailyCounts = Object.entries(newsByDay).map(([day, items]) => ({
-      day,
-      count: items.length,
-    }));
+    // Daily counts for bar chart
+    const newsByDay = groupNewsByDay(filteredNews);
+    const dailyCounts = Object.entries(newsByDay).map(([day, items]) => ({ day, count: items.length }));
 
-    // AI Analysis
-    const analysis = await analyzeWithAI(asset, uniqueResults, language, period);
+    // Try AI analysis first, fallback to basic keyword analysis
+    let analysis = await analyzeWithAI(asset, filteredNews, language, period);
+    if (!analysis) {
+      analysis = generateBasicAnalysis(asset, filteredNews, language);
+    }
 
     const responseData = {
       asset,
       assetLabel: ASSET_LABELS[asset],
       period,
-      news: uniqueResults.slice(0, 12).map((item: any) => ({
-        title: item.name,
-        snippet: item.snippet,
-        url: item.url,
-        source: item.host_name,
-        date: item.date || null,
-        favicon: item.favicon || null,
-      })),
-      upcomingEvents,
+      news: filteredNews.slice(0, 12),
+      upcomingEvents: [],
       dailyCounts,
       analysis,
       updatedAt: new Date().toISOString(),
     };
 
-    // Cache the result
     cache.set(cacheKey, { data: responseData, timestamp: Date.now() });
-
     return NextResponse.json(responseData);
   } catch (error) {
     console.error('News API error:', error);
-    return NextResponse.json(
-      { error: 'Erreur lors de la récupération des news' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Erreur lors de la récupération des news' }, { status: 500 });
   }
 }
