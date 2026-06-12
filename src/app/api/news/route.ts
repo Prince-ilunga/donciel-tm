@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
+import { getZAI } from '@/lib/zai';
 
 const ASSETS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'US30', 'US100'] as const;
 type Asset = (typeof ASSETS)[number];
@@ -50,8 +51,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 async function searchWeb(query: string, num = 8, recencyDays = 7) {
   try {
-    const ZAI = (await import('z-ai-web-dev-sdk')).default;
-    const zai = await ZAI.create();
+    const zai = await getZAI();
     const results = await zai.functions.invoke('web_search', {
       query,
       num,
@@ -66,8 +66,7 @@ async function searchWeb(query: string, num = 8, recencyDays = 7) {
 
 async function analyzeWithAI(asset: Asset, newsItems: any[], language: string, period: string) {
   try {
-    const ZAI = (await import('z-ai-web-dev-sdk')).default;
-    const zai = await ZAI.create();
+    const zai = await getZAI();
 
     const newsSummary = newsItems
       .slice(0, 8)
