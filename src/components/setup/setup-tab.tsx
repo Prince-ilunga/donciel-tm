@@ -632,10 +632,7 @@ function TradeVerificationList({
                     <span className="text-xs font-mono text-muted-foreground w-6">{idx + 1}</span>
                     <div className={cn(
                       "w-7 h-7 rounded-full flex items-center justify-center shrink-0",
-                      trade.result === "WIN" && "bg-profit/10 text-profit",
-                      trade.result === "LOSS" && "bg-loss/10 text-loss",
-                      trade.result === "BE" && "bg-gold/10 text-gold",
-                      !trade.result && "bg-muted text-muted-foreground"
+                      trade.direction === "LONG" ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"
                     )}>
                       {trade.direction === "LONG" ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
                     </div>

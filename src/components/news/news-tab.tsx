@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -10,6 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { Bar, BarChart, XAxis, YAxis, CartesianGrid } from "recharts";
 import {
   Newspaper,
   RefreshCw,
@@ -23,6 +29,10 @@ import {
   Zap,
   Loader2,
   Globe,
+  Calendar,
+  CalendarDays,
+  BarChart3,
+  CalendarClock,
 } from "lucide-react";
 
 const ASSETS = [
@@ -32,6 +42,16 @@ const ASSETS = [
   { id: "US30", emoji: "🏭", label_fr: "Dow Jones 30", label_en: "Dow Jones 30", color: "from-emerald-500/10 to-green-500/10" },
   { id: "US100", emoji: "💻", label_fr: "Nasdaq 100", label_en: "Nasdaq 100", color: "from-purple-500/10 to-violet-500/10" },
 ] as const;
+
+const DAYS_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAYS_FR: Record<string, string> = { Mon: "Lun", Tue: "Mar", Wed: "Mer", Thu: "Jeu", Fri: "Ven", Sat: "Sam", Sun: "Dim" };
+
+const barChartConfig = {
+  count: {
+    label: "News",
+    color: "hsl(var(--primary))",
+  },
+} as const;
 
 function DirectionBadge({ direction, confidence }: { direction: string; confidence: string }) {
   const isUp = direction?.toUpperCase().includes("HAUSS") || direction?.toUpperCase().includes("BULL");
@@ -79,26 +99,29 @@ function ImpactBadge({ impact }: { impact: string }) {
         !isHigh && !isLow && "border-amber-500/40 text-amber-500"
       )}
     >
-      {isHigh && <AlertTriangle className="w-3 h-3" />}
       {isHigh && <Zap className="w-3 h-3" />}
       {!isHigh && !isLow && <Shield className="w-3 h-3" />}
+      {!isHigh && isLow && <AlertTriangle className="w-3 h-3" />}
       {impact || "N/A"}
     </Badge>
   );
 }
 
+type PeriodFilter = "today" | "week";
+
 export function NewsTab() {
   const { language } = useAppStore();
   const [activeAsset, setActiveAsset] = useState<string>("XAUUSD");
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("week");
   const [newsData, setNewsData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchNews = useCallback(async (asset: string) => {
+  const fetchNews = useCallback(async (asset: string, period: PeriodFilter) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/news?asset=${asset}&lang=${language}`);
+      const res = await fetch(`/api/news?asset=${asset}&lang=${language}&period=${period}`);
       if (!res.ok) {
         throw new Error("Erreur lors du chargement");
       }
@@ -111,18 +134,34 @@ export function NewsTab() {
   }, [language]);
 
   useEffect(() => {
-    fetchNews(activeAsset);
-  }, [activeAsset, fetchNews]);
+    fetchNews(activeAsset, periodFilter);
+  }, [activeAsset, periodFilter, fetchNews]);
 
   const handleRefresh = () => {
-    fetchNews(activeAsset);
+    fetchNews(activeAsset, periodFilter);
   };
 
   const currentAsset = ASSETS.find(a => a.id === activeAsset);
   const analysis = newsData?.analysis;
 
+  // Bar chart data
+  const barChartData = useMemo(() => {
+    if (!newsData?.dailyCounts) return [];
+    const countMap: Record<string, number> = {};
+    newsData.dailyCounts.forEach((d: any) => {
+      countMap[d.day] = d.count;
+    });
+    return DAYS_ORDER.map(day => ({
+      day: language === "fr" ? DAYS_FR[day] : day,
+      count: countMap[day] || 0,
+    }));
+  }, [newsData, language]);
+
+  // Upcoming events count
+  const upcomingCount = newsData?.upcomingEvents?.length || 0;
+
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -169,6 +208,28 @@ export function NewsTab() {
             </button>
           );
         })}
+      </div>
+
+      {/* Period Filter */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant={periodFilter === "today" ? "default" : "outline"}
+          size="sm"
+          className={cn("gap-1.5", periodFilter === "today" && "shadow-sm")}
+          onClick={() => setPeriodFilter("today")}
+        >
+          <Calendar className="w-3.5 h-3.5" />
+          {language === "fr" ? "Aujourd'hui" : "Today"}
+        </Button>
+        <Button
+          variant={periodFilter === "week" ? "default" : "outline"}
+          size="sm"
+          className={cn("gap-1.5", periodFilter === "week" && "shadow-sm")}
+          onClick={() => setPeriodFilter("week")}
+        >
+          <CalendarDays className="w-3.5 h-3.5" />
+          {language === "fr" ? "Cette Semaine" : "This Week"}
+        </Button>
       </div>
 
       {/* Loading State */}
@@ -239,6 +300,9 @@ export function NewsTab() {
                     </h3>
                     <p className="text-[10px] text-muted-foreground">
                       {currentAsset && (language === "fr" ? currentAsset.label_fr : currentAsset.label_en)}
+                      {periodFilter === "today"
+                        ? (language === "fr" ? " · Aujourd'hui" : " · Today")
+                        : (language === "fr" ? " · Cette semaine" : " · This Week")}
                     </p>
                   </div>
                 </div>
@@ -298,13 +362,103 @@ export function NewsTab() {
             </Card>
           )}
 
+          {/* Weekly News Bar Chart */}
+          {periodFilter === "week" && barChartData.length > 0 && (
+            <Card className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-primary" />
+                  <h3 className="font-bold text-sm">
+                    {language === "fr" ? "News de la Semaine" : "Weekly News"}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  {upcomingCount > 0 && (
+                    <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 text-amber-500">
+                      <CalendarClock className="w-3 h-3" />
+                      {upcomingCount} {language === "fr" ? "à venir" : "upcoming"}
+                    </Badge>
+                  )}
+                  <Badge variant="secondary" className="text-[10px]">
+                    {newsData.news?.length || 0} {language === "fr" ? "news" : "news"}
+                  </Badge>
+                </div>
+              </div>
+              <ChartContainer config={barChartConfig} className="h-[180px] w-full">
+                <BarChart data={barChartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-border/50" />
+                  <XAxis
+                    dataKey="day"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                    allowDecimals={false}
+                  />
+                  <ChartTooltip
+                    content={<ChartTooltipContent />}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill="hsl(var(--primary))"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={40}
+                  />
+                </BarChart>
+              </ChartContainer>
+            </Card>
+          )}
+
+          {/* Upcoming Economic Events */}
+          {periodFilter === "week" && newsData.upcomingEvents?.length > 0 && (
+            <Card className="p-4 sm:p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <CalendarClock className="w-4 h-4 text-amber-500" />
+                <h3 className="font-bold text-sm">
+                  {language === "fr" ? "Événements Économiques à Venir" : "Upcoming Economic Events"}
+                </h3>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {newsData.upcomingEvents.map((item: any, i: number) => (
+                  <a
+                    key={i}
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block group"
+                  >
+                    <div className="p-2.5 rounded-lg border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 transition-all duration-200">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-xs font-medium group-hover:text-amber-600 transition-colors line-clamp-2">
+                            {item.title}
+                          </h4>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+                            {item.snippet}
+                          </p>
+                        </div>
+                        <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </Card>
+          )}
+
           {/* News Feed */}
           <Card className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Globe className="w-4 h-4 text-primary" />
                 <h3 className="font-bold text-sm">
-                  {language === "fr" ? "News en Temps Réel" : "Real-Time News"} — {activeAsset}
+                  {periodFilter === "today"
+                    ? (language === "fr" ? "News du Jour" : "Today's News")
+                    : (language === "fr" ? "News de la Semaine" : "This Week's News")} — {activeAsset}
                 </h3>
                 {newsData.news?.length > 0 && (
                   <Badge variant="secondary" className="text-[10px]">
@@ -324,7 +478,7 @@ export function NewsTab() {
             </div>
 
             {newsData.news?.length > 0 ? (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
+              <div className="space-y-3 max-h-[500px] overflow-y-auto">
                 {newsData.news.map((item: any, i: number) => (
                   <a
                     key={i}
