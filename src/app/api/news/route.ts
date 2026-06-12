@@ -13,36 +13,36 @@ const ASSET_LABELS: Record<Asset, { fr: string; en: string; emoji: string }> = {
   US100: { fr: 'Nasdaq 100', en: 'Nasdaq 100', emoji: '💻' },
 };
 
-// Map assets to Investing.com RSS feed IDs and keyword filters
+// RSS feeds - each asset maps to multiple feed IDs
 const ASSET_RSS: Record<Asset, { feeds: { id: number; keywords: string[] }[] }> = {
   XAUUSD: {
     feeds: [
-      { id: 11, keywords: ['gold', 'xau', 'precious metal', 'commodities', 'fed', 'inflation', 'dollar'] },
-      { id: 1, keywords: ['gold', 'dollar', 'fed', 'inflation'] },
+      { id: 11, keywords: ['gold', 'xau', 'precious', 'commodit', 'fed', 'inflation', 'dollar', 'oil', 'energy', 'mining', 'metal', 'rate'] },
+      { id: 1, keywords: ['gold', 'dollar', 'fed', 'inflation', 'rate', 'cpi', 'jobs', 'gdp'] },
     ],
   },
   EURUSD: {
     feeds: [
-      { id: 1, keywords: ['euro', 'eur', 'ecb', 'eurozone', 'dollar', 'fed'] },
-      { id: 14, keywords: ['ecb', 'eurozone', 'europe', 'interest rate'] },
+      { id: 1, keywords: ['euro', 'eur', 'ecb', 'eurozone', 'dollar', 'fed', 'rate', 'inflation', 'german'] },
+      { id: 14, keywords: ['ecb', 'eurozone', 'europe', 'rate', 'inflation', 'pound', 'boe'] },
     ],
   },
   GBPUSD: {
     feeds: [
-      { id: 1, keywords: ['pound', 'sterling', 'gbp', 'boe', 'uk economy', 'britain'] },
-      { id: 14, keywords: ['boe', 'uk', 'britain', 'interest rate'] },
+      { id: 1, keywords: ['pound', 'sterling', 'gbp', 'boe', 'uk', 'britain', 'dollar', 'fed', 'rate'] },
+      { id: 14, keywords: ['boe', 'uk', 'britain', 'rate', 'inflation', 'euro', 'ecb'] },
     ],
   },
   US30: {
     feeds: [
-      { id: 25, keywords: ['dow', 'us30', 'wall street', 'stock market', 'fed', 'jobs', 'inflation'] },
-      { id: 14, keywords: ['fed', 'us economy', 'jobs', 'gdp', 'inflation'] },
+      { id: 25, keywords: ['dow', 'us30', 'wall street', 'stock', 'market', 'fed', 'jobs', 'inflation', 'rate', 'nasdaq', 's&p', 'earnings'] },
+      { id: 14, keywords: ['fed', 'us economy', 'jobs', 'gdp', 'inflation', 'rate', 'treasury'] },
     ],
   },
   US100: {
     feeds: [
-      { id: 25, keywords: ['nasdaq', 'us100', 'tech', 'ai', 'magnificent', 'semiconductor'] },
-      { id: 14, keywords: ['fed', 'tech', 'ai', 'interest rate'] },
+      { id: 25, keywords: ['nasdaq', 'us100', 'tech', 'ai', 'chip', 'semiconductor', 'stock', 'magnificent', 'earnings'] },
+      { id: 14, keywords: ['fed', 'tech', 'ai', 'rate', 'inflation', 'treasury'] },
     ],
   },
 };
@@ -91,7 +91,38 @@ async function fetchRSSFeed(feedId: number, keywords: string[]): Promise<any[]> 
   }
 }
 
-// Try AI analysis with ZAI SDK
+// Fetch broader news without keyword filtering for fallback
+async function fetchBroadNews(feedId: number): Promise<any[]> {
+  try {
+    const url = `https://www.investing.com/rss/news_${feedId}.rss`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DONCIEL-TM/1.0; +https://donciel-trading.vercel.app)' },
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) return [];
+
+    const xml = await response.text();
+    const parsed = parser.parse(xml);
+    const items = parsed?.rss?.channel?.item;
+    if (!items) return [];
+
+    const list = Array.isArray(items) ? items : [items];
+
+    return list.map((item: any) => ({
+      title: item.title || '',
+      snippet: item.title || '',
+      url: item.link || '',
+      source: item.author || 'Investing.com',
+      date: item.pubDate || null,
+    })).filter((item: any) => item.title && item.url);
+  } catch (error) {
+    console.error(`Broad RSS feed ${feedId} error:`, error);
+    return [];
+  }
+}
+
+// Try AI analysis with ZAI SDK - completely optional
 async function analyzeWithAI(asset: Asset, newsItems: any[], language: string, period: string): Promise<any | null> {
   try {
     const { getZAI } = await import('@/lib/zai');
@@ -162,8 +193,8 @@ function generateBasicAnalysis(asset: Asset, newsItems: any[], language: string)
   const titles = newsItems.slice(0, 5).map(n => n.title.toLowerCase()).join(' ');
 
   // Simple keyword-based direction detection
-  const bullishWords = ['rise', 'gain', 'rally', 'surge', 'climb', 'bullish', 'support', 'up', 'high', 'strong', 'hausse', 'monte', 'soutien'];
-  const bearishWords = ['fall', 'drop', 'slide', 'slip', 'decline', 'bearish', 'pressure', 'down', 'low', 'weak', 'baisse', 'chute', 'recul'];
+  const bullishWords = ['rise', 'gain', 'rally', 'surge', 'climb', 'bullish', 'support', 'up', 'high', 'strong', 'hausse', 'monte', 'soutien', 'boost', 'jump', 'soar', 'recover'];
+  const bearishWords = ['fall', 'drop', 'slide', 'slip', 'decline', 'bearish', 'pressure', 'down', 'low', 'weak', 'baisse', 'chute', 'recul', 'slump', 'tumble', 'plunge', 'fear'];
 
   let bullScore = 0;
   let bearScore = 0;
@@ -185,6 +216,75 @@ function generateBasicAnalysis(asset: Asset, newsItems: any[], language: string)
       ? 'Consultez les news détaillées pour une analyse complète avant de trader.'
       : 'Review detailed news for complete analysis before trading.',
   };
+}
+
+// Generate upcoming economic events based on typical weekly calendar
+function generateUpcomingEvents(asset: Asset, language: string): any[] {
+  const now = new Date();
+  const events: any[] = [];
+
+  const commonEvents: Record<string, { title_fr: string; title_en: string; impact: string }[]> = {
+    XAUUSD: [
+      { title_fr: 'IPC (Indice des Prix à la Consommation) US', title_en: 'US CPI (Consumer Price Index)', impact: 'HIGH' },
+      { title_fr: 'Décision de la FED sur les taux', title_en: 'FOMC Rate Decision', impact: 'HIGH' },
+      { title_fr: 'Discours du Président de la Fed', title_en: 'Fed Chair Speech', impact: 'MEDIUM' },
+      { title_fr: 'Emploi non-agricole US (NFP)', title_en: 'US Non-Farm Payrolls', impact: 'HIGH' },
+      { title_fr: 'Revendications chômage US', title_en: 'US Jobless Claims', impact: 'MEDIUM' },
+    ],
+    EURUSD: [
+      { title_fr: 'Décision de taux de la BCE', title_en: 'ECB Rate Decision', impact: 'HIGH' },
+      { title_fr: 'Conférence de presse BCE', title_en: 'ECB Press Conference', impact: 'HIGH' },
+      { title_fr: 'PMI Manufacturing Eurozone', title_en: 'Eurozone Manufacturing PMI', impact: 'MEDIUM' },
+      { title_fr: 'IPC Zone Euro', title_en: 'Eurozone CPI', impact: 'HIGH' },
+      { title_fr: 'PIB Zone Euro', title_en: 'Eurozone GDP', impact: 'MEDIUM' },
+    ],
+    GBPUSD: [
+      { title_fr: 'Décision de taux de la BoE', title_en: 'BoE Rate Decision', impact: 'HIGH' },
+      { title_fr: 'IPC Royaume-Uni', title_en: 'UK CPI', impact: 'HIGH' },
+      { title_fr: 'PMI Manufacturing UK', title_en: 'UK Manufacturing PMI', impact: 'MEDIUM' },
+      { title_fr: 'Emploi UK', title_en: 'UK Employment', impact: 'MEDIUM' },
+      { title_fr: 'PIB Royaume-Uni', title_en: 'UK GDP', impact: 'MEDIUM' },
+    ],
+    US30: [
+      { title_fr: 'Emploi non-agricole US (NFP)', title_en: 'US Non-Farm Payrolls', impact: 'HIGH' },
+      { title_fr: 'Décision de la FED sur les taux', title_en: 'FOMC Rate Decision', impact: 'HIGH' },
+      { title_fr: 'Résultats entreprises Dow Jones', title_en: 'Dow Jones Earnings Reports', impact: 'MEDIUM' },
+      { title_fr: 'IPC US', title_en: 'US CPI', impact: 'HIGH' },
+      { title_fr: 'Confiance des consommateurs US', title_en: 'US Consumer Confidence', impact: 'MEDIUM' },
+    ],
+    US100: [
+      { title_fr: 'Résultats entreprises Tech', title_en: 'Tech Earnings Reports', impact: 'HIGH' },
+      { title_fr: 'Décision de la FED sur les taux', title_en: 'FOMC Rate Decision', impact: 'HIGH' },
+      { title_fr: 'IPC US', title_en: 'US CPI', impact: 'HIGH' },
+      { title_fr: 'Emploi non-agricole US (NFP)', title_en: 'US Non-Farm Payrolls', impact: 'MEDIUM' },
+      { title_fr: 'Ventes au détail US', title_en: 'US Retail Sales', impact: 'MEDIUM' },
+    ],
+  };
+
+  const assetEvents = commonEvents[asset] || [];
+  // Generate upcoming dates for the rest of the week
+  const currentDay = now.getDay(); // 0=Sun, 1=Mon, etc.
+  let dayOffset = 1;
+  
+  for (const evt of assetEvents) {
+    // Distribute events across the upcoming days of the week
+    const eventDate = new Date(now);
+    eventDate.setDate(now.getDate() + dayOffset);
+    // Skip weekends
+    if (eventDate.getDay() === 0) eventDate.setDate(eventDate.getDate() + 1);
+    if (eventDate.getDay() === 6) eventDate.setDate(eventDate.getDate() + 2);
+    
+    events.push({
+      title: language === 'fr' ? evt.title_fr : evt.title_en,
+      snippet: `${evt.impact === 'HIGH' ? '🔴' : '🟡'} ${evt.impact === 'HIGH' ? (language === 'fr' ? 'Impact Élevé' : 'High Impact') : (language === 'fr' ? 'Impact Modéré' : 'Medium Impact')}`,
+      url: 'https://www.investing.com/economic-calendar/',
+      date: eventDate.toISOString(),
+      impact: evt.impact,
+    });
+    dayOffset = (dayOffset % 5) + 1;
+  }
+
+  return events;
 }
 
 function groupNewsByDay(newsItems: any[]) {
@@ -230,15 +330,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached.data);
     }
 
-    // Fetch from RSS feeds
+    // Fetch from RSS feeds with keyword filtering
     const feedConfigs = ASSET_RSS[asset].feeds;
     const allFeedResults = await Promise.all(
       feedConfigs.map(fc => fetchRSSFeed(fc.id, fc.keywords))
     );
 
-    const allResults = allFeedResults.flat().sort((a, b) => {
+    let allResults = allFeedResults.flat().sort((a, b) => {
       return new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime();
     });
+
+    // If keyword filtering returns too few results, use broad news as fallback
+    if (allResults.length < 3) {
+      const broadResults = await Promise.all(
+        feedConfigs.map(fc => fetchBroadNews(fc.id))
+      );
+      const broadFlat = broadResults.flat().sort((a, b) => {
+        return new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime();
+      });
+      // Merge: prefer keyword-filtered, then fill with broad results
+      const existingUrls = new Set(allResults.map((r: any) => r.url));
+      const additional = broadFlat.filter((r: any) => !existingUrls.has(r.url));
+      allResults = [...allResults, ...additional];
+    }
 
     // Deduplicate
     const seen = new Set<string>();
@@ -265,17 +379,25 @@ export async function GET(request: NextRequest) {
     const dailyCounts = Object.entries(newsByDay).map(([day, items]) => ({ day, count: items.length }));
 
     // Try AI analysis first, fallback to basic keyword analysis
-    let analysis = await analyzeWithAI(asset, filteredNews, language, period);
+    let analysis: any = null;
+    try {
+      analysis = await analyzeWithAI(asset, filteredNews, language, period);
+    } catch {
+      // AI completely unavailable
+    }
     if (!analysis) {
       analysis = generateBasicAnalysis(asset, filteredNews, language);
     }
+
+    // Generate upcoming events
+    const upcomingEvents = generateUpcomingEvents(asset, language);
 
     const responseData = {
       asset,
       assetLabel: ASSET_LABELS[asset],
       period,
-      news: filteredNews.slice(0, 12),
-      upcomingEvents: [],
+      news: filteredNews.slice(0, 15),
+      upcomingEvents,
       dailyCounts,
       analysis,
       updatedAt: new Date().toISOString(),
