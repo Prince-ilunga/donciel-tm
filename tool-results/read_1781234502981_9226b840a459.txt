@@ -1,0 +1,1184 @@
+     1→"use client";
+     2→
+     3→import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
+     4→import { useAppStore } from "@/stores/app-store";
+     5→import { t } from "@/lib/i18n";
+     6→import { useStats, useTrades } from "@/lib/hooks";
+     7→import { cn, getContractSize } from "@/lib/utils";
+     8→
+     9→import { Button } from "@/components/ui/button";
+    10→import { Input } from "@/components/ui/input";
+    11→import { Label } from "@/components/ui/label";
+    12→import { Badge } from "@/components/ui/badge";
+    13→import { Card } from "@/components/ui/card";
+    14→import { Switch } from "@/components/ui/switch";
+    15→import { Textarea } from "@/components/ui/textarea";
+    16→import { Separator } from "@/components/ui/separator";
+    17→import { ScrollArea } from "@/components/ui/scroll-area";
+    18→import { Skeleton } from "@/components/ui/skeleton";
+    19→import {
+    20→  Dialog,
+    21→  DialogContent,
+    22→  DialogHeader,
+    23→  DialogTitle,
+    24→  DialogDescription,
+    25→  DialogFooter,
+    26→} from "@/components/ui/dialog";
+    27→import {
+    28→  Select,
+    29→  SelectContent,
+    30→  SelectItem,
+    31→  SelectSeparator,
+    32→  SelectTrigger,
+    33→  SelectValue,
+    34→} from "@/components/ui/select";
+    35→import {
+    36→  Popover,
+    37→  PopoverContent,
+    38→  PopoverTrigger,
+    39→} from "@/components/ui/popover";
+    40→import { Calendar } from "@/components/ui/calendar";
+    41→import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+    42→import {
+    43→  Table,
+    44→  TableBody,
+    45→  TableCell,
+    46→  TableHead,
+    47→  TableHeader,
+    48→  TableRow,
+    49→} from "@/components/ui/table";
+    50→import {
+    51→  FolderOpen,
+    52→  Database,
+    53→  UserCircle,
+    54→  BarChart3,
+    55→  Target,
+    56→  TrendingUp,
+    57→  ArrowUpRight,
+    58→  ArrowDownRight,
+    59→  Plus,
+    60→  CalendarIcon,
+    61→  Upload,
+    62→  X,
+    63→  Calculator,
+    64→  Clock,
+    65→  Eye,
+    66→  ArrowLeft,
+    67→  List,
+    68→  FileEdit,
+    69→  Filter,
+    70→  ChevronDown,
+    71→  Trash2,
+    72→} from "lucide-react";
+    73→import { toast } from "sonner";
+    74→import { format } from "date-fns";
+    75→
+    76→// ─── Constants ───────────────────────────────────────────────
+    77→const DEFAULT_PAIRS = ["XAUUSD", "US30", "US100", "EURUSD", "GBPUSD"];
+    78→const SESSIONS = ["LONDON", "NEW YORK", "ASIE", "OVERLAP", "MACRO CHER", "MACRO PEU CHER"];
+    79→const MARKET_CONDITIONS = ["CONTINUATION", "RETRACEMENT"];
+    80→const TIMEFRAMES_ANALYSIS = ["M15", "M30", "H1", "H4", "D1", "W1"];
+    81→const TIMEFRAMES_ENTRY = ["M1", "M5", "M15", "M30", "H1"];
+    82→const SETUPS = ["SETUP A", "SETUP A+", "SETUP B", "SETUP B+", "SETUP C"];
+    83→const STRUCTURES = ["HAUSSIÈRE", "BAISSIÈRE", "RANGE"];
+    84→const ENTRY_MODELS = ["ANGLOBANTE", "LOT À 3 BOUGIES", "MARKET SHIFT"];
+    85→
+    86→// ─── Types ───────────────────────────────────────────────────
+    87→interface TradeFormData {
+    88→  date: string;
+    89→  pair: string;
+    90→  customPair: string;
+    91→  direction: "LONG" | "SHORT";
+    92→  session: string;
+    93→  marketCondition: string;
+    94→  timeframeAnalysis: string;
+    95→  timeframeEntry: string;
+    96→  setup: string;
+    97→  structure: string;
+    98→  entryModel: string;
+    99→  entryPrice: string;
+   100→  stopLoss: string;
+   101→  takeProfit: string;
+   102→  exitPrice: string;
+   103→  entryTime: string;
+   104→  exitTime: string;
+   105→  lotSize: string;
+   106→  newsEnabled: boolean;
+   107→  emotions: string;
+   108→  confluence: string;
+   109→  mistakes: string;
+   110→  lessons: string;
+   111→  notes: string;
+   112→  contextFile: File | null;
+   113→  entryFile: File | null;
+   114→  exitFile: File | null;
+   115→}
+   116→
+   117→const initialFormData: TradeFormData = {
+   118→  date: format(new Date(), "yyyy-MM-dd"),
+   119→  pair: "",
+   120→  customPair: "",
+   121→  direction: "LONG",
+   122→  session: "",
+   123→  marketCondition: "",
+   124→  timeframeAnalysis: "",
+   125→  timeframeEntry: "",
+   126→  setup: "",
+   127→  structure: "",
+   128→  entryModel: "",
+   129→  entryPrice: "",
+   130→  stopLoss: "",
+   131→  takeProfit: "",
+   132→  exitPrice: "",
+   133→  entryTime: "",
+   134→  exitTime: "",
+   135→  lotSize: "",
+   136→  newsEnabled: false,
+   137→  emotions: "",
+   138→  confluence: "",
+   139→  mistakes: "",
+   140→  lessons: "",
+   141→  notes: "",
+   142→  contextFile: null,
+   143→  entryFile: null,
+   144→  exitFile: null,
+   145→};
+   146→
+   147→// ─── Auto-Calculator ─────────────────────────────────────────
+   148→function calculateAuto(formData: TradeFormData) {
+   149→  const entryPrice = parseFloat(formData.entryPrice);
+   150→  const stopLoss = parseFloat(formData.stopLoss);
+   151→  const takeProfit = parseFloat(formData.takeProfit);
+   152→  const exitPrice = parseFloat(formData.exitPrice);
+   153→  const lotSize = parseFloat(formData.lotSize);
+   154→
+   155→  const result: {
+   156→    rr: number | null;
+   157→    pnl: number | null;
+   158→    resultLabel: "WIN" | "LOSS" | "BE" | null;
+   159→    duration: string | null;
+   160→  } = { rr: null, pnl: null, resultLabel: null, duration: null };
+   161→
+   162→  if (!isNaN(entryPrice) && !isNaN(stopLoss) && !isNaN(takeProfit)) {
+   163→    const risk = Math.abs(entryPrice - stopLoss);
+   164→    const reward = Math.abs(takeProfit - entryPrice);
+   165→    if (risk > 0) {
+   166→      result.rr = parseFloat((reward / risk).toFixed(2));
+   167→    }
+   168→  }
+   169→
+   170→  if (!isNaN(exitPrice) && !isNaN(entryPrice) && !isNaN(lotSize) && formData.exitPrice !== "") {
+   171→    const priceDiff = formData.direction === "LONG"
+   172→      ? exitPrice - entryPrice
+   173→      : entryPrice - exitPrice;
+   174→    const contractSize = getContractSize(formData.pair);
+   175→    result.pnl = parseFloat((priceDiff * lotSize * contractSize).toFixed(2));
+   176→  }
+   177→
+   178→  if (!isNaN(exitPrice) && !isNaN(entryPrice) && !isNaN(stopLoss) && !isNaN(takeProfit) && formData.exitPrice !== "") {
+   179→    if (formData.direction === "LONG") {
+   180→      if (exitPrice >= takeProfit) result.resultLabel = "WIN";
+   181→      else if (exitPrice <= stopLoss) result.resultLabel = "LOSS";
+   182→      else result.resultLabel = "BE";
+   183→    } else {
+   184→      if (exitPrice <= takeProfit) result.resultLabel = "WIN";
+   185→      else if (exitPrice >= stopLoss) result.resultLabel = "LOSS";
+   186→      else result.resultLabel = "BE";
+   187→    }
+   188→
+   189→    // Adjust RR based on result to match backend logic
+   190→    if (result.resultLabel === "LOSS") {
+   191→      result.rr = -1;
+   192→    } else if (result.resultLabel === "BE" && !isNaN(exitPrice) && formData.exitPrice !== "") {
+   193→      // Calculate partial RR for BE: actual price movement / risk
+   194→      const risk = Math.abs(entryPrice - stopLoss);
+   195→      if (risk > 0) {
+   196→        const priceDiff = formData.direction === "LONG"
+   197→          ? exitPrice - entryPrice
+   198→          : entryPrice - exitPrice;
+   199→        result.rr = parseFloat((priceDiff / risk).toFixed(2));
+   200→      }
+   201→    }
+   202→  }
+   203→
+   204→  if (formData.entryTime && formData.exitTime) {
+   205→    const [eH, eM] = formData.entryTime.split(":").map(Number);
+   206→    const [xH, xM] = formData.exitTime.split(":").map(Number);
+   207→    if (!isNaN(eH) && !isNaN(eM) && !isNaN(xH) && !isNaN(xM)) {
+   208→      let totalMinutes = (xH * 60 + xM) - (eH * 60 + eM);
+   209→      if (totalMinutes < 0) totalMinutes += 24 * 60;
+   210→      const hours = Math.floor(totalMinutes / 60);
+   211→      const minutes = totalMinutes % 60;
+   212→      result.duration = hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+   213→    }
+   214→  }
+   215→
+   216→  return result;
+   217→}
+   218→
+   219→// ─── Main Component ──────────────────────────────────────────
+   220→export function SetupTab() {
+   221→  const { user, language, setSelectedTradeId, setShowTradeDetail, setShowTradeForm } = useAppStore();
+   222→  const { stats, loading: statsLoading, refetch: refetchStats } = useStats();
+   223→  const { trades, loading: tradesLoading, refetch: refetchTrades } = useTrades();
+   224→
+   225→  // Sub-view state: 'main' | 'donciel-verification' | 'donciel-saisie' | 'custom-verification' | 'custom-saisie'
+   226→  const [subView, setSubView] = useState<"main" | "donciel-verification" | "donciel-saisie" | "custom-verification" | "custom-saisie">("main");
+   227→  const [showSaisieDialog, setShowSaisieDialog] = useState(false);
+   228→  const [saisieMode, setSaisieMode] = useState<"donciel" | "custom">("donciel");
+   229→
+   230→  useEffect(() => {
+   231→    refetchStats();
+   232→    refetchTrades();
+   233→  }, [refetchStats, refetchTrades]);
+   234→
+   235→  const statsData = (stats as any)?.stats ?? stats;
+   236→
+   237→  // Filter trades for DONCIEL SETUP (standard setups A, A+, B, B+, C)
+   238→  const doncielTrades = useMemo(() =>
+   239→    trades.filter(trade => !trade.setup || SETUPS.includes(trade.setup)),
+   240→    [trades]
+   241→  );
+   242→
+   243→  // Filter trades for SETUP PERSONNALISÉ (custom setups not in standard list)
+   244→  const customTrades = useMemo(() =>
+   245→    trades.filter(trade => trade.setup && !SETUPS.includes(trade.setup)),
+   246→    [trades]
+   247→  );
+   248→
+   249→  const handleTradeClick = (tradeId: string) => {
+   250→    setSelectedTradeId(tradeId);
+   251→    setShowTradeDetail(true);
+   252→  };
+   253→
+   254→  const handleTradeCreated = useCallback(() => {
+   255→    refetchTrades();
+   256→    refetchStats();
+   257→  }, [refetchTrades, refetchStats]);
+   258→
+   259→  const openSaisie = (mode: "donciel" | "custom") => {
+   260→    setSaisieMode(mode);
+   261→    setShowSaisieDialog(true);
+   262→  };
+   263→
+   264→  // ─── Main View ────────────────────────────────────
+   265→  if (subView === "main") {
+   266→    return (
+   267→      <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+   268→        {/* Header */}
+   269→        <div>
+   270→          <h2 className="text-2xl font-bold tracking-tight text-foreground">
+   271→            {t(language, "setupTab")}
+   272→          </h2>
+   273→          <p className="text-sm text-muted-foreground mt-1">
+   274→            {t(language, "setupDescription")}
+   275→          </p>
+   276→        </div>
+   277→
+   278→        {/* Setup Cards */}
+   279→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+   280→          {/* DONCIEL SETUP */}
+   281→          <Card
+   282→            className="p-6 cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 group"
+   283→            onClick={() => setSubView("donciel-verification")}
+   284→          >
+   285→            <div className="flex items-center gap-3 mb-4">
+   286→              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+   287→                <Database className="w-5 h-5 text-primary" />
+   288→              </div>
+   289→              <div>
+   290→                <h3 className="text-lg font-bold">{t(language, "doncielSetup")}</h3>
+   291→                <p className="text-xs text-muted-foreground">{t(language, "baseDonnees")}</p>
+   292→              </div>
+   293→            </div>
+   294→            <div className="grid grid-cols-2 gap-3">
+   295→              <SetupStatCard label={t(language, "totalTrades")} value={doncielTrades.length} />
+   296→              <SetupStatCard label={t(language, "totalRR")} value={doncielTrades.reduce((s, t) => s + (t.rr ?? 0), 0).toFixed(2)} />
+   297→              <SetupStatCard label={t(language, "winRate")} value={`${doncielTrades.length > 0 ? ((doncielTrades.filter(t => t.result === "WIN").length / doncielTrades.filter(t => t.result).length) * 100 || 0).toFixed(1) : "0.0"}%`} />
+   298→              <SetupStatCard label={t(language, "avgRR")} value={doncielTrades.length > 0 ? (doncielTrades.reduce((s, t) => s + (t.rr ?? 0), 0) / doncielTrades.length).toFixed(2) : "0.00"} />
+   299→            </div>
+   300→          </Card>
+   301→
+   302→          {/* SETUP PERSONNALISÉ */}
+   303→          <Card
+   304→            className="p-6 cursor-pointer hover:border-gold/30 hover:bg-gold/5 transition-all duration-300 group"
+   305→            onClick={() => setSubView("custom-verification")}
+   306→          >
+   307→            <div className="flex items-center gap-3 mb-4">
+   308→              <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center group-hover:bg-gold/20 transition-colors">
+   309→                <UserCircle className="w-5 h-5 text-gold" />
+   310→              </div>
+   311→              <div>
+   312→                <h3 className="text-lg font-bold">{t(language, "setupPersonnalise")}</h3>
+   313→                <p className="text-xs text-muted-foreground">{t(language, "baseDonnees")}</p>
+   314→              </div>
+   315→            </div>
+   316→            <div className="grid grid-cols-2 gap-3">
+   317→              <SetupStatCard label={t(language, "totalTrades")} value={customTrades.length} />
+   318→              <SetupStatCard label={t(language, "totalRR")} value={customTrades.reduce((s, t) => s + (t.rr ?? 0), 0).toFixed(2)} />
+   319→              <SetupStatCard label={t(language, "winRate")} value={`${customTrades.length > 0 ? ((customTrades.filter(t => t.result === "WIN").length / customTrades.filter(t => t.result).length) * 100 || 0).toFixed(1) : "0.0"}%`} />
+   320→              <SetupStatCard label={t(language, "avgRR")} value={customTrades.length > 0 ? (customTrades.reduce((s, t) => s + (t.rr ?? 0), 0) / customTrades.length).toFixed(2) : "0.00"} />
+   321→            </div>
+   322→          </Card>
+   323→        </div>
+   324→      </div>
+   325→    );
+   326→  }
+   327→
+   328→  // ─── Sub-views ──────────────────────────────────────
+   329→  const isDonciel = subView.startsWith("donciel");
+   330→  const currentTrades = isDonciel ? doncielTrades : customTrades;
+   331→  const title = isDonciel ? t(language, "doncielSetup") : t(language, "setupPersonnalise");
+   332→  const setupPrefix = isDonciel ? "donciel" : "custom";
+   333→
+   334→  return (
+   335→    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+   336→      {/* Header with back button */}
+   337→      <div className="flex items-center gap-3">
+   338→        <Button variant="ghost" size="sm" onClick={() => setSubView("main")} className="gap-1">
+   339→          <ArrowLeft className="w-4 h-4" />
+   340→          {t(language, "back")}
+   341→        </Button>
+   342→        <div>
+   343→          <h2 className="text-xl font-bold">{title}</h2>
+   344→        </div>
+   345→      </div>
+   346→
+   347→      {/* Sub-navigation buttons */}
+   348→      <div className="flex gap-2">
+   349→        <Button
+   350→          variant={subView.endsWith("verification") ? "default" : "outline"}
+   351→          size="sm"
+   352→          className="gap-2"
+   353→          onClick={() => setSubView(`${setupPrefix}-verification` as any)}
+   354→        >
+   355→          <List className="w-4 h-4" />
+   356→          {t(language, "doncielSetupVerification")}
+   357→        </Button>
+   358→        <Button
+   359→          variant={subView.endsWith("saisie") ? "default" : "outline"}
+   360→          size="sm"
+   361→          className="gap-2"
+   362→          onClick={() => openSaisie(isDonciel ? "donciel" : "custom")}
+   363→        >
+   364→          <FileEdit className="w-4 h-4" />
+   365→          {t(language, "saisieDesTrades")}
+   366→        </Button>
+   367→      </div>
+   368→
+   369→      {/* Verification View - Trade List */}
+   370→      <TradeVerificationList
+   371→        trades={currentTrades}
+   372→        language={language}
+   373→        isAdmin={user?.role === "admin"}
+   374→        onTradeClick={handleTradeClick}
+   375→        onTradeDeleted={handleTradeCreated}
+   376→        loading={tradesLoading}
+   377→      />
+   378→
+   379→      {/* Trade Form Dialog (Saisie) */}
+   380→      <TradeFormDialog
+   381→        open={showSaisieDialog}
+   382→        onOpenChange={setShowSaisieDialog}
+   383→        language={language}
+   384→        onTradeCreated={handleTradeCreated}
+   385→        setupMode={saisieMode}
+   386→      />
+   387→    </div>
+   388→  );
+   389→}
+   390→
+   391→// ─── Sub-Components ──────────────────────────────────────────
+   392→
+   393→function SetupStatCard({ label, value }: { label: string; value: string | number }) {
+   394→  return (
+   395→    <div className="rounded-lg bg-muted/30 p-3">
+   396→      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
+   397→      <div className="text-lg font-bold font-mono">{value}</div>
+   398→    </div>
+   399→  );
+   400→}
+   401→
+   402→// ─── Trade Verification List ─────────────────────────────────
+   403→function TradeVerificationList({
+   404→  trades,
+   405→  language,
+   406→  isAdmin,
+   407→  onTradeClick,
+   408→  onTradeDeleted,
+   409→  loading,
+   410→}: {
+   411→  trades: any[];
+   412→  language: "fr" | "en";
+   413→  isAdmin: boolean;
+   414→  onTradeClick: (id: string) => void;
+   415→  onTradeDeleted: () => void;
+   416→  loading: boolean;
+   417→}) {
+   418→  const [filters, setFilters] = useState({
+   419→    condition: "",
+   420→    setup: "",
+   421→    entryModel: "",
+   422→    structure: "",
+   423→    timing: "",
+   424→  });
+   425→  const [showFilters, setShowFilters] = useState(false);
+   426→
+   427→  // Delete confirmation state
+   428→  const [deleteTarget, setDeleteTarget] = useState<{ id: string; pair: string; direction: string } | null>(null);
+   429→  const [isDeleting, setIsDeleting] = useState(false);
+   430→
+   431→  const handleDeleteTrade = useCallback(async () => {
+   432→    if (!deleteTarget || isDeleting) return;
+   433→    setIsDeleting(true);
+   434→    try {
+   435→      const res = await fetch(`/api/trades/${deleteTarget.id}`, { method: "DELETE" });
+   436→      if (!res.ok) {
+   437→        const data = await res.json();
+   438→        throw new Error(data.error || "Delete failed");
+   439→      }
+   440→      toast.success(language === "fr" ? "Trade supprimé !" : "Trade deleted!");
+   441→      setDeleteTarget(null);
+   442→      onTradeDeleted();
+   443→    } catch (error: any) {
+   444→      toast.error(error.message || (language === "fr" ? "Erreur lors de la suppression" : "Delete failed"));
+   445→    } finally {
+   446→      setIsDeleting(false);
+   447→    }
+   448→  }, [deleteTarget, isDeleting, language, onTradeDeleted]);
+   449→
+   450→  // Stats
+   451→  const longCount = trades.filter(t => t.direction === "LONG").length;
+   452→  const shortCount = trades.filter(t => t.direction === "SHORT").length;
+   453→  const totalRR = trades.reduce((s, t) => s + (t.rr ?? 0), 0);
+   454→
+   455→  // Apply filters
+   456→  const { condition, setup, entryModel, structure, timing } = filters;
+   457→  const filteredTrades = useMemo(() => {
+   458→    return trades.filter(trade => {
+   459→      if (condition && trade.marketCondition !== condition) return false;
+   460→      if (setup && trade.setup !== setup) return false;
+   461→      if (entryModel && trade.entryModel !== entryModel) return false;
+   462→      if (structure && trade.structure !== structure) return false;
+   463→      if (timing && trade.session !== timing) return false;
+   464→      return true;
+   465→    });
+   466→  }, [trades, condition, setup, entryModel, structure, timing]);
+   467→
+   468→  return (
+   469→    <div className="space-y-4">
+   470→      {/* Stats bar */}
+   471→      <Card className="p-4">
+   472→        <div className="flex flex-wrap items-center gap-4">
+   473→          <div className="flex items-center gap-2">
+   474→            <BarChart3 className="w-4 h-4 text-muted-foreground" />
+   475→            <span className="text-sm font-medium">{filteredTrades.length} trades</span>
+   476→          </div>
+   477→          <Badge variant="outline" className="text-xs font-mono">
+   478→            RR Total: {totalRR.toFixed(2)}
+   479→          </Badge>
+   480→          <div className="flex items-center gap-1.5">
+   481→            <Badge className="text-[10px] bg-profit/15 text-profit border-profit/20">
+   482→              <ArrowUpRight className="w-3 h-3 mr-0.5" /> {longCount}
+   483→            </Badge>
+   484→            <Badge className="text-[10px] bg-loss/15 text-loss border-loss/20">
+   485→              <ArrowDownRight className="w-3 h-3 mr-0.5" /> {shortCount}
+   486→            </Badge>
+   487→          </div>
+   488→
+   489→          <Button
+   490→            variant="ghost"
+   491→            size="sm"
+   492→            className="ml-auto gap-1"
+   493→            onClick={() => setShowFilters(!showFilters)}
+   494→          >
+   495→            <Filter className="w-3.5 h-3.5" />
+   496→            {t(language, "filtres")}
+   497→            <ChevronDown className={cn("w-3 h-3 transition-transform", showFilters && "rotate-180")} />
+   498→          </Button>
+   499→        </div>
+   500→
+   501→        {/* Filters */}
+   502→        {showFilters && (
+   503→          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4 pt-4 border-t border-border">
+   504→            <Select value={filters.condition} onValueChange={v => setFilters(p => ({ ...p, condition: v === "__all__" ? "" : v }))}>
+   505→              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t(language, "condition")} /></SelectTrigger>
+   506→              <SelectContent>
+   507→                <SelectItem value="__all__">{language === "fr" ? "Toutes" : "All"}</SelectItem>
+   508→                {MARKET_CONDITIONS.map(mc => <SelectItem key={mc} value={mc}>{mc}</SelectItem>)}
+   509→              </SelectContent>
+   510→            </Select>
+   511→            <Select value={filters.setup} onValueChange={v => setFilters(p => ({ ...p, setup: v === "__all__" ? "" : v }))}>
+   512→              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t(language, "setup")} /></SelectTrigger>
+   513→              <SelectContent>
+   514→                <SelectItem value="__all__">{language === "fr" ? "Tous" : "All"}</SelectItem>
+   515→                {SETUPS.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+   516→              </SelectContent>
+   517→            </Select>
+   518→            <Select value={filters.entryModel} onValueChange={v => setFilters(p => ({ ...p, entryModel: v === "__all__" ? "" : v }))}>
+   519→              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t(language, "modelEntree")} /></SelectTrigger>
+   520→              <SelectContent>
+   521→                <SelectItem value="__all__">{language === "fr" ? "Tous" : "All"}</SelectItem>
+   522→                {ENTRY_MODELS.map(em => <SelectItem key={em} value={em}>{em}</SelectItem>)}
+   523→              </SelectContent>
+   524→            </Select>
+   525→            <Select value={filters.structure} onValueChange={v => setFilters(p => ({ ...p, structure: v === "__all__" ? "" : v }))}>
+   526→              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t(language, "structure")} /></SelectTrigger>
+   527→              <SelectContent>
+   528→                <SelectItem value="__all__">{language === "fr" ? "Toutes" : "All"}</SelectItem>
+   529→                {STRUCTURES.map(st => <SelectItem key={st} value={st}>{st}</SelectItem>)}
+   530→              </SelectContent>
+   531→            </Select>
+   532→            <Select value={filters.timing} onValueChange={v => setFilters(p => ({ ...p, timing: v === "__all__" ? "" : v }))}>
+   533→              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t(language, "timing")} /></SelectTrigger>
+   534→              <SelectContent>
+   535→                <SelectItem value="__all__">{language === "fr" ? "Tous" : "All"}</SelectItem>
+   536→                {SESSIONS.map(s => <SelectItem key={s} value={s}>{t(language, s.toLowerCase().replace(/\s+/g, "") as any) || s}</SelectItem>)}
+   537→              </SelectContent>
+   538→            </Select>
+   539→          </div>
+   540→        )}
+   541→      </Card>
+   542→
+   543→      {/* Trade list */}
+   544→      <Card className="overflow-hidden">
+   545→        {loading ? (
+   546→          <div className="p-6 space-y-3">
+   547→            {Array.from({ length: 5 }).map((_, i) => (
+   548→              <Skeleton key={i} className="h-12 w-full" />
+   549→            ))}
+   550→          </div>
+   551→        ) : filteredTrades.length === 0 ? (
+   552→          <div className="p-12 text-center">
+   553→            <BarChart3 className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+   554→            <p className="text-muted-foreground">{t(language, "noData")}</p>
+   555→          </div>
+   556→        ) : (
+   557→          <>
+   558→            {/* Desktop Table */}
+   559→            <div className="hidden md:block">
+   560→              <Table>
+   561→                <TableHeader>
+   562→                  <TableRow className="hover:bg-transparent">
+   563→                    <TableHead className="text-xs font-semibold uppercase tracking-wider w-12">N°</TableHead>
+   564→                    <TableHead className="text-xs font-semibold uppercase tracking-wider">{language === "fr" ? "Long/Short" : "Long/Short"}</TableHead>
+   565→                    <TableHead className="text-xs font-semibold uppercase tracking-wider">{t(language, "date")}</TableHead>
+   566→                    <TableHead className="text-xs font-semibold uppercase tracking-wider">{t(language, "setup")}</TableHead>
+   567→                    <TableHead className="text-xs font-semibold uppercase tracking-wider text-right">RR</TableHead>
+   568→                    {isAdmin && <TableHead className="text-xs font-semibold uppercase tracking-wider w-12"></TableHead>}
+   569→                  </TableRow>
+   570→                </TableHeader>
+   571→                <TableBody>
+   572→                  {filteredTrades.map((trade, idx) => (
+   573→                    <TableRow
+   574→                      key={trade.id}
+   575→                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+   576→                      onClick={() => onTradeClick(trade.id)}
+   577→                    >
+   578→                      <TableCell className="text-sm font-mono text-muted-foreground">{idx + 1}</TableCell>
+   579→                      <TableCell>
+   580→                        <span className={cn(
+   581→                          "inline-flex items-center gap-1 text-xs font-semibold",
+   582→                          trade.direction === "LONG" ? "text-profit" : "text-loss"
+   583→                        )}>
+   584→                          {trade.direction === "LONG" ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+   585→                          {trade.direction}
+   586→                        </span>
+   587→                      </TableCell>
+   588→                      <TableCell className="text-sm">
+   589→                        {trade.date ? format(new Date(trade.date), "dd/MM/yyyy") : "—"}
+   590→                      </TableCell>
+   591→                      <TableCell>
+   592→                        <Badge variant="outline" className="text-xs font-mono">
+   593→                          {trade.setup || "—"}
+   594→                        </Badge>
+   595→                      </TableCell>
+   596→                      <TableCell className="text-right">
+   597→                        <span className={cn(
+   598→                          "font-mono text-sm font-bold",
+   599→                          trade.rr !== null && trade.rr >= 0 ? "text-profit" : "text-loss"
+   600→                        )}>
+   601→                          {trade.rr !== null ? (trade.rr >= 0 ? "+" : "") + trade.rr.toFixed(2) : "—"}
+   602→                        </span>
+   603→                      </TableCell>
+   604→                      {isAdmin && (
+   605→                        <TableCell>
+   606→                          <button
+   607→                            onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: trade.id, pair: trade.pair, direction: trade.direction }); }}
+   608→                            className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+   609→                            title={language === "fr" ? "Supprimer ce trade" : "Delete this trade"}
+   610→                          >
+   611→                            <Trash2 className="w-3.5 h-3.5" />
+   612→                          </button>
+   613→                        </TableCell>
+   614→                      )}
+   615→                    </TableRow>
+   616→                  ))}
+   617→                </TableBody>
+   618→              </Table>
+   619→            </div>
+   620→
+   621→            {/* Mobile Cards */}
+   622→            <div className="md:hidden divide-y divide-border">
+   623→              {filteredTrades.map((trade, idx) => (
+   624→                <div
+   625→                  key={trade.id}
+   626→                  className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
+   627→                >
+   628→                  <button
+   629→                    onClick={() => onTradeClick(trade.id)}
+   630→                    className="flex items-center gap-3 min-w-0 flex-1"
+   631→                  >
+   632→                    <span className="text-xs font-mono text-muted-foreground w-6">{idx + 1}</span>
+   633→                    <div className={cn(
+   634→                      "w-7 h-7 rounded-full flex items-center justify-center shrink-0",
+   635→                      trade.result === "WIN" && "bg-profit/10 text-profit",
+   636→                      trade.result === "LOSS" && "bg-loss/10 text-loss",
+   637→                      trade.result === "BE" && "bg-gold/10 text-gold",
+   638→                      !trade.result && "bg-muted text-muted-foreground"
+   639→                    )}>
+   640→                      {trade.direction === "LONG" ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+   641→                    </div>
+   642→                    <div className="min-w-0">
+   643→                      <div className="flex items-center gap-2">
+   644→                        <span className="font-mono font-semibold text-sm">{trade.pair}</span>
+   645→                        <Badge variant="outline" className="text-[10px] font-mono px-1">
+   646→                          {trade.setup || "—"}
+   647→                        </Badge>
+   648→                      </div>
+   649→                      <div className="text-xs text-muted-foreground mt-0.5">
+   650→                        {trade.date ? format(new Date(trade.date), "dd/MM") : "—"}
+   651→                      </div>
+   652→                    </div>
+   653→                  </button>
+   654→                  <div className="flex items-center gap-2 shrink-0 ml-3">
+   655→                    <span className={cn(
+   656→                      "font-mono text-sm font-bold",
+   657→                      trade.rr !== null && trade.rr >= 0 ? "text-profit" : "text-loss"
+   658→                    )}>
+   659→                      {trade.rr !== null ? (trade.rr >= 0 ? "+" : "") + trade.rr.toFixed(2) : "—"}
+   660→                    </span>
+   661→                    {isAdmin && (
+   662→                      <button
+   663→                        onClick={() => setDeleteTarget({ id: trade.id, pair: trade.pair, direction: trade.direction })}
+   664→                        className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+   665→                        title={language === "fr" ? "Supprimer ce trade" : "Delete this trade"}
+   666→                      >
+   667→                        <Trash2 className="w-3.5 h-3.5" />
+   668→                      </button>
+   669→                    )}
+   670→                  </div>
+   671→                </div>
+   672→              ))}
+   673→            </div>
+   674→          </>
+   675→        )}
+   676→      </Card>
+   677→
+   678→      {/* Delete Confirmation Dialog */}
+   679→      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+   680→        <DialogContent className="sm:max-w-md">
+   681→          <DialogHeader>
+   682→            <DialogTitle className="flex items-center gap-2">
+   683→              <Trash2 className="w-5 h-5 text-destructive" />
+   684→              {language === "fr" ? "Supprimer ce trade ?" : "Delete this trade?"}
+   685→            </DialogTitle>
+   686→            <DialogDescription>
+   687→              {deleteTarget && (
+   688→                language === "fr"
+   689→                  ? `Voulez-vous supprimer le trade ${deleteTarget.direction} ${deleteTarget.pair} ? Cette action est irréversible.`
+   690→                  : `Delete the ${deleteTarget.direction} ${deleteTarget.pair} trade? This action cannot be undone.`
+   691→              )}
+   692→            </DialogDescription>
+   693→          </DialogHeader>
+   694→          <DialogFooter className="gap-2 sm:gap-0">
+   695→            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+   696→              {language === "fr" ? "Annuler" : "Cancel"}
+   697→            </Button>
+   698→            <Button variant="destructive" onClick={handleDeleteTrade} disabled={isDeleting}>
+   699→              {isDeleting
+   700→                ? (language === "fr" ? "Suppression..." : "Deleting...")
+   701→                : (language === "fr" ? "Supprimer" : "Delete")
+   702→              }
+   703→            </Button>
+   704→          </DialogFooter>
+   705→        </DialogContent>
+   706→      </Dialog>
+   707→    </div>
+   708→  );
+   709→}
+   710→
+   711→// ─── Result Badge ────────────────────────────────────────────
+   712→function ResultBadge({ result, language, size = "default" }: { result: string | null; language: "fr" | "en"; size?: "default" | "sm" }) {
+   713→  if (!result) return <span className="text-muted-foreground text-xs">—</span>;
+   714→  const sizeClass = size === "sm" ? "text-[10px] px-1.5 py-0" : "text-xs";
+   715→  if (result === "WIN") return <Badge className={cn("bg-profit/15 text-profit border-profit/20", sizeClass)}>{t(language, "win")}</Badge>;
+   716→  if (result === "LOSS") return <Badge className={cn("bg-loss/15 text-loss border-loss/20", sizeClass)}>{t(language, "loss")}</Badge>;
+   717→  return <Badge className={cn("bg-gold/15 text-gold border-gold/20", sizeClass)}>{t(language, "be")}</Badge>;
+   718→}
+   719→
+   720→// ─── Trade Form Dialog ───────────────────────────────────────
+   721→function TradeFormDialog({
+   722→  open,
+   723→  onOpenChange,
+   724→  language,
+   725→  onTradeCreated,
+   726→  setupMode,
+   727→}: {
+   728→  open: boolean;
+   729→  onOpenChange: (open: boolean) => void;
+   730→  language: "fr" | "en";
+   731→  onTradeCreated: () => void;
+   732→  setupMode: "donciel" | "custom";
+   733→}) {
+   734→  const [formData, setFormData] = useState<TradeFormData>(initialFormData);
+   735→  const [isSubmitting, setIsSubmitting] = useState(false);
+   736→  const [showCustomPair, setShowCustomPair] = useState(false);
+   737→  const [dateOpen, setDateOpen] = useState(false);
+   738→  const contextRef = useRef<HTMLInputElement>(null);
+   739→  const entryFileRef = useRef<HTMLInputElement>(null);
+   740→  const exitFileRef = useRef<HTMLInputElement>(null);
+   741→
+   742→  const autoCalc = useMemo(() => calculateAuto(formData), [formData]);
+   743→
+   744→  useEffect(() => {
+   745→    if (open) {
+   746→      setFormData({ ...initialFormData, date: format(new Date(), "yyyy-MM-dd") });
+   747→      setShowCustomPair(false);
+   748→    }
+   749→  }, [open]);
+   750→
+   751→  const updateField = useCallback(<K extends keyof TradeFormData>(key: K, value: TradeFormData[K]) => {
+   752→    setFormData((prev) => ({ ...prev, [key]: value }));
+   753→  }, []);
+   754→
+   755→  const handlePairChange = useCallback((value: string) => {
+   756→    if (value === "__custom__") { setShowCustomPair(true); updateField("pair", ""); }
+   757→    else { setShowCustomPair(false); updateField("pair", value); }
+   758→  }, [updateField]);
+   759→
+   760→  const handleSubmit = async () => {
+   761→    if (!formData.date || !formData.pair || !formData.direction || !formData.session ||
+   762→        !formData.marketCondition || !formData.timeframeAnalysis || !formData.timeframeEntry ||
+   763→        !formData.entryPrice || !formData.stopLoss || !formData.takeProfit) {
+   764→      toast.error(language === "fr" ? "Remplissez les champs obligatoires" : "Fill required fields");
+   765→      return;
+   766→    }
+   767→
+   768→    setIsSubmitting(true);
+   769→    try {
+   770→      const pair = showCustomPair ? formData.customPair.toUpperCase() : formData.pair;
+   771→      const exitPrice = formData.exitPrice !== "" ? parseFloat(formData.exitPrice) : null;
+   772→      const lotSize = formData.lotSize !== "" ? parseFloat(formData.lotSize) : null;
+   773→
+   774→      const tradeData: Record<string, unknown> = {
+   775→        date: formData.date,
+   776→        pair,
+   777→        direction: formData.direction,
+   778→        session: formData.session,
+   779→        marketCondition: formData.marketCondition,
+   780→        timeframe: `${formData.timeframeAnalysis}/${formData.timeframeEntry}`,
+   781→        setup: formData.setup || null,
+   782→        structure: formData.structure || null,
+   783→        entryModel: formData.entryModel || null,
+   784→        entryPrice: parseFloat(formData.entryPrice),
+   785→        stopLoss: parseFloat(formData.stopLoss),
+   786→        takeProfit: parseFloat(formData.takeProfit),
+   787→        exitPrice,
+   788→        entryTime: formData.entryTime || null,
+   789→        exitTime: formData.exitTime || null,
+   790→        duration: autoCalc.duration || null,
+   791→        lotSize,
+   792→        rr: autoCalc.rr,
+   793→        pnl: autoCalc.pnl,
+   794→        result: autoCalc.resultLabel,
+   795→        newsEnabled: formData.newsEnabled,
+   796→        emotions: formData.emotions || null,
+   797→        confluence: formData.confluence || null,
+   798→        mistakes: formData.mistakes || null,
+   799→        lessons: formData.lessons || null,
+   800→        notes: formData.notes || null,
+   801→      };
+   802→
+   803→      const res = await fetch("/api/trades", {
+   804→        method: "POST",
+   805→        headers: { "Content-Type": "application/json" },
+   806→        body: JSON.stringify(tradeData),
+   807→      });
+   808→
+   809→      if (!res.ok) {
+   810→        const data = await res.json();
+   811→        throw new Error(data.error || "Error creating trade");
+   812→      }
+   813→
+   814→      const { trade } = await res.json();
+   815→
+   816→      // Upload screenshots
+   817→      const uploadPromises: Promise<void>[] = [];
+   818→      const files: { file: File | null; type: string }[] = [
+   819→        { file: formData.contextFile, type: "context" },
+   820→        { file: formData.entryFile, type: "entry" },
+   821→        { file: formData.exitFile, type: "exit" },
+   822→      ];
+   823→      for (const { file, type } of files) {
+   824→        if (file && trade?.id) {
+   825→          uploadPromises.push((async () => {
+   826→            const fd = new FormData();
+   827→            fd.append("file", file);
+   828→            fd.append("tradeId", trade.id);
+   829→            fd.append("type", type);
+   830→            const uploadRes = await fetch("/api/upload", { method: "POST", body: fd });
+   831→            if (!uploadRes.ok) {
+   832→              console.error(`Failed to upload ${type} screenshot`);
+   833→              toast.warning(language === "fr" ? `Capture "${type}" non sauvegardée` : `"${type}" screenshot not saved`);
+   834→            }
+   835→          })());
+   836→        }
+   837→      }
+   838→      await Promise.all(uploadPromises);
+   839→
+   840→      toast.success(language === "fr" ? "Trade ajouté avec succès !" : "Trade added successfully!");
+   841→      onOpenChange(false);
+   842→      onTradeCreated();
+   843→    } catch (error: any) {
+   844→      toast.error(error.message || (language === "fr" ? "Erreur lors de la création" : "Error creating trade"));
+   845→    } finally {
+   846→      setIsSubmitting(false);
+   847→    }
+   848→  };
+   849→
+   850→  return (
+   851→    <Dialog open={open} onOpenChange={onOpenChange}>
+   852→      <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 gap-0 overflow-hidden flex flex-col">
+   853→        <div className="p-6 border-b border-border shrink-0">
+   854→          <DialogHeader>
+   855→            <DialogTitle className="flex items-center gap-2 text-xl">
+   856→              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+   857→                <Plus className="w-4 h-4 text-primary" />
+   858→              </div>
+   859→              {t(language, "saisieDesTrades")}
+   860→            </DialogTitle>
+   861→            <DialogDescription className="text-sm text-muted-foreground">
+   862→              {language === "fr" ? "Remplissez les détails de votre trade" : "Fill in your trade details"}
+   863→            </DialogDescription>
+   864→          </DialogHeader>
+   865→        </div>
+   866→
+   867→        <div className="flex-1 min-h-0 overflow-y-auto">
+   868→          <div className="p-6 space-y-6">
+   869→            {/* Auto-calculator display */}
+   870→            {(autoCalc.rr !== null || autoCalc.pnl !== null || autoCalc.resultLabel !== null) && (
+   871→              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+   872→                <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+   873→                  <Calculator className="w-4 h-4" />
+   874→                  {language === "fr" ? "Calculs Automatiques" : "Auto-Calculated"}
+   875→                </div>
+   876→                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   877→                  {autoCalc.rr !== null && (
+   878→                    <div className="text-center p-2 rounded-lg bg-background/50">
+   879→                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">RR</div>
+   880→                      <div className={cn("text-lg font-bold font-mono", autoCalc.rr >= 1 ? "text-profit" : "text-loss")}>{autoCalc.rr.toFixed(2)}</div>
+   881→                    </div>
+   882→                  )}
+   883→                  {autoCalc.pnl !== null && (
+   884→                    <div className="text-center p-2 rounded-lg bg-background/50">
+   885→                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">P&L</div>
+   886→                      <div className={cn("text-lg font-bold font-mono", autoCalc.pnl > 0 ? "text-profit" : autoCalc.pnl < 0 ? "text-loss" : "text-gold")}>{autoCalc.pnl >= 0 ? "+" : ""}{autoCalc.pnl.toFixed(2)}</div>
+   887→                    </div>
+   888→                  )}
+   889→                  {autoCalc.resultLabel && (
+   890→                    <div className="text-center p-2 rounded-lg bg-background/50">
+   891→                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{t(language, "result")}</div>
+   892→                      <ResultBadge result={autoCalc.resultLabel} language={language} />
+   893→                    </div>
+   894→                  )}
+   895→                  {autoCalc.duration && (
+   896→                    <div className="text-center p-2 rounded-lg bg-background/50">
+   897→                      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1"><Clock className="w-3 h-3 inline mr-0.5" />{t(language, "duration")}</div>
+   898→                      <div className="text-sm font-semibold font-mono">{autoCalc.duration}</div>
+   899→                    </div>
+   900→                  )}
+   901→                </div>
+   902→              </div>
+   903→            )}
+   904→
+   905→            {/* ─── Trade Info ──────────────── */}
+   906→            <div className="space-y-4">
+   907→              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+   908→                {language === "fr" ? "Informations du Trade" : "Trade Information"}
+   909→              </h4>
+   910→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   911→                {/* Date */}
+   912→                <div className="space-y-1.5">
+   913→                  <Label className="text-xs font-medium">{t(language, "date")} *</Label>
+   914→                  <Popover open={dateOpen} onOpenChange={setDateOpen}>
+   915→                    <PopoverTrigger asChild>
+   916→                      <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-9", !formData.date && "text-muted-foreground")}>
+   917→                        <CalendarIcon className="mr-2 h-4 w-4" />
+   918→                        {formData.date ? format(new Date(formData.date), "dd/MM/yyyy") : language === "fr" ? "Sélectionner" : "Select"}
+   919→                      </Button>
+   920→                    </PopoverTrigger>
+   921→                    <PopoverContent className="w-auto p-0" align="start">
+   922→                      <Calendar mode="single" selected={formData.date ? new Date(formData.date) : undefined} onSelect={(date) => { if (date) { updateField("date", format(date, "yyyy-MM-dd")); setDateOpen(false); } }} initialFocus />
+   923→                    </PopoverContent>
+   924→                  </Popover>
+   925→                </div>
+   926→                {/* Pair */}
+   927→                <div className="space-y-1.5">
+   928→                  <Label className="text-xs font-medium">{t(language, "pair")} *</Label>
+   929→                  {!showCustomPair ? (
+   930→                    <Select value={formData.pair} onValueChange={handlePairChange}>
+   931→                      <SelectTrigger className="w-full h-9"><SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} /></SelectTrigger>
+   932→                      <SelectContent>
+   933→                        {DEFAULT_PAIRS.map(p => <SelectItem key={p} value={p}><span className="font-mono">{p}</span></SelectItem>)}
+   934→                        <SelectSeparator />
+   935→                        <SelectItem value="__custom__"><span className="text-primary text-xs">{t(language, "customPair")}</span></SelectItem>
+   936→                      </SelectContent>
+   937→                    </Select>
+   938→                  ) : (
+   939→                    <div className="flex gap-2">
+   940→                      <Input placeholder="EURJPY" value={formData.customPair} onChange={(e) => updateField("customPair", e.target.value.toUpperCase())} className="h-9 font-mono" />
+   941→                      <Button variant="ghost" size="sm" onClick={() => { setShowCustomPair(false); updateField("customPair", ""); }} className="shrink-0 h-9 px-2"><X className="w-4 h-4" /></Button>
+   942→                    </div>
+   943→                  )}
+   944→                </div>
+   945→                {/* Direction */}
+   946→                <div className="space-y-1.5">
+   947→                  <Label className="text-xs font-medium">{t(language, "direction")} *</Label>
+   948→                  <ToggleGroup type="single" value={formData.direction} onValueChange={(val) => { if (val) updateField("direction", val as "LONG" | "SHORT"); }} className="w-full">
+   949→                    <ToggleGroupItem value="LONG" className="flex-1 data-[state=on]:bg-profit/15 data-[state=on]:text-profit h-9 text-sm font-semibold gap-1"><ArrowUpRight className="w-3.5 h-3.5" />{t(language, "long")}</ToggleGroupItem>
+   950→                    <ToggleGroupItem value="SHORT" className="flex-1 data-[state=on]:bg-loss/15 data-[state=on]:text-loss h-9 text-sm font-semibold gap-1"><ArrowDownRight className="w-3.5 h-3.5" />{t(language, "short")}</ToggleGroupItem>
+   951→                  </ToggleGroup>
+   952→                </div>
+   953→                {/* Session */}
+   954→                <div className="space-y-1.5">
+   955→                  <Label className="text-xs font-medium">{t(language, "session")} *</Label>
+   956→                  <Select value={formData.session} onValueChange={(v) => updateField("session", v)}>
+   957→                    <SelectTrigger className="w-full h-9"><SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} /></SelectTrigger>
+   958→                    <SelectContent>
+   959→                      {SESSIONS.map(s => <SelectItem key={s} value={s}>{t(language, s.toLowerCase().replace(/\s+/g, "") as any) || s}</SelectItem>)}
+   960→                    </SelectContent>
+   961→                  </Select>
+   962→                </div>
+   963→                {/* Market Condition */}
+   964→                <div className="space-y-1.5">
+   965→                  <Label className="text-xs font-medium">{t(language, "marketCondition")} *</Label>
+   966→                  <Select value={formData.marketCondition} onValueChange={(v) => updateField("marketCondition", v)}>
+   967→                    <SelectTrigger className="w-full h-9"><SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} /></SelectTrigger>
+   968→                    <SelectContent>
+   969→                      {MARKET_CONDITIONS.map(mc => <SelectItem key={mc} value={mc}>{t(language, mc.toLowerCase() as any) || mc}</SelectItem>)}
+   970→                    </SelectContent>
+   971→                  </Select>
+   972→                </div>
+   973→                {/* TF Analysis */}
+   974→                <div className="space-y-1.5">
+   975→                  <Label className="text-xs font-medium">{language === "fr" ? "TF Analyse" : "Analysis TF"} *</Label>
+   976→                  <Select value={formData.timeframeAnalysis} onValueChange={(v) => updateField("timeframeAnalysis", v)}>
+   977→                    <SelectTrigger className="w-full h-9"><SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} /></SelectTrigger>
+   978→                    <SelectContent>
+   979→                      {TIMEFRAMES_ANALYSIS.map(tf => <SelectItem key={tf} value={tf}><span className="font-mono">{tf}</span></SelectItem>)}
+   980→                    </SelectContent>
+   981→                  </Select>
+   982→                </div>
+   983→                {/* TF Entry */}
+   984→                <div className="space-y-1.5">
+   985→                  <Label className="text-xs font-medium">{language === "fr" ? "TF Entrée" : "Entry TF"} *</Label>
+   986→                  <Select value={formData.timeframeEntry} onValueChange={(v) => updateField("timeframeEntry", v)}>
+   987→                    <SelectTrigger className="w-full h-9"><SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} /></SelectTrigger>
+   988→                    <SelectContent>
+   989→                      {TIMEFRAMES_ENTRY.map(tf => <SelectItem key={tf} value={tf}><span className="font-mono">{tf}</span></SelectItem>)}
+   990→                    </SelectContent>
+   991→                  </Select>
+   992→                </div>
+   993→                {/* Setup */}
+   994→                <div className="space-y-1.5">
+   995→                  <Label className="text-xs font-medium">{t(language, "setup")}</Label>
+   996→                  <Select value={formData.setup} onValueChange={(v) => updateField("setup", v)}>
+   997→                    <SelectTrigger className="w-full h-9"><SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} /></SelectTrigger>
+   998→                    <SelectContent>
+   999→                      {SETUPS.map(s => <SelectItem key={s} value={s}><span className="font-mono font-semibold">{s}</span></SelectItem>)}
+  1000→                    </SelectContent>
+  1001→                  </Select>
+  1002→                </div>
+  1003→                {/* Structure */}
+  1004→                <div className="space-y-1.5">
+  1005→                  <Label className="text-xs font-medium">{t(language, "structureField")}</Label>
+  1006→                  <Select value={formData.structure} onValueChange={(v) => updateField("structure", v)}>
+  1007→                    <SelectTrigger className="w-full h-9"><SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} /></SelectTrigger>
+  1008→                    <SelectContent>
+  1009→                      {STRUCTURES.map(st => <SelectItem key={st} value={st}>{t(language, st.toLowerCase().replace(/è/g, "e").replace(/é/g, "e") as any) || st}</SelectItem>)}
+  1010→                    </SelectContent>
+  1011→                  </Select>
+  1012→                </div>
+  1013→                {/* Entry Model */}
+  1014→                <div className="space-y-1.5">
+  1015→                  <Label className="text-xs font-medium">{t(language, "entryModelField")}</Label>
+  1016→                  <Select value={formData.entryModel} onValueChange={(v) => updateField("entryModel", v)}>
+  1017→                    <SelectTrigger className="w-full h-9"><SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} /></SelectTrigger>
+  1018→                    <SelectContent>
+  1019→                      {ENTRY_MODELS.map(em => <SelectItem key={em} value={em}>{em}</SelectItem>)}
+  1020→                    </SelectContent>
+  1021→                  </Select>
+  1022→                </div>
+  1023→              </div>
+  1024→            </div>
+  1025→
+  1026→            <Separator />
+  1027→
+  1028→            {/* ─── Price & Timing ──────────────── */}
+  1029→            <div className="space-y-4">
+  1030→              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+  1031→                {language === "fr" ? "Prix & Timing" : "Price & Timing"}
+  1032→              </h4>
+  1033→              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  1034→                <div className="space-y-1.5">
+  1035→                  <Label className="text-xs font-medium">{t(language, "entryPrice")} *</Label>
+  1036→                  <Input type="number" step="any" placeholder="0.00" value={formData.entryPrice} onChange={(e) => updateField("entryPrice", e.target.value)} className="h-9 font-mono" />
+  1037→                </div>
+  1038→                <div className="space-y-1.5">
+  1039→                  <Label className="text-xs font-medium">{t(language, "stopLoss")} *</Label>
+  1040→                  <Input type="number" step="any" placeholder="0.00" value={formData.stopLoss} onChange={(e) => updateField("stopLoss", e.target.value)} className="h-9 font-mono" />
+  1041→                </div>
+  1042→                <div className="space-y-1.5">
+  1043→                  <Label className="text-xs font-medium">{t(language, "takeProfit")} *</Label>
+  1044→                  <Input type="number" step="any" placeholder="0.00" value={formData.takeProfit} onChange={(e) => updateField("takeProfit", e.target.value)} className="h-9 font-mono" />
+  1045→                </div>
+  1046→                <div className="space-y-1.5">
+  1047→                  <Label className="text-xs font-medium">{t(language, "exitPrice")}</Label>
+  1048→                  <Input type="number" step="any" placeholder="0.00" value={formData.exitPrice} onChange={(e) => updateField("exitPrice", e.target.value)} className="h-9 font-mono" />
+  1049→                </div>
+  1050→                <div className="space-y-1.5">
+  1051→                  <Label className="text-xs font-medium">{t(language, "lotSize")}</Label>
+  1052→                  <Input type="number" step="any" placeholder="0.00" value={formData.lotSize} onChange={(e) => updateField("lotSize", e.target.value)} className="h-9 font-mono" />
+  1053→                </div>
+  1054→                <div className="space-y-1.5">
+  1055→                  <Label className="text-xs font-medium">{t(language, "entryTime")}</Label>
+  1056→                  <Input type="time" value={formData.entryTime} onChange={(e) => updateField("entryTime", e.target.value)} className="h-9 font-mono" />
+  1057→                </div>
+  1058→                <div className="space-y-1.5">
+  1059→                  <Label className="text-xs font-medium">{t(language, "exitTime")}</Label>
+  1060→                  <Input type="time" value={formData.exitTime} onChange={(e) => updateField("exitTime", e.target.value)} className="h-9 font-mono" />
+  1061→                </div>
+  1062→              </div>
+  1063→            </div>
+  1064→
+  1065→            <Separator />
+  1066→
+  1067→            {/* ─── Psychology ──────────────── */}
+  1068→            <div className="space-y-4">
+  1069→              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+  1070→                {language === "fr" ? "Psychologie" : "Psychology"}
+  1071→              </h4>
+  1072→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1073→                <div className="space-y-1.5">
+  1074→                  <Label className="text-xs font-medium">{t(language, "emotions")}</Label>
+  1075→                  <Textarea value={formData.emotions} onChange={(e) => updateField("emotions", e.target.value)} className="min-h-[60px] text-sm" />
+  1076→                </div>
+  1077→                <div className="space-y-1.5">
+  1078→                  <Label className="text-xs font-medium">{t(language, "confluence")}</Label>
+  1079→                  <Textarea value={formData.confluence} onChange={(e) => updateField("confluence", e.target.value)} className="min-h-[60px] text-sm" />
+  1080→                </div>
+  1081→                <div className="space-y-1.5">
+  1082→                  <Label className="text-xs font-medium">{t(language, "mistakes")}</Label>
+  1083→                  <Textarea value={formData.mistakes} onChange={(e) => updateField("mistakes", e.target.value)} className="min-h-[60px] text-sm" />
+  1084→                </div>
+  1085→                <div className="space-y-1.5">
+  1086→                  <Label className="text-xs font-medium">{t(language, "lessons")}</Label>
+  1087→                  <Textarea value={formData.lessons} onChange={(e) => updateField("lessons", e.target.value)} className="min-h-[60px] text-sm" />
+  1088→                </div>
+  1089→              </div>
+  1090→              <div className="space-y-1.5">
+  1091→                <Label className="text-xs font-medium">{t(language, "notes")}</Label>
+  1092→                <Textarea value={formData.notes} onChange={(e) => updateField("notes", e.target.value)} className="min-h-[60px] text-sm" />
+  1093→              </div>
+  1094→            </div>
+  1095→
+  1096→            <Separator />
+  1097→
+  1098→            {/* ─── Screenshots & Videos ──────────────── */}
+  1099→            <div className="space-y-4">
+  1100→              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+  1101→                {language === "fr" ? "Captures & Vidéos" : "Screenshots & Videos"}
+  1102→              </h4>
+  1103→              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  1104→                {/* Context Screenshot */}
+  1105→                <div className="space-y-2">
+  1106→                  <Label className="text-xs font-medium">{language === "fr" ? "Contexte" : "Context"}</Label>
+  1107→                  <input ref={contextRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => updateField("contextFile", e.target.files?.[0] || null)} />
+  1108→                  <Button type="button" variant="outline" className="w-full h-9 gap-2" onClick={() => contextRef.current?.click()}>
+  1109→                    <Upload className="w-3.5 h-3.5" />
+  1110→                    {formData.contextFile ? formData.contextFile.name.slice(0, 20) : (language === "fr" ? "Choisir" : "Choose")}
+  1111→                  </Button>
+  1112→                  {formData.contextFile && (
+  1113→                    <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
+  1114→                      {formData.contextFile.type.startsWith('video/') ? (
+  1115→                        <video src={URL.createObjectURL(formData.contextFile)} className="w-full h-full object-cover" muted playsInline />
+  1116→                      ) : (
+  1117→                        <img src={URL.createObjectURL(formData.contextFile)} alt="Context" className="w-full h-full object-cover" />
+  1118→                      )}
+  1119→                      <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => updateField("contextFile", null)}>
+  1120→                        <X className="w-3 h-3" />
+  1121→                      </Button>
+  1122→                    </div>
+  1123→                  )}
+  1124→                </div>
+  1125→                {/* Entry Screenshot */}
+  1126→                <div className="space-y-2">
+  1127→                  <Label className="text-xs font-medium">{language === "fr" ? "Entrée" : "Entry"}</Label>
+  1128→                  <input ref={entryFileRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => updateField("entryFile", e.target.files?.[0] || null)} />
+  1129→                  <Button type="button" variant="outline" className="w-full h-9 gap-2" onClick={() => entryFileRef.current?.click()}>
+  1130→                    <Upload className="w-3.5 h-3.5" />
+  1131→                    {formData.entryFile ? formData.entryFile.name.slice(0, 20) : (language === "fr" ? "Choisir" : "Choose")}
+  1132→                  </Button>
+  1133→                  {formData.entryFile && (
+  1134→                    <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
+  1135→                      {formData.entryFile.type.startsWith('video/') ? (
+  1136→                        <video src={URL.createObjectURL(formData.entryFile)} className="w-full h-full object-cover" muted playsInline />
+  1137→                      ) : (
+  1138→                        <img src={URL.createObjectURL(formData.entryFile)} alt="Entry" className="w-full h-full object-cover" />
+  1139→                      )}
+  1140→                      <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => updateField("entryFile", null)}>
+  1141→                        <X className="w-3 h-3" />
+  1142→                      </Button>
+  1143→                    </div>
+  1144→                  )}
+  1145→                </div>
+  1146→                {/* Exit Screenshot */}
+  1147→                <div className="space-y-2">
+  1148→                  <Label className="text-xs font-medium">{language === "fr" ? "Sortie" : "Exit"}</Label>
+  1149→                  <input ref={exitFileRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => updateField("exitFile", e.target.files?.[0] || null)} />
+  1150→                  <Button type="button" variant="outline" className="w-full h-9 gap-2" onClick={() => exitFileRef.current?.click()}>
+  1151→                    <Upload className="w-3.5 h-3.5" />
+  1152→                    {formData.exitFile ? formData.exitFile.name.slice(0, 20) : (language === "fr" ? "Choisir" : "Choose")}
+  1153→                  </Button>
+  1154→                  {formData.exitFile && (
+  1155→                    <div className="relative aspect-video rounded-lg overflow-hidden border border-border">
+  1156→                      {formData.exitFile.type.startsWith('video/') ? (
+  1157→                        <video src={URL.createObjectURL(formData.exitFile)} className="w-full h-full object-cover" muted playsInline />
+  1158→                      ) : (
+  1159→                        <img src={URL.createObjectURL(formData.exitFile)} alt="Exit" className="w-full h-full object-cover" />
+  1160→                      )}
+  1161→                      <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => updateField("exitFile", null)}>
+  1162→                        <X className="w-3 h-3" />
+  1163→                      </Button>
+  1164→                    </div>
+  1165→                  )}
+  1166→                </div>
+  1167→              </div>
+  1168→            </div>
+  1169→          </div>
+  1170→        </div>
+  1171→
+  1172→        {/* Footer */}
+  1173→        <div className="p-4 border-t border-border flex justify-end gap-2 shrink-0">
+  1174→          <Button variant="outline" onClick={() => onOpenChange(false)}>{t(language, "cancel")}</Button>
+  1175→          <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
+  1176→            {isSubmitting ? <Clock className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+  1177→            {t(language, "save")}
+  1178→          </Button>
+  1179→        </div>
+  1180→      </DialogContent>
+  1181→    </Dialog>
+  1182→  );
+  1183→}
+  1184→

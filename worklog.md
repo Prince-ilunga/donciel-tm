@@ -161,3 +161,20 @@ Stage Summary:
 - Bilingual FR/EN support
 - Professional UI matching existing DONCIEL design language
 - No changes to existing functionality
+
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix SHORT trade icon + Enhance News tab (day/week filter, bar chart, upcoming events)
+
+Work Log:
+- Fixed SHORT trades in Setup tab: changed mobile card icon color from result-based (WIN=green) to direction-based (SHORT=red with ArrowDownRight, LONG=green with ArrowUpRight)
+- Rewrote News API (/api/news/route.ts): added period parameter (today/week), changed recency_days from 1 to 7 for weekly searches, added economic calendar event search, added daily news count grouping
+- Rewrote News Tab component: added Aujourd'hui/Cette Semaine filter buttons, added weekly bar chart (recharts) showing news count per day, added upcoming economic events section, improved news display with better period labels
+- Fixed .env: updated DATABASE_URL from SQLite to Neon PostgreSQL for local dev
+- Verified all changes with agent-browser: SHORT icons are now red, news load correctly for all assets, bar chart renders, upcoming events show, day/week filter works
+
+Stage Summary:
+- SHORT trades now consistently show red icon with downward arrow (direction-based, not result-based)
+- News tab fully functional with: AI interpretation, day/week filters, weekly bar chart, upcoming events, news feed
+- Pushed to GitHub: commit b016051 on main branch
