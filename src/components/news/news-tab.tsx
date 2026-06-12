@@ -2,13 +2,11 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useAppStore } from "@/stores/app-store";
-import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   ChartContainer,
@@ -17,7 +15,7 @@ import {
 } from "@/components/ui/chart";
 import { Bar, BarChart, XAxis, YAxis, CartesianGrid } from "recharts";
 import {
-  Newspaper,
+  Brain,
   RefreshCw,
   TrendingUp,
   TrendingDown,
@@ -33,6 +31,13 @@ import {
   CalendarDays,
   BarChart3,
   CalendarClock,
+  Activity,
+  Target,
+  AlertCircle,
+  Sparkles,
+  ArrowUpRight,
+  ArrowDownRight,
+  MinusCircle,
 } from "lucide-react";
 
 const ASSETS = [
@@ -52,6 +57,16 @@ const barChartConfig = {
     color: "hsl(var(--primary))",
   },
 } as const;
+
+function DirectionIcon({ direction, size = "sm" }: { direction: string; size?: "sm" | "md" | "lg" }) {
+  const s = size === "sm" ? "w-3.5 h-3.5" : size === "md" ? "w-4 h-4" : "w-5 h-5";
+  const isUp = direction?.toUpperCase().includes("HAUSS") || direction?.toUpperCase().includes("BULL");
+  const isDown = direction?.toUpperCase().includes("BAISS") || direction?.toUpperCase().includes("BEAR");
+
+  if (isUp) return <ArrowUpRight className={cn(s, "text-profit")} />;
+  if (isDown) return <ArrowDownRight className={cn(s, "text-loss")} />;
+  return <MinusCircle className={cn(s, "text-amber-500")} />;
+}
 
 function DirectionBadge({ direction, confidence }: { direction: string; confidence: string }) {
   const isUp = direction?.toUpperCase().includes("HAUSS") || direction?.toUpperCase().includes("BULL");
@@ -107,6 +122,40 @@ function ImpactBadge({ impact }: { impact: string }) {
   );
 }
 
+function SentimentGauge({ sentiment }: { sentiment: string }) {
+  const s = sentiment?.toLowerCase() || "neutre";
+  const isVeryBull = s.includes("très haus") || s.includes("very bull") || s.includes("strongly bull");
+  const isBull = s.includes("haus") || s.includes("bull") || s.includes("acheteur");
+  const isVeryBear = s.includes("très bai") || s.includes("very bear") || s.includes("strongly bear");
+  const isBear = s.includes("bai") || s.includes("bear") || s.includes("vendeur");
+
+  const value = isVeryBull ? 90 : isBull ? 70 : isVeryBear ? 10 : isBear ? 30 : 50;
+  const label = isVeryBull ? (s.includes("haus") ? "Très Haussier" : "Very Bullish")
+    : isBull ? (s.includes("haus") ? "Haussier" : "Bullish")
+    : isVeryBear ? (s.includes("bai") ? "Très Baissier" : "Very Bearish")
+    : isBear ? (s.includes("bai") ? "Baissier" : "Bearish")
+    : (s.includes("neutre") ? "Neutre" : "Neutral");
+
+  const color = value >= 70 ? "bg-profit" : value >= 55 ? "bg-profit/60" : value <= 30 ? "bg-loss" : value <= 45 ? "bg-loss/60" : "bg-amber-500";
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-medium text-muted-foreground">Sentiment</span>
+        <span className={cn("text-[10px] font-bold",
+          value >= 55 ? "text-profit" : value <= 45 ? "text-loss" : "text-amber-500"
+        )}>{label}</span>
+      </div>
+      <div className="h-2 rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn("h-full rounded-full transition-all duration-700", color)}
+          style={{ width: `${value}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 type PeriodFilter = "today" | "week";
 
 export function NewsTab() {
@@ -143,6 +192,7 @@ export function NewsTab() {
 
   const currentAsset = ASSETS.find(a => a.id === activeAsset);
   const analysis = newsData?.analysis;
+  const aiPowered = newsData?.aiPowered;
 
   // Bar chart data
   const barChartData = useMemo(() => {
@@ -170,8 +220,8 @@ export function NewsTab() {
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
             {language === "fr"
-              ? "News en temps réel et interprétation IA pour vos actifs"
-              : "Real-time news and AI interpretation for your assets"}
+              ? "Interprétation IA spécialisée en finance sur données réelles"
+              : "Finance-specialized AI interpretation on real-time data"}
           </p>
         </div>
         <Button
@@ -269,26 +319,39 @@ export function NewsTab() {
       {/* Content */}
       {newsData && !loading && !error && (
         <div className="space-y-4">
-          {/* AI Analysis Card */}
+          {/* ============================================ */}
+          {/* DONCIEL-AI™ Finance Analysis Card            */}
+          {/* ============================================ */}
           {analysis && (
             <Card className={cn(
-              "p-4 sm:p-6 border-2",
+              "p-4 sm:p-6 border-2 overflow-hidden relative",
               analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
                 ? "border-profit/20 bg-gradient-to-br from-profit/5 to-transparent"
                 : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
                 ? "border-loss/20 bg-gradient-to-br from-loss/5 to-transparent"
                 : "border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent"
             )}>
+              {/* AI Powered Badge */}
+              {aiPowered && (
+                <div className="absolute top-3 right-3">
+                  <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20">
+                    <Sparkles className="w-3 h-3" />
+                    DONCIEL-AI™
+                  </Badge>
+                </div>
+              )}
+
+              {/* Header */}
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2">
                   <div className={cn(
-                    "w-10 h-10 rounded-xl flex items-center justify-center",
+                    "w-11 h-11 rounded-xl flex items-center justify-center",
                     analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
                       ? "bg-profit/10" : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
                       ? "bg-loss/10" : "bg-amber-500/10"
                   )}>
-                    <Newspaper className={cn(
-                      "w-5 h-5",
+                    <Brain className={cn(
+                      "w-6 h-6",
                       analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
                         ? "text-profit" : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
                         ? "text-loss" : "text-amber-500"
@@ -296,13 +359,20 @@ export function NewsTab() {
                   </div>
                   <div>
                     <h3 className="font-bold text-sm">
-                      {language === "fr" ? "Interprétation IA" : "AI Interpretation"} — {activeAsset}
+                      {aiPowered
+                        ? (language === "fr" ? "IA Finance Spécialisée" : "Finance AI Specialist")
+                        : (language === "fr" ? "Interprétation IA" : "AI Interpretation")} — {activeAsset}
                     </h3>
                     <p className="text-[10px] text-muted-foreground">
                       {currentAsset && (language === "fr" ? currentAsset.label_fr : currentAsset.label_en)}
                       {periodFilter === "today"
                         ? (language === "fr" ? " · Aujourd'hui" : " · Today")
                         : (language === "fr" ? " · Cette semaine" : " · This Week")}
+                      {aiPowered && (
+                        <span className="ml-1 text-purple-500">
+                          · {language === "fr" ? "Analyse CFA en temps réel" : "CFA-level real-time analysis"}
+                        </span>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -318,7 +388,14 @@ export function NewsTab() {
 
               <Separator className="mb-4" />
 
-              {/* Key Factors + Impact + Recommendation */}
+              {/* Sentiment Gauge */}
+              {analysis.sentiment && (
+                <div className="mb-4">
+                  <SentimentGauge sentiment={analysis.sentiment} />
+                </div>
+              )}
+
+              {/* Key Factors + Right column */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Key Factors */}
                 {analysis.keyFactors && analysis.keyFactors.length > 0 && (
@@ -359,6 +436,49 @@ export function NewsTab() {
                   )}
                 </div>
               </div>
+
+              {/* Short-term & Medium-term — only when AI is active */}
+              {(analysis.shortTerm || analysis.mediumTerm) && (
+                <>
+                  <Separator className="my-4" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {analysis.shortTerm && (
+                      <div className="p-3 rounded-lg border border-border bg-card/50">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <Activity className="w-3.5 h-3.5 text-amber-500" />
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            {language === "fr" ? "Court Terme (Intraday)" : "Short Term (Intraday)"}
+                          </span>
+                        </div>
+                        <p className="text-xs leading-relaxed">{analysis.shortTerm}</p>
+                      </div>
+                    )}
+                    {analysis.mediumTerm && (
+                      <div className="p-3 rounded-lg border border-border bg-card/50">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <Target className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            {language === "fr" ? "Moyen Terme (Swing)" : "Medium Term (Swing)"}
+                          </span>
+                        </div>
+                        <p className="text-xs leading-relaxed">{analysis.mediumTerm}</p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Risk Warning */}
+              {analysis.riskWarning && (
+                <div className="mt-3 p-2.5 rounded-lg border border-loss/20 bg-loss/5">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 text-loss mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-loss/80 leading-relaxed">
+                      {analysis.riskWarning}
+                    </p>
+                  </div>
+                </div>
+              )}
             </Card>
           )}
 
@@ -450,7 +570,7 @@ export function NewsTab() {
             </Card>
           )}
 
-          {/* News Feed */}
+          {/* News Feed with AI Interpretation Tags */}
           <Card className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -490,12 +610,27 @@ export function NewsTab() {
                     <div className="p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium group-hover:text-primary transition-colors line-clamp-2">
-                            {item.title}
-                          </h4>
+                          <div className="flex items-center gap-2 mb-1">
+                            {/* AI Direction Tag */}
+                            {item.aiDirection && (
+                              <DirectionIcon direction={item.aiDirection} size="sm" />
+                            )}
+                            <h4 className="text-sm font-medium group-hover:text-primary transition-colors line-clamp-2">
+                              {item.title}
+                            </h4>
+                          </div>
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                             {item.snippet}
                           </p>
+                          {/* AI Reason Tag */}
+                          {item.aiReason && (
+                            <div className="mt-1.5 flex items-start gap-1.5">
+                              <Brain className="w-3 h-3 text-purple-500 mt-0.5 shrink-0" />
+                              <p className="text-[10px] text-purple-500/80 leading-relaxed line-clamp-2">
+                                {item.aiReason}
+                              </p>
+                            </div>
+                          )}
                         </div>
                         <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
@@ -513,6 +648,16 @@ export function NewsTab() {
                             )}
                           </span>
                         )}
+                        {item.aiDirection && (
+                          <Badge className={cn(
+                            "text-[8px] px-1.5 py-0 border-0",
+                            item.aiDirection === "HAUSSIER" && "bg-profit/15 text-profit",
+                            item.aiDirection === "BAISSIER" && "bg-loss/15 text-loss",
+                            item.aiDirection === "NEUTRE" && "bg-amber-500/15 text-amber-500",
+                          )}>
+                            {item.aiDirection}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </a>
@@ -528,8 +673,8 @@ export function NewsTab() {
           {/* Disclaimer */}
           <p className="text-[10px] text-muted-foreground/60 text-center px-4">
             {language === "fr"
-              ? "⚠️ L'interprétation IA est fournie à titre informatif uniquement et ne constitue pas un conseil financier. Toujours faire vos propres recherches avant de trader."
-              : "⚠️ AI interpretation is for informational purposes only and does not constitute financial advice. Always do your own research before trading."}
+              ? "⚠️ DONCIEL-AI™ est fourni à titre informatif uniquement et ne constitue pas un conseil financier. L'IA analyse les données en temps réel mais les marchés restent imprévisibles. Toujours faire vos propres recherches avant de trader."
+              : "⚠️ DONCIEL-AI™ is for informational purposes only and does not constitute financial advice. AI analyzes real-time data but markets remain unpredictable. Always do your own research before trading."}
           </p>
         </div>
       )}
