@@ -178,3 +178,26 @@ Stage Summary:
 - SHORT trades now consistently show red icon with downward arrow (direction-based, not result-based)
 - News tab fully functional with: AI interpretation, day/week filters, weekly bar chart, upcoming events, news feed
 - Pushed to GitHub: commit b016051 on main branch
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix News tab showing no data on production (Vercel)
+
+Work Log:
+- Diagnosed: z-ai-web-dev-sdk requires .z-ai-config file which exists locally but not accessible on Vercel serverless functions
+- Created /src/lib/zai.ts helper with triple fallback: env vars → file config → hardcoded config
+- Still failed on Vercel because internal-api.z.ai is not accessible from Vercel's public servers
+- Switched to public RSS feeds: Investing.com RSS (forex ID=1, commodities ID=11, economy ID=14, stocks ID=25)
+- Added fast-xml-parser for RSS XML parsing
+- Implemented keyword-based filtering per asset (gold/XAUUSD keywords, EURUSD keywords, etc.)
+- Added basic keyword-based analysis fallback when AI SDK is unavailable on Vercel
+- Updated .zscripts/dev.sh to set Neon PostgreSQL DATABASE_URL
+- All 5 assets now return news on production (XAUUSD=6, EURUSD=8, US30=3 news articles)
+- AI analysis works locally via z-ai SDK, basic keyword analysis works on Vercel
+
+Stage Summary:
+- Root cause: z-ai-web-dev-sdk internal API not accessible from Vercel
+- Solution: Public RSS feeds from Investing.com + keyword analysis fallback
+- Production verified: News data loads for all 5 assets
+- Pushed to GitHub: commit 13f8867 on main branch
