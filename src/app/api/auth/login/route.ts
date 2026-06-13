@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { comparePassword, createToken, setAuthCookie } from '@/lib/auth';
+import { comparePassword, createToken, setAuthCookie, isSecureRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    response.headers.set('Set-Cookie', setAuthCookie(token));
+    response.headers.set('Set-Cookie', setAuthCookie(token, isSecureRequest(request)));
     return response;
   } catch (error) {
     console.error('Login error:', error);

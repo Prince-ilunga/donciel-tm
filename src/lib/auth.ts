@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { hash, compare } from 'bcryptjs';
 import { cookies } from 'next/headers';
+import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -47,12 +48,22 @@ export async function comparePassword(
   return compare(password, hashed);
 }
 
-export function setAuthCookie(token: string): string {
-  return `${COOKIE_NAME}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${7 * 24 * 60 * 60}`;
+export function setAuthCookie(token: string, secure = false): string {
+  const sameSite = secure ? 'None' : 'Lax';
+  const secureFlag = secure ? '; Secure' : '';
+  return `${COOKIE_NAME}=${token}; HttpOnly; SameSite=${sameSite}${secureFlag}; Path=/; Max-Age=${7 * 24 * 60 * 60}`;
 }
 
-export function clearAuthCookie(): string {
-  return `${COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
+export function clearAuthCookie(secure = false): string {
+  const sameSite = secure ? 'None' : 'Lax';
+  const secureFlag = secure ? '; Secure' : '';
+  return `${COOKIE_NAME}=; HttpOnly; SameSite=${sameSite}${secureFlag}; Path=/; Max-Age=0`;
+}
+
+/** Check if the request came through HTTPS (via Caddy gateway) */
+export function isSecureRequest(request: NextRequest): boolean {
+  const forwarded = request.headers.get('X-Forwarded-Proto');
+  return forwarded === 'https';
 }
 
 export async function getCurrentUser(): Promise<TokenPayload | null> {

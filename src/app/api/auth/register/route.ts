@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { hashPassword, createToken, setAuthCookie, ADMIN_EMAIL } from '@/lib/auth';
+import { hashPassword, createToken, setAuthCookie, ADMIN_EMAIL, isSecureRequest } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         { status: 201 }
       );
 
-      response.headers.set('Set-Cookie', setAuthCookie(token));
+      response.headers.set('Set-Cookie', setAuthCookie(token, isSecureRequest(request)));
       return response;
     }
 

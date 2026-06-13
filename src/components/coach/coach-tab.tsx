@@ -103,6 +103,7 @@ export function CoachTab() {
       const res = await fetch("/api/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           message: text.trim(),
           history,
