@@ -254,6 +254,16 @@ export const translations = {
     periodYear: "Année",
     periodAll: "Tout",
 
+    // Custom Setup
+    addSetup: "Ajouter un Setup",
+    editSetup: "Modifier le Setup",
+    setupName: "Nom du Setup",
+    setupIcon: "Icône",
+    setupColor: "Couleur",
+    deleteSetup: "Supprimer le Setup",
+    deleteSetupConfirm: "Êtes-vous sûr de vouloir supprimer ce setup ?",
+    maxSetupsReached: "Nombre maximum de setups atteint",
+
   },
   en: {
     // App
@@ -509,6 +519,16 @@ export const translations = {
     periodQuarter: "Quarter",
     periodYear: "Year",
     periodAll: "All",
+
+    // Custom Setup
+    addSetup: "Add Setup",
+    editSetup: "Edit Setup",
+    setupName: "Setup Name",
+    setupIcon: "Icon",
+    setupColor: "Color",
+    deleteSetup: "Delete Setup",
+    deleteSetupConfirm: "Are you sure you want to delete this setup?",
+    maxSetupsReached: "Maximum number of setups reached",
 
   }
 } as const;

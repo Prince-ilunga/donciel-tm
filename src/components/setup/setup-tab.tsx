@@ -71,6 +71,7 @@ import {
   Filter,
   ChevronDown,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -85,7 +86,103 @@ const SETUPS = ["SETUP A", "SETUP A+", "SETUP B", "SETUP B+", "SETUP C"];
 const STRUCTURES = ["HAUSSIÈRE", "BAISSIÈRE", "RANGE"];
 const ENTRY_MODELS = ["ANGLOBANTE", "LOT À 3 BOUGIES", "MARKET SHIFT"];
 
-// ─── Types ───────────────────────────────────────────────────
+// ─── Custom Setup Types ──────────────────────────────────────
+interface CustomSetup {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
+
+const CUSTOM_SETUPS_STORAGE_KEY = "donciel-custom-setups";
+const MAX_CUSTOM_SETUPS = 6;
+
+const DEFAULT_CUSTOM_SETUPS: CustomSetup[] = [
+  { id: "custom-1", name: "SETUP PERSONNALISÉ", icon: "👤", color: "gold" },
+];
+
+const EMOJI_OPTIONS = ["👤", "🎯", "⚡", "🔥", "💎", "🌟", "🏆", "📊", "🎮", "🚀", "💰", "🎲", "📈", "🧠", "💡", "⚙️"];
+const COLOR_OPTIONS = ["gold", "emerald", "violet", "rose", "cyan", "orange", "pink", "teal"];
+
+const COLOR_MAP: Record<string, { text: string; bg: string; bgLight: string; border: string; hoverBg: string }> = {
+  gold: { text: "text-gold", bg: "bg-gold/10", bgLight: "bg-gold/5", border: "border-gold/30", hoverBg: "hover:bg-gold/5" },
+  emerald: { text: "text-emerald-500", bg: "bg-emerald-500/10", bgLight: "bg-emerald-500/5", border: "border-emerald-500/30", hoverBg: "hover:bg-emerald-500/5" },
+  violet: { text: "text-violet-500", bg: "bg-violet-500/10", bgLight: "bg-violet-500/5", border: "border-violet-500/30", hoverBg: "hover:bg-violet-500/5" },
+  rose: { text: "text-rose-500", bg: "bg-rose-500/10", bgLight: "bg-rose-500/5", border: "border-rose-500/30", hoverBg: "hover:bg-rose-500/5" },
+  cyan: { text: "text-cyan-500", bg: "bg-cyan-500/10", bgLight: "bg-cyan-500/5", border: "border-cyan-500/30", hoverBg: "hover:bg-cyan-500/5" },
+  orange: { text: "text-orange-500", bg: "bg-orange-500/10", bgLight: "bg-orange-500/5", border: "border-orange-500/30", hoverBg: "hover:bg-orange-500/5" },
+  pink: { text: "text-pink-500", bg: "bg-pink-500/10", bgLight: "bg-pink-500/5", border: "border-pink-500/30", hoverBg: "hover:bg-pink-500/5" },
+  teal: { text: "text-teal-500", bg: "bg-teal-500/10", bgLight: "bg-teal-500/5", border: "border-teal-500/30", hoverBg: "hover:bg-teal-500/5" },
+};
+
+// ─── Custom Setup Hook ───────────────────────────────────────
+function loadCustomSetupsFromStorage(): CustomSetup[] {
+  if (typeof window === "undefined") return DEFAULT_CUSTOM_SETUPS;
+  try {
+    const stored = localStorage.getItem(CUSTOM_SETUPS_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+  return DEFAULT_CUSTOM_SETUPS;
+}
+
+function useCustomSetups() {
+  const [customSetups, setCustomSetups] = useState<CustomSetup[]>(loadCustomSetupsFromStorage);
+
+  const saveSetups = useCallback((setups: CustomSetup[]) => {
+    setCustomSetups(setups);
+    try {
+      localStorage.setItem(CUSTOM_SETUPS_STORAGE_KEY, JSON.stringify(setups));
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  const addSetup = useCallback((setup: Omit<CustomSetup, "id">) => {
+    setCustomSetups(prev => {
+      const maxNum = prev.reduce((max, s) => {
+        const match = s.id.match(/^custom-(\d+)$/);
+        return match ? Math.max(max, parseInt(match[1])) : max;
+      }, 0);
+      const newSetup: CustomSetup = { ...setup, id: `custom-${maxNum + 1}` };
+      const updated = [...prev, newSetup];
+      try {
+        localStorage.setItem(CUSTOM_SETUPS_STORAGE_KEY, JSON.stringify(updated));
+      } catch { /* ignore */ }
+      return updated;
+    });
+  }, []);
+
+  const updateSetup = useCallback((id: string, updates: Partial<Omit<CustomSetup, "id">>) => {
+    setCustomSetups(prev => {
+      const updated = prev.map(s => s.id === id ? { ...s, ...updates } : s);
+      try {
+        localStorage.setItem(CUSTOM_SETUPS_STORAGE_KEY, JSON.stringify(updated));
+      } catch { /* ignore */ }
+      return updated;
+    });
+  }, []);
+
+  const deleteSetup = useCallback((id: string) => {
+    setCustomSetups(prev => {
+      const updated = prev.filter(s => s.id !== id);
+      try {
+        localStorage.setItem(CUSTOM_SETUPS_STORAGE_KEY, JSON.stringify(updated));
+      } catch { /* ignore */ }
+      return updated;
+    });
+  }, []);
+
+  return { customSetups, addSetup, updateSetup, deleteSetup, saveSetups };
+}
+
+// ─── TradeFormData ───────────────────────────────────────────
 interface TradeFormData {
   date: string;
   pair: string;
@@ -218,6 +315,22 @@ function calculateAuto(formData: TradeFormData) {
   return result;
 }
 
+// ─── Sub-view type helper ────────────────────────────────────
+type SubView = "main" | "donciel-verification" | "donciel-saisie" | `custom-${string}-verification` | `custom-${string}-saisie`;
+
+function isDoncielSubView(sv: SubView): boolean {
+  return sv.startsWith("donciel");
+}
+
+function isCustomSubView(sv: SubView): boolean {
+  return sv.startsWith("custom-") && !sv.startsWith("custom-") === false;
+}
+
+function getCustomSetupIdFromSubView(sv: SubView): string | null {
+  const match = sv.match(/^custom-(.+?)-(verification|saisie)$/);
+  return match ? match[1] : null;
+}
+
 // ─── Main Component ──────────────────────────────────────────
 export function SetupTab() {
   const { user, language, setSelectedTradeId, setShowTradeDetail, setShowTradeForm } = useAppStore();
@@ -225,10 +338,21 @@ export function SetupTab() {
   const { stats, loading: statsLoading, refetch: refetchStats } = useStats(filters);
   const { trades, loading: tradesLoading, refetch: refetchTrades } = useTrades(filters);
 
-  // Sub-view state: 'main' | 'donciel-verification' | 'donciel-saisie' | 'custom-verification' | 'custom-saisie'
-  const [subView, setSubView] = useState<"main" | "donciel-verification" | "donciel-saisie" | "custom-verification" | "custom-saisie">("main");
+  // Sub-view state
+  const [subView, setSubView] = useState<SubView>("main");
   const [showSaisieDialog, setShowSaisieDialog] = useState(false);
   const [saisieMode, setSaisieMode] = useState<"donciel" | "custom">("donciel");
+  const [saisieCustomSetupName, setSaisieCustomSetupName] = useState<string>("");
+
+  // Custom setups
+  const { customSetups, addSetup, updateSetup, deleteSetup } = useCustomSetups();
+
+  // Setup edit/add dialog
+  const [showSetupDialog, setShowSetupDialog] = useState(false);
+  const [editingSetup, setEditingSetup] = useState<CustomSetup | null>(null);
+
+  // Delete setup confirmation
+  const [deleteSetupTarget, setDeleteSetupTarget] = useState<CustomSetup | null>(null);
 
   useEffect(() => {
     refetchStats();
@@ -243,11 +367,10 @@ export function SetupTab() {
     [trades]
   );
 
-  // Filter trades for SETUP PERSONNALISÉ (custom setups not in standard list)
-  const customTrades = useMemo(() =>
-    trades.filter(trade => trade.setup && !SETUPS.includes(trade.setup)),
-    [trades]
-  );
+  // Filter trades for a specific custom setup by name
+  const getCustomSetupTrades = useCallback((setupName: string) => {
+    return trades.filter(trade => trade.setup === setupName);
+  }, [trades]);
 
   const handleTradeClick = (tradeId: string) => {
     setSelectedTradeId(tradeId);
@@ -259,8 +382,9 @@ export function SetupTab() {
     refetchStats();
   }, [refetchTrades, refetchStats]);
 
-  const openSaisie = (mode: "donciel" | "custom") => {
+  const openSaisie = (mode: "donciel" | "custom", customSetupName?: string) => {
     setSaisieMode(mode);
+    setSaisieCustomSetupName(customSetupName || "");
     setShowSaisieDialog(true);
   };
 
@@ -280,7 +404,7 @@ export function SetupTab() {
 
         {/* Setup Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          {/* DONCIEL SETUP */}
+          {/* DONCIEL SETUP — always first, no edit/delete */}
           <Card
             className="p-6 cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 group"
             onClick={() => setSubView("donciel-verification")}
@@ -302,37 +426,159 @@ export function SetupTab() {
             </div>
           </Card>
 
-          {/* SETUP PERSONNALISÉ */}
-          <Card
-            className="p-6 cursor-pointer hover:border-gold/30 hover:bg-gold/5 transition-all duration-300 group"
-            onClick={() => setSubView("custom-verification")}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center group-hover:bg-gold/20 transition-colors">
-                <UserCircle className="w-5 h-5 text-gold" />
+          {/* Custom Setup Cards */}
+          {customSetups.map((setup) => {
+            const colors = COLOR_MAP[setup.color] || COLOR_MAP.gold;
+            const setupTrades = getCustomSetupTrades(setup.name);
+            return (
+              <Card
+                key={setup.id}
+                className={cn(
+                  "p-6 cursor-pointer transition-all duration-300 group relative",
+                  colors.hoverBg,
+                  `hover:${colors.border}`
+                )}
+                onClick={() => setSubView(`custom-${setup.id}-verification` as SubView)}
+              >
+                {/* Delete button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteSetupTarget(setup);
+                  }}
+                  className="absolute top-3 right-3 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100 z-10"
+                  title={t(language, "deleteSetup")}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Edit button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEditingSetup(setup);
+                    setShowSetupDialog(true);
+                  }}
+                  className="absolute top-3 right-10 p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors opacity-0 group-hover:opacity-100 z-10"
+                  title={t(language, "editSetup")}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center group-hover:opacity-80 transition-colors text-xl", colors.bg)}>
+                    {setup.icon}
+                  </div>
+                  <div>
+                    <h3 className={cn("text-lg font-bold", colors.text)}>{setup.name}</h3>
+                    <p className="text-xs text-muted-foreground">{t(language, "baseDonnees")}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <SetupStatCard label={t(language, "totalTrades")} value={setupTrades.length} />
+                  <SetupStatCard label={t(language, "totalRR")} value={setupTrades.reduce((s, t) => s + (t.rr ?? 0), 0).toFixed(2)} />
+                  <SetupStatCard label={t(language, "winRate")} value={`${setupTrades.length > 0 ? ((setupTrades.filter(t => t.result === "WIN").length / setupTrades.filter(t => t.result).length) * 100 || 0).toFixed(1) : "0.0"}%`} />
+                  <SetupStatCard label={t(language, "avgRR")} value={setupTrades.length > 0 ? (setupTrades.reduce((s, t) => s + (t.rr ?? 0), 0) / setupTrades.length).toFixed(2) : "0.00"} />
+                </div>
+              </Card>
+            );
+          })}
+
+          {/* Add Setup Card */}
+          {customSetups.length < MAX_CUSTOM_SETUPS && (
+            <Card
+              className="p-6 cursor-pointer border-dashed border-2 hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 group"
+              onClick={() => {
+                if (customSetups.length >= MAX_CUSTOM_SETUPS) {
+                  toast.error(t(language, "maxSetupsReached"));
+                  return;
+                }
+                setEditingSetup(null);
+                setShowSetupDialog(true);
+              }}
+            >
+              <div className="flex flex-col items-center justify-center py-6 gap-3">
+                <div className="w-12 h-12 rounded-xl bg-muted/30 flex items-center justify-center group-hover:bg-primary/10 transition-colors">
+                  <Plus className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors">
+                    {t(language, "addSetup")}
+                  </h3>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold">{t(language, "setupPersonnalise")}</h3>
-                <p className="text-xs text-muted-foreground">{t(language, "baseDonnees")}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <SetupStatCard label={t(language, "totalTrades")} value={customTrades.length} />
-              <SetupStatCard label={t(language, "totalRR")} value={customTrades.reduce((s, t) => s + (t.rr ?? 0), 0).toFixed(2)} />
-              <SetupStatCard label={t(language, "winRate")} value={`${customTrades.length > 0 ? ((customTrades.filter(t => t.result === "WIN").length / customTrades.filter(t => t.result).length) * 100 || 0).toFixed(1) : "0.0"}%`} />
-              <SetupStatCard label={t(language, "avgRR")} value={customTrades.length > 0 ? (customTrades.reduce((s, t) => s + (t.rr ?? 0), 0) / customTrades.length).toFixed(2) : "0.00"} />
-            </div>
-          </Card>
+            </Card>
+          )}
         </div>
+
+        {/* Setup Edit/Add Dialog */}
+        <SetupEditDialog
+          open={showSetupDialog}
+          onOpenChange={setShowSetupDialog}
+          language={language}
+          editingSetup={editingSetup}
+          onSave={(data) => {
+            if (editingSetup) {
+              updateSetup(editingSetup.id, data);
+            } else {
+              addSetup(data);
+            }
+          }}
+        />
+
+        {/* Delete Setup Confirmation Dialog */}
+        <Dialog open={!!deleteSetupTarget} onOpenChange={(open) => { if (!open) setDeleteSetupTarget(null); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-destructive" />
+                {t(language, "deleteSetup")}
+              </DialogTitle>
+              <DialogDescription>
+                {t(language, "deleteSetupConfirm")}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setDeleteSetupTarget(null)}>
+                {t(language, "cancel")}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (deleteSetupTarget) {
+                    deleteSetup(deleteSetupTarget.id);
+                    setDeleteSetupTarget(null);
+                    toast.success(language === "fr" ? "Setup supprimé" : "Setup deleted");
+                  }
+                }}
+              >
+                {t(language, "delete")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
 
   // ─── Sub-views ──────────────────────────────────────
-  const isDonciel = subView.startsWith("donciel");
-  const currentTrades = isDonciel ? doncielTrades : customTrades;
-  const title = isDonciel ? t(language, "doncielSetup") : t(language, "setupPersonnalise");
-  const setupPrefix = isDonciel ? "donciel" : "custom";
+  const isDonciel = isDoncielSubView(subView);
+  const customSetupId = getCustomSetupIdFromSubView(subView);
+  const customSetup = customSetupId ? customSetups.find(s => s.id === customSetupId) : null;
+
+  const currentTrades = isDonciel
+    ? doncielTrades
+    : customSetup
+      ? getCustomSetupTrades(customSetup.name)
+      : [];
+
+  const title = isDonciel
+    ? t(language, "doncielSetup")
+    : customSetup
+      ? customSetup.name
+      : t(language, "setupPersonnalise");
+
+  const setupPrefix = isDonciel ? "donciel" : `custom-${customSetupId}`;
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
@@ -353,7 +599,7 @@ export function SetupTab() {
           variant={subView.endsWith("verification") ? "default" : "outline"}
           size="sm"
           className="gap-1 sm:gap-2 text-[10px] sm:text-xs"
-          onClick={() => setSubView(`${setupPrefix}-verification` as any)}
+          onClick={() => setSubView(`${setupPrefix}-verification` as SubView)}
         >
           <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span className="truncate">{t(language, "doncielSetupVerification")}</span>
@@ -362,7 +608,7 @@ export function SetupTab() {
           variant={subView.endsWith("saisie") ? "default" : "outline"}
           size="sm"
           className="gap-1 sm:gap-2 text-[10px] sm:text-xs"
-          onClick={() => openSaisie(isDonciel ? "donciel" : "custom")}
+          onClick={() => openSaisie(isDonciel ? "donciel" : "custom", customSetup?.name)}
         >
           <FileEdit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span className="truncate">{t(language, "saisieDesTrades")}</span>
@@ -389,6 +635,7 @@ export function SetupTab() {
         language={language}
         onTradeCreated={handleTradeCreated}
         setupMode={saisieMode}
+        customSetupName={saisieCustomSetupName}
       />
     </div>
   );
@@ -402,6 +649,157 @@ function SetupStatCard({ label, value }: { label: string; value: string | number
       <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
       <div className="text-lg font-bold font-mono">{value}</div>
     </div>
+  );
+}
+
+// ─── Setup Edit/Add Dialog ───────────────────────────────────
+function SetupEditDialog({
+  open,
+  onOpenChange,
+  language,
+  editingSetup,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  language: "fr" | "en";
+  editingSetup: CustomSetup | null;
+  onSave: (data: { name: string; icon: string; color: string }) => void;
+}) {
+  const [dialogKey, setDialogKey] = useState(0);
+  const [name, setName] = useState("");
+  const [icon, setIcon] = useState("👤");
+  const [color, setColor] = useState("gold");
+
+  // Reset form when dialog opens
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      if (editingSetup) {
+        setName(editingSetup.name);
+        setIcon(editingSetup.icon);
+        setColor(editingSetup.color);
+      } else {
+        setName("");
+        setIcon("👤");
+        setColor("gold");
+      }
+      setDialogKey(prev => prev + 1);
+    }
+    onOpenChange(isOpen);
+  };
+
+  const handleSave = () => {
+    if (!name.trim()) {
+      toast.error(language === "fr" ? "Le nom est requis" : "Name is required");
+      return;
+    }
+    onSave({ name: name.trim(), icon, color });
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md" key={dialogKey}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {editingSetup ? <Pencil className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+            {editingSetup ? t(language, "editSetup") : t(language, "addSetup")}
+          </DialogTitle>
+          <DialogDescription className="sr-only">
+            {editingSetup ? t(language, "editSetup") : t(language, "addSetup")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-5 py-2">
+          {/* Name */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium">{t(language, "setupName")}</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={language === "fr" ? "Mon Setup" : "My Setup"}
+              className="h-9"
+            />
+          </div>
+
+          {/* Icon */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">{t(language, "setupIcon")}</Label>
+            <div className="grid grid-cols-8 gap-2">
+              {EMOJI_OPTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => setIcon(emoji)}
+                  className={cn(
+                    "w-10 h-10 rounded-lg flex items-center justify-center text-lg transition-all",
+                    icon === emoji
+                      ? "bg-primary/15 ring-2 ring-primary scale-110"
+                      : "bg-muted/30 hover:bg-muted/60"
+                  )}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Color */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">{t(language, "setupColor")}</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {COLOR_OPTIONS.map((c) => {
+                const colors = COLOR_MAP[c];
+                const isSelected = color === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setColor(c)}
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                      isSelected
+                        ? cn(colors.bg, colors.text, "ring-2 ring-current scale-105")
+                        : "bg-muted/30 text-muted-foreground hover:bg-muted/60"
+                    )}
+                  >
+                    <span className={cn("w-3 h-3 rounded-full", colors.bg, "ring-1 ring-current/20")} />
+                    <span className="capitalize">{c}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div className="rounded-xl border border-border bg-muted/10 p-4">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+              {language === "fr" ? "Aperçu" : "Preview"}
+            </div>
+            <div className="flex items-center gap-3">
+              <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-xl", (COLOR_MAP[color] || COLOR_MAP.gold).bg)}>
+                {icon}
+              </div>
+              <div>
+                <h3 className={cn("text-lg font-bold", (COLOR_MAP[color] || COLOR_MAP.gold).text)}>
+                  {name || (language === "fr" ? "Nouveau Setup" : "New Setup")}
+                </h3>
+                <p className="text-xs text-muted-foreground">{t(language, "baseDonnees")}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t(language, "cancel")}
+          </Button>
+          <Button onClick={handleSave} className="gap-2">
+            {editingSetup ? t(language, "edit") : t(language, "save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -532,7 +930,7 @@ function TradeVerificationList({
               <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t(language, "structure")} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">{language === "fr" ? "Toutes" : "All"}</SelectItem>
-                {STRUCTURES.map(st => <SelectItem key={st} value={st}>{st}</SelectItem>)}
+                {STRUCTURES.map(st => <SelectItem key={st} value={st}>{t(language, st.toLowerCase().replace(/è/g, "e").replace(/é/g, "e") as any) || st}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={filters.timing} onValueChange={v => setFilters(p => ({ ...p, timing: v === "__all__" ? "" : v }))}>
@@ -727,12 +1125,14 @@ function TradeFormDialog({
   language,
   onTradeCreated,
   setupMode,
+  customSetupName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   language: "fr" | "en";
   onTradeCreated: () => void;
   setupMode: "donciel" | "custom";
+  customSetupName?: string;
 }) {
   const [formData, setFormData] = useState<TradeFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -774,6 +1174,11 @@ function TradeFormDialog({
       const exitPrice = formData.exitPrice !== "" ? parseFloat(formData.exitPrice) : null;
       const lotSize = formData.lotSize !== "" ? parseFloat(formData.lotSize) : null;
 
+      // For custom setup mode, use the custom setup name as the trade's setup field
+      const setupValue = setupMode === "custom" && customSetupName
+        ? customSetupName
+        : (formData.setup || null);
+
       const tradeData: Record<string, unknown> = {
         date: formData.date,
         pair,
@@ -781,7 +1186,7 @@ function TradeFormDialog({
         session: formData.session,
         marketCondition: formData.marketCondition,
         timeframe: `${formData.timeframeAnalysis}/${formData.timeframeEntry}`,
-        setup: formData.setup || null,
+        setup: setupValue,
         structure: formData.structure || null,
         entryModel: formData.entryModel || null,
         entryPrice: parseFloat(formData.entryPrice),
@@ -993,16 +1398,24 @@ function TradeFormDialog({
                     </SelectContent>
                   </Select>
                 </div>
-                {/* Setup */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">{t(language, "setup")}</Label>
-                  <Select value={formData.setup} onValueChange={(v) => updateField("setup", v)}>
-                    <SelectTrigger className="w-full h-9"><SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} /></SelectTrigger>
-                    <SelectContent>
-                      {SETUPS.map(s => <SelectItem key={s} value={s}><span className="font-mono font-semibold">{s}</span></SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Setup - show DONCIEL setups for donciel mode, hidden for custom mode (auto-set) */}
+                {setupMode === "donciel" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">{t(language, "setup")}</Label>
+                    <Select value={formData.setup} onValueChange={(v) => updateField("setup", v)}>
+                      <SelectTrigger className="w-full h-9"><SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} /></SelectTrigger>
+                      <SelectContent>
+                        {SETUPS.map(s => <SelectItem key={s} value={s}><span className="font-mono font-semibold">{s}</span></SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {setupMode === "custom" && customSetupName && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">{t(language, "setup")}</Label>
+                    <Input value={customSetupName} disabled className="h-9 font-mono" />
+                  </div>
+                )}
                 {/* Structure */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">{t(language, "structureField")}</Label>

@@ -35,7 +35,7 @@ STRICT RULES:
 
 You ALWAYS respond in the requested JSON format, with no additional text.`;
 
-async function fetchCalendarData(lang: string): Promise<{
+async function fetchCalendarData(lang: string, period: string = 'today'): Promise<{
   events: any[];
   highImpactCount: number;
   nextHighImpact: any | null;
@@ -54,15 +54,22 @@ async function fetchCalendarData(lang: string): Promise<{
     const { getZAI } = await import('@/lib/zai');
     const zai = await getZAI();
 
+    const isWeek = period === 'week';
+    const recencyDays = isWeek ? 7 : 1;
+
     // 1. Web search for today's and this week's economic events
     let searchData = '';
     try {
       const searchResults = await zai.functions.invoke('web_search', {
         query: isFr
-          ? 'calendrier économique aujourd\'hui cette semaine forex factory investing.com événements'
-          : 'economic calendar today this week forex factory investing.com events',
+          ? isWeek
+            ? 'calendrier économique cette semaine forex factory investing.com événements'
+            : 'calendrier économique aujourd\'hui forex factory investing.com événements'
+          : isWeek
+            ? 'economic calendar this week forex factory investing.com events'
+            : 'economic calendar today forex factory investing.com events',
         num: 8,
-        recency_days: 1,
+        recency_days: recencyDays,
       });
 
       if (Array.isArray(searchResults)) {
@@ -119,8 +126,9 @@ async function fetchCalendarData(lang: string): Promise<{
           role: 'user',
           content: isFr
             ? `Date d'aujourd'hui: ${today}
+${isWeek ? 'Période demandée: CETTE SEMAINE (extrait TOUS les événements de la semaine)' : 'Période demandée: AUJOURD\'HUI (extrait uniquement les événements du jour)'}
 
-Extrait les événements économiques du jour et de cette semaine à partir des données ci-dessous. Structure-les au format JSON.
+Extrait les événements économiques${isWeek ? ' de la semaine' : ' du jour'} à partir des données ci-dessous. Structure-les au format JSON.
 
 DONNÉES BRUTES:
 ${rawData}
@@ -143,8 +151,9 @@ Réponds au format JSON suivant:
   "nextHighImpact": { prochain événement high impact } ou null
 }`
             : `Today's date: ${today}
+${isWeek ? 'Requested period: THIS WEEK (extract ALL events for the week)' : 'Requested period: TODAY (extract only today\'s events)'}
 
-Extract today's and this week's economic events from the data below. Structure them in JSON format.
+Extract ${isWeek ? 'this week\'s' : 'today\'s'} economic events from the data below. Structure them in JSON format.
 
 RAW DATA:
 ${rawData}
@@ -201,15 +210,16 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const lang = searchParams.get('lang') === 'en' ? 'en' : 'fr';
+    const period = searchParams.get('period') === 'week' ? 'week' : 'today';
 
     // Check cache
-    const cacheKey = `calendar-${lang}`;
+    const cacheKey = `calendar-${lang}-${period}`;
     const cached = cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       return NextResponse.json(cached.data);
     }
 
-    const data = await fetchCalendarData(lang);
+    const data = await fetchCalendarData(lang, period);
 
     cache.set(cacheKey, { data, timestamp: Date.now() });
     return NextResponse.json(data);

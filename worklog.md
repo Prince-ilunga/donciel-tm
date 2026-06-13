@@ -1,6 +1,46 @@
 # DONCIEL™ Project Worklog
 
 ---
+Task ID: 2-b + 2-c
+Agent: Main Agent
+Task: Add day/week period filter to Calendar, Sentiment, Alerts sub-tabs and add STATISTIQUES sub-tab
+
+Work Log:
+- Read worklog.md and all 4 files that needed modification
+- Backend API changes (3 routes):
+  - `/api/market/calendar/route.ts`: Added `period` query param (`today`|`week`). When `week`, search query uses "this week" instead of "today", recency_days changes from 1→7, LLM prompt explicitly asks for weekly events. Cache key now includes period: `calendar-${lang}-${period}`.
+  - `/api/market/sentiment/route.ts`: Added `period` query param. All 4 web searches (Fear&Greed, VIX, Smart Money, Retail) adapt queries for weekly vs daily. recency_days: 1 for today, 7 for week. LLM prompt includes period context. Cache key: `sentiment-${lang}-${period}`.
+  - `/api/market/briefing/route.ts`: Added `period` query param. All 3 web searches adapt queries for weekly vs daily. recency_days: 1 for today, 7 for week. LLM prompt generates "weekly briefing" vs "morning briefing" based on period. Cache key: `briefing-${lang}-${period}`.
+- Frontend changes (`src/components/news/news-tab.tsx`):
+  - Created `PeriodFilterButtons` reusable component with Today/This Week toggle
+  - Updated `CalendarSubTab`: Added local `period` state (default: "today"), period filter buttons, passes `&period=${period}` to API call. When period is "today", shows only today's events; when "week", shows all weekly events from API.
+  - Updated `SentimentSubTab`: Added local `period` state, period filter buttons, passes `&period=${period}` to API call.
+  - Updated `AlertsSubTab`: Added local `period` state, period filter buttons, passes `&period=${period}` to both briefing and calendar API calls. Briefing card title changes to "Briefing Hebdomadaire"/"Weekly Briefing" when period is "week".
+  - Added new `StatisticsSubTab` (5th sub-tab with BarChart3 icon):
+    - Period filter at top
+    - Summary Metrics Row: 4 cards (Total Events, High Impact, Current Sentiment, Fear & Greed value)
+    - Impact Distribution: CSS-based horizontal bar chart (High=red, Medium=amber, Low=gray) with proportional widths
+    - Sentiment Trend: Fear & Greed gauge, VIX level indicator with badge, Smart Money vs Retail comparison side-by-side
+    - Scenario Probabilities: 3 horizontal bars (Bullish=green, Neutral=amber, Bearish=red) from briefing data
+    - Key Risk Events: List from briefing data with alert icons
+    - Fetches all 3 APIs in parallel with `Promise.all`
+  - Updated `SubTab` type: `"calendar" | "analysis" | "sentiment" | "alerts" | "statistics"`
+  - Added statistics entry to SUB_TABS array with BarChart3 icon and "Statistiques"/"Statistics" labels
+  - Added rendering for statistics sub-tab in main component
+- Lint passes clean with zero errors
+- Build succeeds (verified with `next build`)
+- Dev server responding on port 3000 (HTTP 200)
+
+Stage Summary:
+- All 3 backend API routes now support `?period=today|week` query parameter with period-aware search queries, recency_days, and LLM prompts
+- Cache keys include period to avoid stale data when switching between today/week
+- Calendar, Sentiment, and Alerts sub-tabs each have their own local period filter (Today/This Week)
+- New STATISTIQUES sub-tab provides consolidated metrics view combining all 3 APIs
+- All existing sub-tabs preserved and working as before
+- Responsive design maintained, CSS-based charts (no chart libraries)
+- FR/EN i18n inline throughout
+
+---
 Task ID: 1
 Agent: Main Agent
 Task: Fix News tab to show data and fix blank preview panel
@@ -184,3 +224,78 @@ Stage Summary:
 - Auto-refresh for calendar and sentiment (5 min intervals)
 - Proper loading/error states with Skeleton and retry buttons
 - All FR/EN i18n inline throughout
+
+---
+Task ID: 2-a
+Agent: Frontend Agent
+Task: Modify SETUP tab to make the second setup card customizable and add ability to add more setups
+
+Work Log:
+- Read worklog.md and existing setup-tab.tsx (1187 lines) to understand current implementation
+- Analyzed current structure: 2 hardcoded cards (DONCIEL SETUP + SETUP PERSONNALISÉ), sub-view navigation, trade filtering
+- Added i18n keys to `/src/lib/i18n.ts` for both FR/EN: addSetup, editSetup, setupName, setupIcon, setupColor, deleteSetup, deleteSetupConfirm, maxSetupsReached
+- Completely rewrote `/src/components/setup/setup-tab.tsx` with following changes:
+
+1. **Custom Setup types and persistence**:
+   - Added `CustomSetup` interface: { id, name, icon, color }
+   - Added `useCustomSetups()` hook with localStorage persistence (key: `donciel-custom-setups`)
+   - Default custom setup: `{ id: "custom-1", name: "SETUP PERSONNALISÉ", icon: "👤", color: "gold" }`
+   - Functions: addSetup, updateSetup, deleteSetup with auto-incrementing IDs (custom-2, custom-3, etc.)
+   - Used `loadCustomSetupsFromStorage()` lazy initializer to avoid useEffect setState lint error
+
+2. **Main view changes**:
+   - DONCIEL SETUP card stays exactly as-is (Database icon, no edit/delete)
+   - Custom setup cards now render dynamically from `customSetups` array
+   - Each custom setup card shows: emoji icon (colored), name (colored), stats (filtered by name match)
+   - Edit button (pencil icon) on each custom card — opens SetupEditDialog
+   - Delete button (X icon) on each custom card — opens confirmation dialog
+   - Edit/delete buttons show on hover (opacity-0 → group-hover:opacity-100)
+   - "+" Add Setup card at the end (dashed border, Plus icon, "Ajouter un Setup" / "Add Setup")
+   - Maximum 6 custom setups (7 total including DONCIEL), toast error when max reached
+
+3. **SetupEditDialog component**:
+   - Name input field
+   - Icon selector: 4x4 grid of 16 emoji options (👤, 🎯, ⚡, 🔥, 💎, 🌟, 🏆, 📊, 🎮, 🚀, 💰, 🎲, 📈, 🧠, 💡, ⚙️)
+   - Color selector: 2x4 grid of 8 colors (gold, emerald, violet, rose, cyan, orange, pink, teal)
+   - Live preview card showing the setup appearance
+   - Reused for both create (empty form) and edit (pre-filled form)
+   - Form reset handled via handleOpenChange callback (avoids useEffect setState lint error)
+
+4. **Delete setup confirmation**:
+   - Dialog with trash icon, confirmation text from i18n
+   - Cancel / Delete buttons, toast on success
+
+5. **Color system**:
+   - COLOR_MAP with Tailwind classes for each color: text, bg, bgLight, border, hoverBg
+   - Custom setup cards use `text-{color}`, `bg-{color}/10`, `hover:bg-{color}/5`, `border-{color}/30`
+
+6. **Sub-view handling**:
+   - Extended SubView type: "main" | "donciel-verification" | "donciel-saisie" | `custom-${string}-verification` | `custom-${string}-saisie`
+   - `isDoncielSubView()` helper: checks if subView starts with "donciel"
+   - `getCustomSetupIdFromSubView()` helper: extracts setup ID from subView string
+   - Sub-view title uses custom setup's name (not generic "SETUP PERSONNALISÉ")
+   - setupPrefix now includes custom ID: `custom-{id}` for proper navigation
+
+7. **Trade filtering for custom setups**:
+   - Changed from `!SETUPS.includes(trade.setup)` to `trade.setup === customSetup.name`
+   - Each custom setup gets its own filtered trades via `getCustomSetupTrades(setupName)`
+   - Stats show 0s when no matching trades
+
+8. **Trade form (Saisie) changes**:
+   - Added `customSetupName` prop to TradeFormDialog
+   - When setupMode is "custom" and customSetupName is provided, auto-sets trade.setup to the custom setup name
+   - Shows setup name as disabled input instead of DONCIEL setup dropdown
+   - When setupMode is "donciel", shows standard setup dropdown as before
+
+- Lint passes clean with 0 errors
+
+Stage Summary:
+- Custom setups are now fully customizable with name, emoji icon, and color
+- Users can add up to 6 custom setups via "+" card
+- Each custom setup can be edited (name/icon/color) or deleted with confirmation
+- DONCIEL SETUP card remains unchanged (no edit/delete)
+- Sub-view navigation supports dynamic custom setup IDs
+- Trade filtering matches by custom setup name for accurate stats
+- All data persisted in localStorage (key: donciel-custom-setups)
+- Responsive design maintained with hover effects and mobile support
+- All new i18n keys added for FR/EN

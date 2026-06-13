@@ -41,6 +41,8 @@ import {
   Flame,
   ShieldAlert,
   CircleDot,
+  PieChart,
+  Layers,
 } from "lucide-react";
 
 // ──────────────────────────────────────────────────────
@@ -58,8 +60,38 @@ const ASSETS = [
 const DAYS_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAYS_FR: Record<string, string> = { Mon: "Lun", Tue: "Mar", Wed: "Mer", Thu: "Jeu", Fri: "Ven", Sat: "Sam", Sun: "Dim" };
 
-type SubTab = "calendar" | "analysis" | "sentiment" | "alerts";
+type SubTab = "calendar" | "analysis" | "sentiment" | "alerts" | "statistics";
 type PeriodFilter = "today" | "week";
+
+// ──────────────────────────────────────────────────────
+// Period Filter Component
+// ──────────────────────────────────────────────────────
+
+function PeriodFilterButtons({ period, setPeriod, language }: { period: PeriodFilter; setPeriod: (p: PeriodFilter) => void; language: string }) {
+  const isFr = language === "fr";
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant={period === "today" ? "default" : "outline"}
+        size="sm"
+        className={cn("gap-1.5", period === "today" && "shadow-sm")}
+        onClick={() => setPeriod("today")}
+      >
+        <Calendar className="w-3.5 h-3.5" />
+        <span className="text-xs">{isFr ? "Aujourd'hui" : "Today"}</span>
+      </Button>
+      <Button
+        variant={period === "week" ? "default" : "outline"}
+        size="sm"
+        className={cn("gap-1.5", period === "week" && "shadow-sm")}
+        onClick={() => setPeriod("week")}
+      >
+        <CalendarDays className="w-3.5 h-3.5" />
+        <span className="text-xs">{isFr ? "Cette Semaine" : "This Week"}</span>
+      </Button>
+    </div>
+  );
+}
 
 // ──────────────────────────────────────────────────────
 // Shared Sub-components
@@ -270,11 +302,12 @@ function CalendarSubTab({ language }: { language: string }) {
   const [calendarData, setCalendarData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<PeriodFilter>("today");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchCalendar = useCallback(async () => {
     try {
-      const res = await fetch(`/api/market/calendar?lang=${language}`);
+      const res = await fetch(`/api/market/calendar?lang=${language}&period=${period}`);
       if (!res.ok) throw new Error("Fetch failed");
       const data = await res.json();
       setCalendarData(data);
@@ -284,7 +317,7 @@ function CalendarSubTab({ language }: { language: string }) {
     } finally {
       setLoading(false);
     }
-  }, [language, isFr]);
+  }, [language, isFr, period]);
 
   useEffect(() => {
     fetchCalendar();
@@ -385,8 +418,14 @@ function CalendarSubTab({ language }: { language: string }) {
     return d >= now && d <= weekEnd;
   });
 
+  // When period is "today", show only today's events; when "week", show all (which are already weekly from API)
+  const displayEvents = period === "today" ? todayEvents : normalizedEvents;
+
   return (
     <div className="space-y-4">
+      {/* Period Filter */}
+      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
         <Card className="p-3 sm:p-4 text-center">
@@ -435,8 +474,8 @@ function CalendarSubTab({ language }: { language: string }) {
         </Card>
       )}
 
-      {/* Today's events */}
-      {todayEvents.length > 0 && (
+      {/* Today's events (shown when period is today) */}
+      {period === "today" && todayEvents.length > 0 && (
         <Card className="p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <Calendar className="w-4 h-4 text-primary" />
@@ -451,8 +490,8 @@ function CalendarSubTab({ language }: { language: string }) {
         </Card>
       )}
 
-      {/* This week's events */}
-      {weekEvents.length > 0 && (
+      {/* This week's events (shown when period is week) */}
+      {period === "week" && weekEvents.length > 0 && (
         <Card className="p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-4">
             <CalendarDays className="w-4 h-4 text-amber-500" />
@@ -461,7 +500,7 @@ function CalendarSubTab({ language }: { language: string }) {
           </div>
           <div className="space-y-2 max-h-96 overflow-y-auto">
             {weekEvents.map((evt: any, i: number) => (
-              <CalendarEventRow key={i} event={evt} language={language} isHighlighted={false} />
+              <CalendarEventRow key={i} event={evt} language={language} isHighlighted={nextHighImpact?.title === evt.title} />
             ))}
           </div>
         </Card>
@@ -996,11 +1035,12 @@ function SentimentSubTab({ language }: { language: string }) {
   const [sentimentData, setSentimentData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<PeriodFilter>("today");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchSentiment = useCallback(async () => {
     try {
-      const res = await fetch(`/api/market/sentiment?lang=${language}`);
+      const res = await fetch(`/api/market/sentiment?lang=${language}&period=${period}`);
       if (!res.ok) throw new Error("Fetch failed");
       const data = await res.json();
       setSentimentData(data);
@@ -1010,7 +1050,7 @@ function SentimentSubTab({ language }: { language: string }) {
     } finally {
       setLoading(false);
     }
-  }, [language, isFr]);
+  }, [language, isFr, period]);
 
   useEffect(() => {
     fetchSentiment();
@@ -1071,6 +1111,9 @@ function SentimentSubTab({ language }: { language: string }) {
 
   return (
     <div className="space-y-4">
+      {/* Period Filter */}
+      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+
       {/* Fear & Greed Gauge + Market Regime */}
       <Card className="p-4 sm:p-6">
         <FearGreedGauge value={fearGreed.value} label={fearGreed.label} language={language} />
@@ -1251,12 +1294,13 @@ function AlertsSubTab({ language }: { language: string }) {
   const [calendarData, setCalendarData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [period, setPeriod] = useState<PeriodFilter>("today");
 
   const fetchData = useCallback(async () => {
     try {
       const [briefingRes, calendarRes] = await Promise.all([
-        fetch(`/api/market/briefing?lang=${language}`),
-        fetch(`/api/market/calendar?lang=${language}`),
+        fetch(`/api/market/briefing?lang=${language}&period=${period}`),
+        fetch(`/api/market/calendar?lang=${language}&period=${period}`),
       ]);
 
       if (briefingRes.ok) {
@@ -1273,7 +1317,7 @@ function AlertsSubTab({ language }: { language: string }) {
     } finally {
       setLoading(false);
     }
-  }, [language, isFr]);
+  }, [language, isFr, period]);
 
   useEffect(() => {
     fetchData();
@@ -1356,13 +1400,18 @@ function AlertsSubTab({ language }: { language: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Morning Briefing */}
+      {/* Period Filter */}
+      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+
+      {/* Morning/Weekly Briefing */}
       {summary && (
         <Card className="p-4 sm:p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
           <div className="flex items-center gap-2 mb-3">
             <Sunrise className="w-5 h-5 text-primary" />
             <h3 className="font-bold text-sm">
-              {isFr ? "Briefing du Jour" : "Morning Briefing"}
+              {period === "week"
+                ? (isFr ? "Briefing Hebdomadaire" : "Weekly Briefing")
+                : (isFr ? "Briefing du Jour" : "Morning Briefing")}
             </h3>
             <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
               <Sparkles className="w-3 h-3" />
@@ -1392,7 +1441,9 @@ function AlertsSubTab({ language }: { language: string }) {
               <div className="flex items-center gap-1.5 mb-1">
                 <Calendar className="w-3 h-3 text-primary" />
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {isFr ? "Aujourd'hui" : "Today"}
+                  {period === "week"
+                    ? (isFr ? "Cette Semaine" : "This Week")
+                    : (isFr ? "Aujourd'hui" : "Today")}
                 </span>
               </div>
               <p className="text-xs leading-relaxed">{today}</p>
@@ -1526,6 +1577,434 @@ function AlertsSubTab({ language }: { language: string }) {
 }
 
 // ──────────────────────────────────────────────────────
+// Sub-tab: Statistiques (📊)
+// ──────────────────────────────────────────────────────
+
+function StatisticsSubTab({ language }: { language: string }) {
+  const isFr = language === "fr";
+  const [period, setPeriod] = useState<PeriodFilter>("today");
+  const [calendarData, setCalendarData] = useState<any>(null);
+  const [sentimentData, setSentimentData] = useState<any>(null);
+  const [briefingData, setBriefingData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAllData = useCallback(async () => {
+    try {
+      const [calendarRes, sentimentRes, briefingRes] = await Promise.all([
+        fetch(`/api/market/calendar?lang=${language}&period=${period}`),
+        fetch(`/api/market/sentiment?lang=${language}&period=${period}`),
+        fetch(`/api/market/briefing?lang=${language}&period=${period}`),
+      ]);
+
+      if (calendarRes.ok) setCalendarData(await calendarRes.json());
+      if (sentimentRes.ok) setSentimentData(await sentimentRes.json());
+      if (briefingRes.ok) setBriefingData(await briefingRes.json());
+      setError(null);
+    } catch {
+      setError(isFr ? "Erreur lors du chargement des statistiques" : "Error loading statistics");
+    } finally {
+      setLoading(false);
+    }
+  }, [language, isFr, period]);
+
+  useEffect(() => {
+    fetchAllData();
+  }, [fetchAllData]);
+
+  // Derived data
+  const totalEvents = calendarData?.events?.length || 0;
+  const highImpactEvents = (calendarData?.events || []).filter((e: any) => (e.impact || "").toLowerCase() === "high");
+  const mediumImpactEvents = (calendarData?.events || []).filter((e: any) => (e.impact || "").toLowerCase() === "medium");
+  const lowImpactEvents = (calendarData?.events || []).filter((e: any) => (e.impact || "").toLowerCase() === "low");
+
+  const fearGreed = sentimentData?.fearGreed ?? { value: 50, label: "Neutral", trend: "stable" };
+  const vix = sentimentData?.vix ?? null;
+  const smartMoney = sentimentData?.smartMoney ?? null;
+  const retail = sentimentData?.retail ?? null;
+  const overallSentiment = sentimentData?.overallSentiment ?? "NEUTRAL";
+
+  const scenarios: { name: string; probability: number; description: string }[] = briefingData?.scenarios ?? [];
+  const riskEvents: string[] = briefingData?.riskEvents ?? [];
+
+  // Determine scenario type
+  const getScenarioType = (name: string): "BULLISH" | "BEARISH" | "NEUTRAL" => {
+    const n = name.toLowerCase();
+    if (n.includes("bull") || n.includes("hauss") || n.includes("optimist")) return "BULLISH";
+    if (n.includes("bear") || n.includes("baiss") || n.includes("pessimist")) return "BEARISH";
+    return "NEUTRAL";
+  };
+
+  // Max impact count for bar chart sizing
+  const maxImpactCount = Math.max(highImpactEvents.length, mediumImpactEvents.length, lowImpactEvents.length, 1);
+
+  // Confidence to numeric for gauge
+  const confidenceToValue = (conf: string) => {
+    const c = conf?.toLowerCase() || "low";
+    if (c.includes("high") || c.includes("élev")) return 85;
+    if (c.includes("medium") || c.includes("moyen") || c.includes("modéré")) return 55;
+    return 30;
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="p-3 sm:p-4">
+              <Skeleton className="h-8 w-12 mx-auto mb-1" />
+              <Skeleton className="h-3 w-20 mx-auto" />
+            </Card>
+          ))}
+        </div>
+        <Card className="p-6">
+          <Skeleton className="h-6 w-40 mb-4" />
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+          </div>
+        </Card>
+        <Card className="p-6">
+          <Skeleton className="h-6 w-32 mb-4" />
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="p-12 text-center">
+        <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+        <p className="text-muted-foreground">{error}</p>
+        <Button onClick={fetchAllData} variant="outline" className="mt-4 gap-2">
+          <RefreshCw className="w-4 h-4" />
+          {isFr ? "Réessayer" : "Retry"}
+        </Button>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Period Filter */}
+      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+
+      {/* A. Summary Metrics Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="p-3 sm:p-4 text-center">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <CalendarClock className="w-4 h-4 text-primary" />
+          </div>
+          <div className="text-2xl font-bold">{totalEvents}</div>
+          <div className="text-[10px] text-muted-foreground">{isFr ? "Total Événements" : "Total Events"}</div>
+        </Card>
+        <Card className="p-3 sm:p-4 text-center border-2 border-loss/20">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <Zap className="w-4 h-4 text-loss" />
+          </div>
+          <div className="text-2xl font-bold text-loss">{highImpactEvents.length}</div>
+          <div className="text-[10px] text-muted-foreground">{isFr ? "Haut Impact" : "High Impact"}</div>
+        </Card>
+        <Card className="p-3 sm:p-4 text-center">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <Activity className="w-4 h-4 text-amber-500" />
+          </div>
+          <div className={cn(
+            "text-lg font-bold",
+            overallSentiment === "RISK-ON" && "text-profit",
+            overallSentiment === "RISK-OFF" && "text-loss",
+            overallSentiment === "NEUTRAL" && "text-amber-500"
+          )}>
+            {overallSentiment}
+          </div>
+          <div className="text-[10px] text-muted-foreground">{isFr ? "Sentiment Actuel" : "Current Sentiment"}</div>
+        </Card>
+        <Card className="p-3 sm:p-4 text-center">
+          <div className="flex items-center justify-center gap-1.5 mb-1">
+            <Gauge className="w-4 h-4 text-primary" />
+          </div>
+          <div className={cn(
+            "text-2xl font-bold",
+            fearGreed.value >= 55 ? "text-profit" : fearGreed.value <= 45 ? "text-loss" : "text-amber-500"
+          )}>
+            {fearGreed.value}
+          </div>
+          <div className="text-[10px] text-muted-foreground">{isFr ? "Peur & Avidité" : "Fear & Greed"}</div>
+        </Card>
+      </div>
+
+      {/* B. Impact Distribution */}
+      <Card className="p-4 sm:p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Layers className="w-4 h-4 text-primary" />
+          <h3 className="font-bold text-sm">{isFr ? "Distribution par Impact" : "Impact Distribution"}</h3>
+        </div>
+        <div className="space-y-3">
+          {/* High Impact */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-loss" />
+                <span className="text-xs font-medium">{isFr ? "Impact Élevé" : "High Impact"}</span>
+              </div>
+              <span className="text-xs font-bold text-loss">{highImpactEvents.length}</span>
+            </div>
+            <div className="h-3 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-loss transition-all duration-700"
+                style={{ width: `${(highImpactEvents.length / maxImpactCount) * 100}%` }}
+              />
+            </div>
+          </div>
+          {/* Medium Impact */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-amber-500" />
+                <span className="text-xs font-medium">{isFr ? "Impact Modéré" : "Medium Impact"}</span>
+              </div>
+              <span className="text-xs font-bold text-amber-500">{mediumImpactEvents.length}</span>
+            </div>
+            <div className="h-3 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-all duration-700"
+                style={{ width: `${(mediumImpactEvents.length / maxImpactCount) * 100}%` }}
+              />
+            </div>
+          </div>
+          {/* Low Impact */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-muted-foreground" />
+                <span className="text-xs font-medium">{isFr ? "Impact Faible" : "Low Impact"}</span>
+              </div>
+              <span className="text-xs font-bold text-muted-foreground">{lowImpactEvents.length}</span>
+            </div>
+            <div className="h-3 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-muted-foreground transition-all duration-700"
+                style={{ width: `${(lowImpactEvents.length / maxImpactCount) * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* C. Sentiment Trend (Gauge + VIX + Smart Money vs Retail) */}
+      <Card className="p-4 sm:p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <PieChart className="w-4 h-4 text-primary" />
+          <h3 className="font-bold text-sm">{isFr ? "Tendance du Sentiment" : "Sentiment Trend"}</h3>
+        </div>
+
+        <div className="space-y-4">
+          {/* Fear & Greed mini gauge */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">{isFr ? "Indice Peur & Avidité" : "Fear & Greed Index"}</span>
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "text-xl font-bold",
+                  fearGreed.value >= 55 ? "text-profit" : fearGreed.value <= 45 ? "text-loss" : "text-amber-500"
+                )}>
+                  {fearGreed.value}
+                </span>
+                <span className="text-[10px] text-muted-foreground">{fearGreed.label}</span>
+              </div>
+            </div>
+            <div className="relative h-3 rounded-full bg-muted overflow-hidden">
+              <div className="absolute inset-0 flex">
+                <div className="flex-1 bg-loss/30" />
+                <div className="flex-1 bg-loss/15" />
+                <div className="flex-1 bg-amber-500/15" />
+                <div className="flex-1 bg-profit/15" />
+                <div className="flex-1 bg-profit/30" />
+              </div>
+              <div
+                className="absolute top-0 h-full w-1.5 bg-foreground rounded-full transition-all duration-700 shadow-lg"
+                style={{ left: `${Math.min(98, Math.max(1, fearGreed.value))}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[8px] text-muted-foreground">
+              <span>{isFr ? "Peur" : "Fear"}</span>
+              <span>{isFr ? "Neutre" : "Neutral"}</span>
+              <span>{isFr ? "Avidité" : "Greed"}</span>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* VIX Level Indicator */}
+          {vix && (
+            <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-medium">VIX</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xl font-bold">{vix.value}</span>
+                <div className="flex flex-col items-end">
+                  <Badge className={cn(
+                    "text-[9px] gap-0.5",
+                    vix.value > 25 ? "bg-loss/15 text-loss border-loss/30" : vix.value > 18 ? "bg-amber-500/15 text-amber-500 border-amber-500/30" : "bg-profit/15 text-profit border-profit/30"
+                  )}>
+                    {vix.value > 25 ? (isFr ? "Élevée" : "High") : vix.value > 18 ? (isFr ? "Modérée" : "Moderate") : (isFr ? "Basse" : "Low")}
+                  </Badge>
+                  {vix.trend && (
+                    <span className="text-[9px] text-muted-foreground mt-0.5">
+                      {vix.trend === "rising" ? "↑" : vix.trend === "declining" ? "↓" : "→"}
+                      {" "}{isFr ? (vix.trend === "rising" ? "Hausse" : vix.trend === "declining" ? "Baisse" : "Stable") : vix.trend}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <Separator />
+
+          {/* Smart Money vs Retail Comparison */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Smart Money */}
+            <div className="p-3 rounded-lg border border-border">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Eye className="w-3.5 h-3.5 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {isFr ? "Smart Money" : "Smart Money"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between mb-1.5">
+                <Badge className={cn(
+                  "text-[9px] gap-0.5",
+                  smartMoney?.direction?.includes("LONG") && "bg-profit/15 text-profit",
+                  smartMoney?.direction?.includes("SHORT") && "bg-loss/15 text-loss",
+                  !smartMoney?.direction?.includes("LONG") && !smartMoney?.direction?.includes("SHORT") && "bg-amber-500/15 text-amber-500"
+                )}>
+                  {smartMoney?.direction?.includes("LONG") && <TrendingUp className="w-3 h-3" />}
+                  {smartMoney?.direction?.includes("SHORT") && <TrendingDown className="w-3 h-3" />}
+                  {smartMoney?.direction || "NEUTRAL"}
+                </Badge>
+              </div>
+              <ProbabilityBar
+                value={confidenceToValue(smartMoney?.confidence || "low")}
+                color={smartMoney?.direction?.includes("LONG") ? "bg-profit" : smartMoney?.direction?.includes("SHORT") ? "bg-loss" : "bg-amber-500"}
+              />
+            </div>
+
+            {/* Retail */}
+            <div className="p-3 rounded-lg border border-border">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Users className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {isFr ? "Retail" : "Retail"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between mb-1.5">
+                <Badge className={cn(
+                  "text-[9px] gap-0.5",
+                  retail?.direction?.includes("LONG") && "bg-profit/15 text-profit",
+                  retail?.direction?.includes("SHORT") && "bg-loss/15 text-loss",
+                  !retail?.direction?.includes("LONG") && !retail?.direction?.includes("SHORT") && "bg-amber-500/15 text-amber-500"
+                )}>
+                  {retail?.direction?.includes("LONG") && <TrendingUp className="w-3 h-3" />}
+                  {retail?.direction?.includes("SHORT") && <TrendingDown className="w-3 h-3" />}
+                  {retail?.direction || "NEUTRAL"}
+                </Badge>
+              </div>
+              <ProbabilityBar
+                value={confidenceToValue(retail?.confidence || "low")}
+                color={retail?.direction?.includes("LONG") ? "bg-profit" : retail?.direction?.includes("SHORT") ? "bg-loss" : "bg-amber-500"}
+              />
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* D. Scenario Probabilities */}
+      {scenarios.length > 0 && (
+        <Card className="p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-4 h-4 text-primary" />
+            <h3 className="font-bold text-sm">{isFr ? "Probabilités des Scénarios" : "Scenario Probabilities"}</h3>
+          </div>
+          <div className="space-y-3">
+            {scenarios.map((scenario, i) => {
+              const sType = getScenarioType(scenario.name);
+              const isBull = sType === "BULLISH";
+              const isBear = sType === "BEARISH";
+              const barColor = isBull ? "bg-profit" : isBear ? "bg-loss" : "bg-amber-500";
+
+              return (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {isBull && <TrendingUp className="w-3.5 h-3.5 text-profit" />}
+                      {isBear && <TrendingDown className="w-3.5 h-3.5 text-loss" />}
+                      {!isBull && !isBear && <Minus className="w-3.5 h-3.5 text-amber-500" />}
+                      <span className={cn(
+                        "text-xs font-bold",
+                        isBull && "text-profit",
+                        isBear && "text-loss",
+                        !isBull && !isBear && "text-amber-500"
+                      )}>
+                        {scenario.name}
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold">{scenario.probability}%</span>
+                  </div>
+                  <div className="h-4 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className={cn("h-full rounded-full transition-all duration-700", barColor)}
+                      style={{ width: `${Math.min(100, Math.max(0, scenario.probability))}%` }}
+                    />
+                  </div>
+                  {scenario.description && (
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">{scenario.description}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* E. Key Risk Events */}
+      {riskEvents.length > 0 && (
+        <Card className="p-4 sm:p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Flame className="w-4 h-4 text-loss" />
+            <h3 className="font-bold text-sm">{isFr ? "Événements à Risque Clés" : "Key Risk Events"}</h3>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {riskEvents.map((evt, i) => (
+              <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg border border-loss/20 bg-loss/5">
+                <AlertTriangle className="w-3.5 h-3.5 text-loss shrink-0" />
+                <span className="text-xs">{evt}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* No data fallback */}
+      {totalEvents === 0 && !sentimentData && !briefingData && (
+        <Card className="p-8 text-center">
+          <BarChart3 className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+          <p className="text-sm text-muted-foreground">
+            {isFr ? "Aucune donnée statistique disponible" : "No statistical data available"}
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────
 // Main Component: NewsTab (exported as MARCHÉ)
 // ──────────────────────────────────────────────────────
 
@@ -1544,6 +2023,7 @@ export function NewsTab() {
     { id: "analysis", icon: Brain, label_fr: "Analyse IA", label_en: "AI Analysis" },
     { id: "sentiment", icon: Radio, label_fr: "Sentiment", label_en: "Sentiment" },
     { id: "alerts", icon: Timer, label_fr: "Alertes", label_en: "Alerts" },
+    { id: "statistics", icon: BarChart3, label_fr: "Statistiques", label_en: "Statistics" },
   ];
 
   return (
@@ -1597,6 +2077,7 @@ export function NewsTab() {
       {subTab === "analysis" && <AnalysisSubTab key={`analysis-${refreshKey}`} language={language} />}
       {subTab === "sentiment" && <SentimentSubTab key={`sentiment-${refreshKey}`} language={language} />}
       {subTab === "alerts" && <AlertsSubTab key={`alerts-${refreshKey}`} language={language} />}
+      {subTab === "statistics" && <StatisticsSubTab key={`statistics-${refreshKey}`} language={language} />}
     </div>
   );
 }

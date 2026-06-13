@@ -33,7 +33,7 @@ STRICT RULES:
 
 You ALWAYS respond in the requested JSON format, with no additional text.`;
 
-async function fetchBriefingData(lang: string): Promise<{
+async function fetchBriefingData(lang: string, period: string = 'today'): Promise<{
   summary: string;
   asia: string;
   today: string;
@@ -63,15 +63,22 @@ async function fetchBriefingData(lang: string): Promise<{
     const { getZAI } = await import('@/lib/zai');
     const zai = await getZAI();
 
+    const isWeek = period === 'week';
+    const recencyDays = isWeek ? 7 : 1;
+
     // 1. Search for overnight / Asian session data
     let overnightData = '';
     try {
       const overnightResults = await zai.functions.invoke('web_search', {
         query: isFr
-          ? 'marchés asiatiques aujourd\'hui Nikkei Hang Seng Shanghai overnight Wall Street futures'
-          : 'Asian markets today Nikkei Hang Seng Shanghai overnight Wall Street futures',
+          ? isWeek
+            ? 'marchés asiatiques cette semaine Nikkei Hang Seng Shanghai Wall Street futures performance'
+            : 'marchés asiatiques aujourd\'hui Nikkei Hang Seng Shanghai overnight Wall Street futures'
+          : isWeek
+            ? 'Asian markets this week Nikkei Hang Seng Shanghai Wall Street futures performance'
+            : 'Asian markets today Nikkei Hang Seng Shanghai overnight Wall Street futures',
         num: 6,
-        recency_days: 1,
+        recency_days: recencyDays,
       });
       if (Array.isArray(overnightResults)) {
         overnightData = overnightResults
@@ -87,10 +94,14 @@ async function fetchBriefingData(lang: string): Promise<{
     try {
       const outlookResults = await zai.functions.invoke('web_search', {
         query: isFr
-          ? 'prévisions marché aujourd\'hui forex indices matières premières événements économiques'
-          : 'market outlook today forex indices commodities economic events schedule',
+          ? isWeek
+            ? 'prévisions marché cette semaine forex indices matières premières événements économiques'
+            : 'prévisions marché aujourd\'hui forex indices matières premières événements économiques'
+          : isWeek
+            ? 'market outlook this week forex indices commodities economic events schedule'
+            : 'market outlook today forex indices commodities economic events schedule',
         num: 6,
-        recency_days: 1,
+        recency_days: recencyDays,
       });
       if (Array.isArray(outlookResults)) {
         outlookData = outlookResults
@@ -106,10 +117,14 @@ async function fetchBriefingData(lang: string): Promise<{
     try {
       const techResults = await zai.functions.invoke('web_search', {
         query: isFr
-          ? 'niveaux clés support résistance EURUSD gold S&P 500 Nasdaq aujourd\'hui analyse technique'
-          : 'key support resistance levels EURUSD gold S&P 500 Nasdaq today technical analysis',
+          ? isWeek
+            ? 'niveaux clés support résistance EURUSD gold S&P 500 Nasdaq cette semaine analyse technique'
+            : 'niveaux clés support résistance EURUSD gold S&P 500 Nasdaq aujourd\'hui analyse technique'
+          : isWeek
+            ? 'key support resistance levels EURUSD gold S&P 500 Nasdaq this week technical analysis'
+            : 'key support resistance levels EURUSD gold S&P 500 Nasdaq today technical analysis',
         num: 5,
-        recency_days: 1,
+        recency_days: recencyDays,
       });
       if (Array.isArray(techResults)) {
         technicalData = techResults
@@ -145,7 +160,9 @@ async function fetchBriefingData(lang: string): Promise<{
         {
           role: 'user',
           content: isFr
-            ? `Génère le briefing matinal DONCIEL™ pour ${dayName} ${today.toLocaleDateString('fr-FR')}.
+            ? `Génère le briefing${isWeek ? ' hebdomadaire' : ' matinal'} DONCIEL™ pour ${dayName} ${today.toLocaleDateString('fr-FR')}.
+
+${isWeek ? 'Période demandée: CETTE SEMAINE. Couvre les événements et tendances de toute la semaine.' : 'Période demandée: AUJOURD\'HUI. Couvre la session overnight et les attentes pour la journée.'}
 
 DONNÉES COLLECTÉES:
 ${combinedData}
@@ -163,7 +180,9 @@ Réponds au format JSON suivant:
   ],
   "riskEvents": ["Événement économique HH:MM", "..."]
 }`
-            : `Generate the DONCIEL™ morning briefing for ${dayName} ${today.toLocaleDateString('en-US')}.
+            : `Generate the ${isWeek ? 'weekly' : 'morning'} DONCIEL™ briefing for ${dayName} ${today.toLocaleDateString('en-US')}.
+
+${isWeek ? 'Requested period: THIS WEEK. Cover events and trends for the entire week.' : 'Requested period: TODAY. Cover the overnight session and expectations for the day.'}
 
 COLLECTED DATA:
 ${combinedData}
@@ -219,15 +238,16 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const lang = searchParams.get('lang') === 'en' ? 'en' : 'fr';
+    const period = searchParams.get('period') === 'week' ? 'week' : 'today';
 
     // Check cache
-    const cacheKey = `briefing-${lang}`;
+    const cacheKey = `briefing-${lang}-${period}`;
     const cached = cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       return NextResponse.json(cached.data);
     }
 
-    const data = await fetchBriefingData(lang);
+    const data = await fetchBriefingData(lang, period);
 
     cache.set(cacheKey, { data, timestamp: Date.now() });
     return NextResponse.json(data);

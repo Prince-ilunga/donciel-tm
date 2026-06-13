@@ -37,7 +37,7 @@ STRICT RULES:
 
 You ALWAYS respond in the requested JSON format, with no additional text.`;
 
-async function fetchSentimentData(lang: string): Promise<{
+async function fetchSentimentData(lang: string, period: string = 'today'): Promise<{
   fearGreed: { value: number; label: string; trend: string };
   vix: { value: number; trend: string; interpretation: string };
   smartMoney: { direction: string; confidence: string };
@@ -65,15 +65,22 @@ async function fetchSentimentData(lang: string): Promise<{
     const { getZAI } = await import('@/lib/zai');
     const zai = await getZAI();
 
+    const isWeek = period === 'week';
+    const recencyDays = isWeek ? 7 : 1;
+
     // 1. Search for Fear & Greed Index
     let fearGreedData = '';
     try {
       const fgResults = await zai.functions.invoke('web_search', {
         query: isFr
-          ? 'CNN Fear and Greed Index valeur actuelle aujourd\'hui'
-          : 'CNN Fear and Greed Index current value today',
+          ? isWeek
+            ? 'CNN Fear and Greed Index valeur cette semaine tendance'
+            : 'CNN Fear and Greed Index valeur actuelle aujourd\'hui'
+          : isWeek
+            ? 'CNN Fear and Greed Index current value this week trend'
+            : 'CNN Fear and Greed Index current value today',
         num: 5,
-        recency_days: 1,
+        recency_days: recencyDays,
       });
       if (Array.isArray(fgResults)) {
         fearGreedData = fgResults
@@ -89,10 +96,14 @@ async function fetchSentimentData(lang: string): Promise<{
     try {
       const vixResults = await zai.functions.invoke('web_search', {
         query: isFr
-          ? 'VIX index volatilité valeur actuelle marché aujourd\'hui'
-          : 'VIX volatility index current value today market',
+          ? isWeek
+            ? 'VIX index volatilité cette semaine tendance marché'
+            : 'VIX index volatilité valeur actuelle marché aujourd\'hui'
+          : isWeek
+            ? 'VIX volatility index this week trend market'
+            : 'VIX volatility index current value today market',
         num: 5,
-        recency_days: 1,
+        recency_days: recencyDays,
       });
       if (Array.isArray(vixResults)) {
         vixData = vixResults
@@ -108,10 +119,14 @@ async function fetchSentimentData(lang: string): Promise<{
     try {
       const smResults = await zai.functions.invoke('web_search', {
         query: isFr
-          ? 'put call ratio COT rapport smart money institutionnels positions marché'
-          : 'put call ratio COT report smart money institutional positioning market sentiment',
+          ? isWeek
+            ? 'put call ratio COT rapport smart money institutionnels positions cette semaine'
+            : 'put call ratio COT rapport smart money institutionnels positions marché'
+          : isWeek
+            ? 'put call ratio COT report smart money institutional positioning this week'
+            : 'put call ratio COT report smart money institutional positioning market sentiment',
         num: 5,
-        recency_days: 3,
+        recency_days: isWeek ? 7 : 3,
       });
       if (Array.isArray(smResults)) {
         smartMoneySearchData = smResults
@@ -127,10 +142,14 @@ async function fetchSentimentData(lang: string): Promise<{
     try {
       const retailResults = await zai.functions.invoke('web_search', {
         query: isFr
-          ? 'sentiment traders particuliers retail forex positions aujourd\'hui'
-          : 'retail trader sentiment forex positioning today dailyfx',
+          ? isWeek
+            ? 'sentiment traders particuliers retail forex positions cette semaine'
+            : 'sentiment traders particuliers retail forex positions aujourd\'hui'
+          : isWeek
+            ? 'retail trader sentiment forex positioning this week'
+            : 'retail trader sentiment forex positioning today dailyfx',
         num: 5,
-        recency_days: 1,
+        recency_days: recencyDays,
       });
       if (Array.isArray(retailResults)) {
         retailData = retailResults
@@ -162,7 +181,7 @@ async function fetchSentimentData(lang: string): Promise<{
         {
           role: 'user',
           content: isFr
-            ? `Analyse les données de sentiment de marché suivantes et fournis une interprétation complète.
+            ? `Analyse les données de sentiment de marché suivantes${isWeek ? ' pour cette semaine' : ' pour aujourd\'hui'} et fournis une interprétation complète.
 
 DONNÉES COLLECTÉES:
 ${combinedData}
@@ -177,7 +196,7 @@ Réponds au format JSON suivant:
   "overallSentiment": "RISK-ON|RISK-OFF|NEUTRAL",
   "interpretation": "Interprétation complète de 4-5 phrases avec recommandation actionnable pour un trader"
 }`
-            : `Analyze the following market sentiment data and provide a complete interpretation.
+            : `Analyze the following market sentiment data${isWeek ? ' for this week' : ' for today'} and provide a complete interpretation.
 
 COLLECTED DATA:
 ${combinedData}
@@ -231,15 +250,16 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const lang = searchParams.get('lang') === 'en' ? 'en' : 'fr';
+    const period = searchParams.get('period') === 'week' ? 'week' : 'today';
 
     // Check cache
-    const cacheKey = `sentiment-${lang}`;
+    const cacheKey = `sentiment-${lang}-${period}`;
     const cached = cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
       return NextResponse.json(cached.data);
     }
 
-    const data = await fetchSentimentData(lang);
+    const data = await fetchSentimentData(lang, period);
 
     cache.set(cacheKey, { data, timestamp: Date.now() });
     return NextResponse.json(data);
