@@ -372,6 +372,9 @@ export function SetupTab() {
         </Button>
       </div>
 
+      {/* Time Filter */}
+      <TimeFilterBar language={language} period={period} onPeriodChange={setPeriod} />
+
       {/* Verification View - Trade List */}
       <TradeVerificationList
         trades={currentTrades}
