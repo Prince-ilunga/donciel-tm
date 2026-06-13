@@ -4,6 +4,8 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { t } from "@/lib/i18n";
 import { useTrades } from "@/lib/hooks";
+import { useTimeFilter } from "@/lib/use-time-filter";
+import { TimeFilterBar } from "@/components/shared/time-filter-bar";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -143,7 +145,8 @@ const FRENCH_DAY_NAMES = [
 // ─── Main Component ──────────────────────────────────────────
 export function JournalTab() {
   const { user, language, setScreenshotViewerUrl, setSelectedTradeId, setShowTradeDetail } = useAppStore();
-  const { trades, loading, refetch } = useTrades();
+  const { period, setPeriod, filters } = useTimeFilter();
+  const { trades, loading, refetch } = useTrades(filters);
 
   // Fetch on mount
   React.useEffect(() => { refetch(); }, [refetch]);
@@ -414,7 +417,7 @@ export function JournalTab() {
         <div className="flex-1 lg:flex-[3]">
           <Card className="overflow-hidden">
             {/* Calendar Header */}
-            <div className="p-4 md:p-6 border-b border-border">
+            <div className="p-4 md:p-6 border-b border-border space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold tracking-tight text-foreground">
                   {FRENCH_MONTHS[currentMonth.getMonth()]}{" "}
@@ -439,6 +442,8 @@ export function JournalTab() {
                   </Button>
                 </div>
               </div>
+              {/* Time Filter */}
+              <TimeFilterBar language={language} period={period} onPeriodChange={setPeriod} />
             </div>
 
             {/* Calendar Grid */}

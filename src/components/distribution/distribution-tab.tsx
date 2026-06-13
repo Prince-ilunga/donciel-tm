@@ -4,6 +4,8 @@ import React, { useState, useMemo } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { t } from "@/lib/i18n";
 import { useStats, useTrades } from "@/lib/hooks";
+import { useTimeFilter } from "@/lib/use-time-filter";
+import { TimeFilterBar } from "@/components/shared/time-filter-bar";
 import { MetricCard } from "@/components/shared/metric-card";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -51,8 +53,9 @@ const LOSS_COLOR = "oklch(0.65 0.24 25)";
 
 export function DistributionTab() {
   const { language, setSelectedTradeId, setShowTradeDetail } = useAppStore();
-  const { stats, loading, refetch } = useStats();
-  const { trades } = useTrades();
+  const { period, setPeriod, filters } = useTimeFilter();
+  const { stats, loading, refetch } = useStats(filters);
+  const { trades } = useTrades(filters);
 
   // Fetch on mount
   React.useEffect(() => { refetch(); }, [refetch]);
@@ -172,6 +175,9 @@ export function DistributionTab() {
           {t(language, "completeRRAnalysis")}
         </p>
       </div>
+
+      {/* Time Filter */}
+      <TimeFilterBar language={language} period={period} onPeriodChange={setPeriod} />
 
       {/* Key Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">

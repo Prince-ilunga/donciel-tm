@@ -68,7 +68,7 @@ interface Stats {
   movingAvgRR: { tradeNumber: number; avgRR: number }[];
 }
 
-interface TradeFilters {
+export interface TradeFilters {
   pair?: string;
   direction?: string;
   session?: string;

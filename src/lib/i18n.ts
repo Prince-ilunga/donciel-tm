@@ -246,6 +246,14 @@ export const translations = {
     derniersTrades: "10 derniers trades",
     depuisPremierTrade: "depuis le premier trade",
 
+    // Time Filter
+    periodDay: "Jour",
+    periodWeek: "Semaine",
+    periodMonth: "Mois",
+    periodQuarter: "Trimestre",
+    periodYear: "Année",
+    periodAll: "Tout",
+
   },
   en: {
     // App
@@ -493,6 +501,14 @@ export const translations = {
     cumuleTotalRR: "TOTAL CUMULATIVE RR",
     derniersTrades: "Last 10 trades",
     depuisPremierTrade: "since the first trade",
+
+    // Time Filter
+    periodDay: "Day",
+    periodWeek: "Week",
+    periodMonth: "Month",
+    periodQuarter: "Quarter",
+    periodYear: "Year",
+    periodAll: "All",
 
   }
 } as const;

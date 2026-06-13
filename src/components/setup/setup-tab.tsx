@@ -4,6 +4,8 @@ import React, { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useAppStore } from "@/stores/app-store";
 import { t } from "@/lib/i18n";
 import { useStats, useTrades } from "@/lib/hooks";
+import { useTimeFilter } from "@/lib/use-time-filter";
+import { TimeFilterBar } from "@/components/shared/time-filter-bar";
 import { cn, getContractSize } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -219,8 +221,9 @@ function calculateAuto(formData: TradeFormData) {
 // ─── Main Component ──────────────────────────────────────────
 export function SetupTab() {
   const { user, language, setSelectedTradeId, setShowTradeDetail, setShowTradeForm } = useAppStore();
-  const { stats, loading: statsLoading, refetch: refetchStats } = useStats();
-  const { trades, loading: tradesLoading, refetch: refetchTrades } = useTrades();
+  const { period, setPeriod, filters } = useTimeFilter();
+  const { stats, loading: statsLoading, refetch: refetchStats } = useStats(filters);
+  const { trades, loading: tradesLoading, refetch: refetchTrades } = useTrades(filters);
 
   // Sub-view state: 'main' | 'donciel-verification' | 'donciel-saisie' | 'custom-verification' | 'custom-saisie'
   const [subView, setSubView] = useState<"main" | "donciel-verification" | "donciel-saisie" | "custom-verification" | "custom-saisie">("main");
@@ -274,6 +277,9 @@ export function SetupTab() {
             {t(language, "setupDescription")}
           </p>
         </div>
+
+        {/* Time Filter */}
+        <TimeFilterBar language={language} period={period} onPeriodChange={setPeriod} />
 
         {/* Setup Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">

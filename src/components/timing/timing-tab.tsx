@@ -4,6 +4,8 @@ import React, { useState, useMemo } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { t } from "@/lib/i18n";
 import { useStats, useTrades } from "@/lib/hooks";
+import { useTimeFilter } from "@/lib/use-time-filter";
+import { TimeFilterBar } from "@/components/shared/time-filter-bar";
 import { MetricCard } from "@/components/shared/metric-card";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -35,8 +37,9 @@ const DAY_LABELS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function TimingTab() {
   const { language } = useAppStore();
-  const { stats, loading, refetch: refetchStats } = useStats();
-  const { trades, refetch: refetchTrades } = useTrades();
+  const { period, setPeriod, filters } = useTimeFilter();
+  const { stats, loading, refetch: refetchStats } = useStats(filters);
+  const { trades, refetch: refetchTrades } = useTrades(filters);
 
   // Fetch data on mount
   React.useEffect(() => { refetchStats(); refetchTrades(); }, [refetchStats, refetchTrades]);
@@ -127,6 +130,9 @@ export function TimingTab() {
           {t(language, "performanceByPeriod")} • {t(language, "clickToSeeTrades")}
         </p>
       </div>
+
+      {/* Time Filter */}
+      <TimeFilterBar language={language} period={period} onPeriodChange={setPeriod} />
 
       {!hasData ? (
         <Card className="p-12 text-center">
