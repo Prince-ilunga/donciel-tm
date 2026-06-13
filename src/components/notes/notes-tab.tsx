@@ -205,7 +205,11 @@ export function NotesTab() {
           <Button
             variant="outline"
             className="gap-2"
-            onClick={() => window.open("https://fr.tradingview.com/", "_blank", "noopener,noreferrer")}
+            onClick={() => {
+              const timeout = setTimeout(() => window.open("https://fr.tradingview.com/", "_blank", "noopener,noreferrer"), 1500);
+              window.location.href = "tradingview://";
+              window.addEventListener("blur", () => clearTimeout(timeout), { once: true });
+            }}
           >
             <ExternalLink className="w-4 h-4" />
             <span className="hidden sm:inline">TradingView</span>
@@ -226,13 +230,17 @@ export function NotesTab() {
           <div>
             <h3 className="text-sm font-semibold">TradingView</h3>
             <p className="text-xs text-muted-foreground">
-              {language === "fr" ? "Accéder aux graphiques en temps réel" : "Access real-time charts"}
+              {language === "fr" ? "Ouvrir l'application ou le site web" : "Open app or website"}
             </p>
           </div>
         </div>
         <Button
           className="gap-2"
-          onClick={() => window.open("https://fr.tradingview.com/", "_blank", "noopener,noreferrer")}
+          onClick={() => {
+            const timeout = setTimeout(() => window.open("https://fr.tradingview.com/", "_blank", "noopener,noreferrer"), 1500);
+            window.location.href = "tradingview://";
+            window.addEventListener("blur", () => clearTimeout(timeout), { once: true });
+          }}
         >
           <ExternalLink className="w-4 h-4" />
           {language === "fr" ? "Ouvrir TradingView" : "Open TradingView"}
