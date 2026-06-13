@@ -13,7 +13,7 @@ export const translations = {
     timingAnalysis: "Timing Analysis",
     setupVideos: "Vidéos du Setup",
     prepNotes: "Notes de Préparation",
-    newsFundamental: "Analyse Fondamentale",
+    newsFundamental: "Marché",
     adminVerification: "Vérification Admin",
     roleManagement: "Gestion des Rôles",
     
@@ -269,7 +269,7 @@ export const translations = {
     timingAnalysis: "Timing Analysis",
     setupVideos: "Setup Videos",
     prepNotes: "Preparation Notes",
-    newsFundamental: "Fundamental Analysis",
+    newsFundamental: "Market",
     adminVerification: "Admin Verification",
     roleManagement: "Role Management",
     

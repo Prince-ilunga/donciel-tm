@@ -27,7 +27,7 @@ import {
   Target,
   FolderOpen,
   Download,
-  Newspaper,
+  Activity,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import React, { useState, useCallback } from "react";
@@ -54,7 +54,7 @@ const navItems: { id: TabId; icon: typeof LayoutDashboard; key: string; adminOnl
   { id: "timing", icon: Clock, key: "timingAnalysis" },
   { id: "videos", icon: Video, key: "setupVideos" },
   { id: "notes", icon: StickyNote, key: "prepNotes" },
-  { id: "news", icon: Newspaper, key: "newsFundamental" },
+  { id: "news", icon: Activity, key: "newsFundamental" },
   { id: "admin", icon: ShieldCheck, key: "adminVerification", adminOnly: true },
   { id: "roles", icon: Crown, key: "roleManagement" },
 ];
