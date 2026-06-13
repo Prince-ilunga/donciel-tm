@@ -4,22 +4,6 @@ import { getAuthUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// LLM API config
-const LLM_API_KEY = 'Z.ai';
-const LLM_CHAT_ID = 'chat-37d327cb-5893-4e17-a4a9-e4098be752b9';
-const LLM_USER_ID = '26181383-7709-4b65-bdf7-0470c757aac4';
-const LLM_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMjYxODEzODMtNzcwOS00YjY1LWJkZjctMDQ3MGM3NTdhYWM0IiwiY2hhdF9pZCI6ImNoYXQtMzdkMzI3Y2ItNTg5My00ZTE3LWE0YTktZTQwOThiZTc1MmI5IiwicGxhdGZvcm0iOiJ6YWkifQ.Y0FAcnkiB6qvQ5dPZgGdL7npfip_pYCxx_wYhwMAocw';
-
-// Proxy URLs to try in order:
-// 1. Local LLM proxy (mini-service on port 3030 — works in dev environment)
-// 2. Direct internal API (works from machines on the same VPC)
-// 3. Caddy gateway proxy (for external access through XTransformPort)
-const LLM_PROXY_URLS = [
-  'http://localhost:3030/chat/completions',
-  'https://internal-api.z.ai/v1/chat/completions',
-  'http://47.57.242.119:81/chat/completions?XTransformPort=3030',
-];
-
 // Build trading context from user's data for the AI coach
 async function buildTradingContext(userId: string): Promise<string> {
   const trades = await db.trade.findMany({
@@ -294,58 +278,14 @@ export async function POST(request: NextRequest) {
     // Add current user message
     messages.push({ role: 'user', content: message });
 
-    // Call LLM via proxy with fallback logic
-    // Try local proxy first (works in dev), then direct API (works on same VPC)
-    let completion: any = null;
-    let lastError: string = '';
+    // Use z-ai-web-dev-sdk (same as market routes — works on Vercel)
+    const { getZAI } = await import('@/lib/zai');
+    const zai = await getZAI();
 
-    for (const proxyUrl of LLM_PROXY_URLS) {
-      try {
-        const isLocalProxy = proxyUrl.includes('localhost:3030') || proxyUrl.includes('XTransformPort');
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-
-        // Local proxy handles auth internally; direct API needs auth headers
-        if (!isLocalProxy) {
-          headers['Authorization'] = `Bearer ${LLM_API_KEY}`;
-          headers['X-Z-AI-From'] = 'Z';
-          headers['X-Chat-Id'] = LLM_CHAT_ID;
-          headers['X-User-Id'] = LLM_USER_ID;
-          headers['X-Token'] = LLM_TOKEN;
-        }
-
-        const llmResponse = await fetch(proxyUrl, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            messages,
-            thinking: { type: 'disabled' },
-          }),
-          signal: AbortSignal.timeout(60000), // 60s timeout
-        });
-
-        if (!llmResponse.ok) {
-          const errBody = await llmResponse.text();
-          lastError = `API error ${llmResponse.status}: ${errBody.substring(0, 100)}`;
-          continue; // Try next URL
-        }
-
-        completion = await llmResponse.json();
-        break; // Success — stop trying
-      } catch (err: any) {
-        lastError = err?.message || 'Connection failed';
-        continue; // Try next URL
-      }
-    }
-
-    if (!completion) {
-      throw new Error(
-        language === 'fr'
-          ? 'Impossible de contacter le serveur IA. Veuillez réessayer.'
-          : 'Unable to reach the AI server. Please try again.'
-      );
-    }
+    const completion = await zai.chat.completions.create({
+      messages,
+      thinking: { type: 'disabled' },
+    });
 
     const response = completion.choices[0]?.message?.content;
 
