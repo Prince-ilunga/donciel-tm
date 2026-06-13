@@ -5,6 +5,7 @@ import { getAuthUser } from '@/lib/auth';
 interface CacheEntry { data: any; timestamp: number; }
 const cache = new Map<string, CacheEntry>();
 const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes (briefing changes less frequently)
+const CACHE_DURATION_WEEK = 15 * 60 * 1000; // 15 minutes for weekly
 
 // System prompts for LLM
 const BRIEFING_SYSTEM_PROMPT_FR = `Tu es DONCIEL-AI™, un analyste de marché matinal expert. Tu génères des briefings matinaux complets pour les traders avec des scénarios probabilistes.
@@ -66,10 +67,9 @@ async function fetchBriefingData(lang: string, period: string = 'today'): Promis
     const isWeek = period === 'week';
     const recencyDays = isWeek ? 7 : 1;
 
-    // 1. Search for overnight / Asian session data
-    let overnightData = '';
-    try {
-      const overnightResults = await zai.functions.invoke('web_search', {
+    // Run ALL 3 web searches IN PARALLEL
+    const [overnightResult, outlookResult, technicalResult] = await Promise.allSettled([
+      zai.functions.invoke('web_search', {
         query: isFr
           ? isWeek
             ? 'marchés asiatiques cette semaine Nikkei Hang Seng Shanghai Wall Street futures performance'
@@ -79,20 +79,12 @@ async function fetchBriefingData(lang: string, period: string = 'today'): Promis
             : 'Asian markets today Nikkei Hang Seng Shanghai overnight Wall Street futures',
         num: 6,
         recency_days: recencyDays,
-      });
-      if (Array.isArray(overnightResults)) {
-        overnightData = overnightResults
-          .map((r: any) => `${r.title || ''}: ${r.snippet || r.description || ''}`)
-          .join('\n');
-      }
-    } catch (error) {
-      console.error('Briefing overnight search error:', error instanceof Error ? error.message : 'Unknown error');
-    }
+      }).catch(err => {
+        console.error('Briefing overnight search error:', err instanceof Error ? err.message : 'Unknown error');
+        return null;
+      }),
 
-    // 2. Search for today's market outlook and key events
-    let outlookData = '';
-    try {
-      const outlookResults = await zai.functions.invoke('web_search', {
+      zai.functions.invoke('web_search', {
         query: isFr
           ? isWeek
             ? 'prévisions marché cette semaine forex indices matières premières événements économiques'
@@ -102,20 +94,12 @@ async function fetchBriefingData(lang: string, period: string = 'today'): Promis
             : 'market outlook today forex indices commodities economic events schedule',
         num: 6,
         recency_days: recencyDays,
-      });
-      if (Array.isArray(outlookResults)) {
-        outlookData = outlookResults
-          .map((r: any) => `${r.title || ''}: ${r.snippet || r.description || ''}`)
-          .join('\n');
-      }
-    } catch (error) {
-      console.error('Briefing outlook search error:', error instanceof Error ? error.message : 'Unknown error');
-    }
+      }).catch(err => {
+        console.error('Briefing outlook search error:', err instanceof Error ? err.message : 'Unknown error');
+        return null;
+      }),
 
-    // 3. Search for key levels and technical data
-    let technicalData = '';
-    try {
-      const techResults = await zai.functions.invoke('web_search', {
+      zai.functions.invoke('web_search', {
         query: isFr
           ? isWeek
             ? 'niveaux clés support résistance EURUSD gold S&P 500 Nasdaq cette semaine analyse technique'
@@ -125,15 +109,25 @@ async function fetchBriefingData(lang: string, period: string = 'today'): Promis
             : 'key support resistance levels EURUSD gold S&P 500 Nasdaq today technical analysis',
         num: 5,
         recency_days: recencyDays,
-      });
-      if (Array.isArray(techResults)) {
-        technicalData = techResults
+      }).catch(err => {
+        console.error('Briefing technical search error:', err instanceof Error ? err.message : 'Unknown error');
+        return null;
+      }),
+    ]);
+
+    // Extract data from parallel results
+    const extractData = (result: PromiseSettledResult<any>) => {
+      if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
+        return result.value
           .map((r: any) => `${r.title || ''}: ${r.snippet || r.description || ''}`)
           .join('\n');
       }
-    } catch (error) {
-      console.error('Briefing technical search error:', error instanceof Error ? error.message : 'Unknown error');
-    }
+      return '';
+    };
+
+    const overnightData = extractData(overnightResult);
+    const outlookData = extractData(outlookResult);
+    const technicalData = extractData(technicalResult);
 
     // Check if we have any data
     const allData = [overnightData, outlookData, technicalData].filter(Boolean);
@@ -243,7 +237,8 @@ export async function GET(request: NextRequest) {
     // Check cache
     const cacheKey = `briefing-${lang}-${period}`;
     const cached = cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    const cacheDuration = period === 'week' ? CACHE_DURATION_WEEK : CACHE_DURATION;
+    if (cached && Date.now() - cached.timestamp < cacheDuration) {
       return NextResponse.json(cached.data);
     }
 

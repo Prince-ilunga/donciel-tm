@@ -72,139 +72,71 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
     const weekRangeStr = `${formatDate(monday)} to ${formatDate(friday)}`;
 
-    // 1. Web search for economic events
-    let searchData = '';
-    try {
-      const searchResults = await zai.functions.invoke('web_search', {
+    // Build search queries based on period
+    const searchQueries: { query: string; num: number; recency_days: number }[] = [];
+
+    // Search 1: Main economic calendar search
+    searchQueries.push({
+      query: isFr
+        ? isWeek
+          ? `calendrier économique semaine ${weekRangeStr} forex factory événements indicateurs`
+          : 'calendrier économique aujourd\'hui forex factory investing.com événements'
+        : isWeek
+          ? `economic calendar week ${weekRangeStr} forex factory investing.com events schedule`
+          : 'economic calendar today forex factory investing.com events',
+      num: 10,
+      recency_days: recencyDays,
+    });
+
+    // Search 2 & 3: Additional weekly coverage
+    if (isWeek) {
+      searchQueries.push({
         query: isFr
-          ? isWeek
-            ? `calendrier économique semaine ${weekRangeStr} forex factory événements indicateurs`
-            : 'calendrier économique aujourd\'hui forex factory investing.com événements'
-          : isWeek
-            ? `economic calendar week ${weekRangeStr} forex factory investing.com events schedule`
-            : 'economic calendar today forex factory investing.com events',
-        num: 10,
-        recency_days: recencyDays,
+          ? `événements économiques cette semaine CPI NFP FOMC GDP PMI ${now.getFullYear()}`
+          : `this week economic events CPI NFP FOMC GDP PMI schedule ${now.getFullYear()}`,
+        num: 8,
+        recency_days: 7,
       });
 
-      if (Array.isArray(searchResults)) {
-        searchData = searchResults
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const monthName = monthNames[monday.getMonth()];
+      searchQueries.push({
+        query: isFr
+          ? `calendrier économique ${monthName} ${monday.getFullYear()} semaine ${formatDate(monday)} ${formatDate(friday)} forex investing`
+          : `economic calendar ${monthName} ${monday.getFullYear()} week of ${formatDate(monday)} forex investing.com events`,
+        num: 8,
+        recency_days: 7,
+      });
+    }
+
+    // Run all web searches IN PARALLEL
+    const searchResults = await Promise.allSettled(
+      searchQueries.map(q =>
+        zai.functions.invoke('web_search', {
+          query: q.query,
+          num: q.num,
+          recency_days: q.recency_days,
+        }).catch(err => {
+          console.error('Calendar web search error:', err instanceof Error ? err.message : 'Unknown error');
+          return null;
+        })
+      )
+    );
+
+    // Collect search data
+    const searchDataList: string[] = [];
+    searchResults.forEach((result, i) => {
+      if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
+        const data = result.value
           .map((r: any) => `Title: ${r.title || r.name || ''}\nSnippet: ${r.snippet || r.description || ''}\nURL: ${r.url || r.link || ''}`)
           .join('\n\n');
+        if (data) searchDataList.push(data);
       }
-    } catch (error) {
-      console.error('Calendar web search error:', error instanceof Error ? error.message : 'Unknown error');
-    }
+    });
 
-    // 2. Second search with different terms for more coverage (especially for weekly)
-    let searchData2 = '';
-    if (isWeek) {
-      try {
-        const searchResults2 = await zai.functions.invoke('web_search', {
-          query: isFr
-            ? `événements économiques cette semaine CPI NFP FOMC GDP PMI ${now.getFullYear()}`
-            : `this week economic events CPI NFP FOMC GDP PMI schedule ${now.getFullYear()}`,
-          num: 8,
-          recency_days: 7,
-        });
-
-        if (Array.isArray(searchResults2)) {
-          searchData2 = searchResults2
-            .map((r: any) => `Title: ${r.title || r.name || ''}\nSnippet: ${r.snippet || r.description || ''}\nURL: ${r.url || r.link || ''}`)
-            .join('\n\n');
-        }
-      } catch (error) {
-        console.error('Calendar web search 2 error:', error instanceof Error ? error.message : 'Unknown error');
-      }
-    }
-
-    // 2b. Third search - targeted query with month name for better weekly results
-    let searchData3 = '';
-    if (isWeek) {
-      try {
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-        const monthName = monthNames[monday.getMonth()];
-        const searchResults3 = await zai.functions.invoke('web_search', {
-          query: isFr
-            ? `calendrier économique ${monthName} ${monday.getFullYear()} semaine ${formatDate(monday)} ${formatDate(friday)} forex investing`
-            : `economic calendar ${monthName} ${monday.getFullYear()} week of ${formatDate(monday)} forex investing.com events`,
-          num: 8,
-          recency_days: 7,
-        });
-
-        if (Array.isArray(searchResults3)) {
-          searchData3 = searchResults3
-            .map((r: any) => `Title: ${r.title || r.name || ''}\nSnippet: ${r.snippet || r.description || ''}\nURL: ${r.url || r.link || ''}`)
-            .join('\n\n');
-        }
-      } catch (error) {
-        console.error('Calendar web search 3 error:', error instanceof Error ? error.message : 'Unknown error');
-      }
-    }
-
-    // 3. Try to read ForexFactory calendar page
-    let pageData = '';
-    try {
-      const pageResult = await zai.functions.invoke('page_reader', {
-        url: 'https://www.forexfactory.com/calendar',
-      });
-
-      if (pageResult?.data) {
-        const html = pageResult.data.html || '';
-        const title = pageResult.data.title || '';
-        const textContent = html
-          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .substring(0, 8000);
-        pageData = `Page: ${title}\n\n${textContent}`;
-      }
-    } catch (error) {
-      console.error('Calendar page reader error:', error instanceof Error ? error.message : 'Unknown error');
-    }
-
-    // 4. Try to read investing.com calendar for weekly data
-    let investingData = '';
-    if (isWeek) {
-      try {
-        const investingResult = await zai.functions.invoke('page_reader', {
-          url: 'https://www.investing.com/economic-calendar/',
-        });
-
-        if (investingResult?.data) {
-          const html = investingResult.data.html || '';
-          const title = investingResult.data.title || '';
-          const textContent = html
-            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .substring(0, 6000);
-          investingData = `Page: ${title}\n\n${textContent}`;
-        }
-      } catch (error) {
-        console.error('Calendar investing.com reader error:', error instanceof Error ? error.message : 'Unknown error');
-      }
-    }
-
-    // 5. Use LLM to parse and structure the events
-    const allRawData = [
-      searchData ? `=== WEB SEARCH RESULTS ===\n${searchData}` : '',
-      searchData2 ? `=== ADDITIONAL SEARCH RESULTS ===\n${searchData2}` : '',
-      searchData3 ? `=== WEEKLY SEARCH RESULTS ===\n${searchData3}` : '',
-      pageData ? `=== FOREXFACTORY CALENDAR PAGE ===\n${pageData}` : '',
-      investingData ? `=== INVESTING.COM CALENDAR ===\n${investingData}` : '',
-    ].filter(Boolean).join('\n\n');
-
-    // For weekly: also build a search-only dataset (without page reader noise) as fallback
-    const searchOnlyData = [
-      searchData ? `=== WEB SEARCH RESULTS ===\n${searchData}` : '',
-      searchData2 ? `=== ADDITIONAL SEARCH RESULTS ===\n${searchData2}` : '',
-      searchData3 ? `=== WEEKLY SEARCH RESULTS ===\n${searchData3}` : '',
-    ].filter(Boolean).join('\n\n');
+    const allRawData = searchDataList.length > 0
+      ? searchDataList.map((d, i) => `=== SEARCH RESULT ${i + 1} ===\n${d}`).join('\n\n')
+      : '';
 
     if (!allRawData) {
       return { ...emptyResult, error: isFr ? 'Aucune donnée disponible' : 'No data available' };
@@ -213,15 +145,14 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
     const systemPrompt = isFr ? CALENDAR_SYSTEM_PROMPT_FR : CALENDAR_SYSTEM_PROMPT_EN;
     const today = formatDate(now);
 
-    // Helper to call LLM with given data
-    async function parseWithLLM(rawData: string): Promise<any[]> {
-      const completion = await zai.chat.completions.create({
-        messages: [
-          { role: 'assistant', content: systemPrompt },
-          {
-            role: 'user',
-            content: isFr
-              ? `Date d'aujourd'hui: ${today}
+    // Single LLM call with all parallel-searched data
+    const completion = await zai.chat.completions.create({
+      messages: [
+        { role: 'assistant', content: systemPrompt },
+        {
+          role: 'user',
+          content: isFr
+            ? `Date d'aujourd'hui: ${today}
 Semaine en cours: ${weekRangeStr}
 ${isWeek ? `Période demandée: CETTE SEMAINE (${weekRangeStr}). Extrait TOUS les événements économiques du lundi ${formatDate(monday)} au vendredi ${formatDate(friday)}, Y COMPRIS les événements déjà passés cette semaine. Même si c'est le week-end, il y a eu des événements cette semaine.` : "Période demandée: AUJOURD'HUI (extrait uniquement les événements du jour)"}
 
@@ -229,7 +160,7 @@ Extrait les événements économiques${isWeek ? ' de la semaine du lundi au vend
 ${isWeek ? '\nIMPORTANT: Inclus la date (champ "date") pour CHAQUE événement au format YYYY-MM-DD. Les dates doivent être entre ' + formatDate(monday) + ' et ' + formatDate(friday) + '. Ne laisse AUCUN événement sans date.' : ''}
 
 DONNÉES BRUTES:
-${rawData}
+${allRawData}
 
 Réponds au format JSON suivant:
 {
@@ -249,7 +180,7 @@ Réponds au format JSON suivant:
   "highImpactCount": nombre,
   "nextHighImpact": { prochain événement high impact } ou null
 }`
-              : `Today's date: ${today}
+            : `Today's date: ${today}
 Current week: ${weekRangeStr}
 ${isWeek ? `Requested period: THIS WEEK (${weekRangeStr}). Extract ALL economic events from Monday ${formatDate(monday)} to Friday ${formatDate(friday)}, INCLUDING past events that already occurred this week. Even though it may be the weekend, there were events this week.` : 'Requested period: TODAY (extract only today\'s events)'}
 
@@ -257,7 +188,7 @@ Extract ${isWeek ? 'this week\'s' : 'today\'s'} economic events from the data be
 ${isWeek ? '\nIMPORTANT: Include the date (field "date") for EVERY event in YYYY-MM-DD format. Dates must be between ' + formatDate(monday) + ' and ' + formatDate(friday) + '. Do NOT leave any event without a date.' : ''}
 
 RAW DATA:
-${rawData}
+${allRawData}
 
 Respond in the following JSON format:
 {
@@ -277,33 +208,20 @@ Respond in the following JSON format:
   "highImpactCount": number,
   "nextHighImpact": { next high impact event } or null
 }`,
-          },
-        ],
-        thinking: { type: 'disabled' },
-      });
+        },
+      ],
+      thinking: { type: 'disabled' },
+    });
 
-      const content = completion.choices[0]?.message?.content || '';
+    const content = completion.choices[0]?.message?.content || '';
+    let events: any[] = [];
+    try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        return Array.isArray(parsed.events) ? parsed.events : [];
+        events = Array.isArray(parsed.events) ? parsed.events : [];
       }
-      return [];
-    }
-
-    // First attempt: use all data (search + page readers)
-    let events: any[] = [];
-    try {
-      events = await parseWithLLM(allRawData);
     } catch {}
-
-    // Retry for weekly: if first attempt returns 0 events, try with search-only data (less noise)
-    if (isWeek && events.length === 0 && searchOnlyData) {
-      console.log('Calendar: First LLM attempt returned 0 events for weekly, retrying with search-only data...');
-      try {
-        events = await parseWithLLM(searchOnlyData);
-      } catch {}
-    }
 
     // Compute derived fields
     const highImpactEvents = events.filter((e: any) => (e.impact || '').toLowerCase() === 'high');

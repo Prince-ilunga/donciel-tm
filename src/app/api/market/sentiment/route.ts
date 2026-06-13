@@ -69,10 +69,9 @@ async function fetchSentimentData(lang: string, period: string = 'today'): Promi
     const isWeek = period === 'week';
     const recencyDays = isWeek ? 7 : 1;
 
-    // 1. Search for Fear & Greed Index
-    let fearGreedData = '';
-    try {
-      const fgResults = await zai.functions.invoke('web_search', {
+    // Run ALL 4 web searches IN PARALLEL
+    const [fearGreedResult, vixResult, smartMoneyResult, retailResult] = await Promise.allSettled([
+      zai.functions.invoke('web_search', {
         query: isFr
           ? isWeek
             ? 'CNN Fear and Greed Index valeur cette semaine tendance'
@@ -82,20 +81,12 @@ async function fetchSentimentData(lang: string, period: string = 'today'): Promi
             : 'CNN Fear and Greed Index current value today',
         num: 5,
         recency_days: recencyDays,
-      });
-      if (Array.isArray(fgResults)) {
-        fearGreedData = fgResults
-          .map((r: any) => `${r.title || ''}: ${r.snippet || r.description || ''}`)
-          .join('\n');
-      }
-    } catch (error) {
-      console.error('Sentiment Fear&Greed search error:', error instanceof Error ? error.message : 'Unknown error');
-    }
+      }).catch(err => {
+        console.error('Sentiment Fear&Greed search error:', err instanceof Error ? err.message : 'Unknown error');
+        return null;
+      }),
 
-    // 2. Search for VIX and market volatility
-    let vixData = '';
-    try {
-      const vixResults = await zai.functions.invoke('web_search', {
+      zai.functions.invoke('web_search', {
         query: isFr
           ? isWeek
             ? 'VIX index volatilité cette semaine tendance marché'
@@ -105,20 +96,12 @@ async function fetchSentimentData(lang: string, period: string = 'today'): Promi
             : 'VIX volatility index current value today market',
         num: 5,
         recency_days: recencyDays,
-      });
-      if (Array.isArray(vixResults)) {
-        vixData = vixResults
-          .map((r: any) => `${r.title || ''}: ${r.snippet || r.description || ''}`)
-          .join('\n');
-      }
-    } catch (error) {
-      console.error('Sentiment VIX search error:', error instanceof Error ? error.message : 'Unknown error');
-    }
+      }).catch(err => {
+        console.error('Sentiment VIX search error:', err instanceof Error ? err.message : 'Unknown error');
+        return null;
+      }),
 
-    // 3. Search for Put/Call ratio and smart money data
-    let smartMoneySearchData = '';
-    try {
-      const smResults = await zai.functions.invoke('web_search', {
+      zai.functions.invoke('web_search', {
         query: isFr
           ? isWeek
             ? 'put call ratio COT rapport smart money institutionnels positions cette semaine'
@@ -128,20 +111,12 @@ async function fetchSentimentData(lang: string, period: string = 'today'): Promi
             : 'put call ratio COT report smart money institutional positioning market sentiment',
         num: 5,
         recency_days: isWeek ? 7 : 3,
-      });
-      if (Array.isArray(smResults)) {
-        smartMoneySearchData = smResults
-          .map((r: any) => `${r.title || ''}: ${r.snippet || r.description || ''}`)
-          .join('\n');
-      }
-    } catch (error) {
-      console.error('Sentiment smart money search error:', error instanceof Error ? error.message : 'Unknown error');
-    }
+      }).catch(err => {
+        console.error('Sentiment smart money search error:', err instanceof Error ? err.message : 'Unknown error');
+        return null;
+      }),
 
-    // 4. Search for retail sentiment
-    let retailData = '';
-    try {
-      const retailResults = await zai.functions.invoke('web_search', {
+      zai.functions.invoke('web_search', {
         query: isFr
           ? isWeek
             ? 'sentiment traders particuliers retail forex positions cette semaine'
@@ -151,15 +126,26 @@ async function fetchSentimentData(lang: string, period: string = 'today'): Promi
             : 'retail trader sentiment forex positioning today dailyfx',
         num: 5,
         recency_days: recencyDays,
-      });
-      if (Array.isArray(retailResults)) {
-        retailData = retailResults
+      }).catch(err => {
+        console.error('Sentiment retail search error:', err instanceof Error ? err.message : 'Unknown error');
+        return null;
+      }),
+    ]);
+
+    // Extract data from parallel results
+    const extractData = (result: PromiseSettledResult<any>) => {
+      if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
+        return result.value
           .map((r: any) => `${r.title || ''}: ${r.snippet || r.description || ''}`)
           .join('\n');
       }
-    } catch (error) {
-      console.error('Sentiment retail search error:', error instanceof Error ? error.message : 'Unknown error');
-    }
+      return '';
+    };
+
+    const fearGreedData = extractData(fearGreedResult);
+    const vixData = extractData(vixResult);
+    const smartMoneySearchData = extractData(smartMoneyResult);
+    const retailData = extractData(retailResult);
 
     // Check if we have any data at all
     const allData = [fearGreedData, vixData, smartMoneySearchData, retailData].filter(Boolean);
