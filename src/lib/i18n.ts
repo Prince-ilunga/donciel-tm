@@ -14,6 +14,7 @@ export const translations = {
     setupVideos: "Vidéos du Setup",
     prepNotes: "Notes de Préparation",
     newsFundamental: "Marché",
+    coachTab: "Coach IA",
     adminVerification: "Vérification Admin",
     roleManagement: "Gestion des Rôles",
     
@@ -280,6 +281,7 @@ export const translations = {
     setupVideos: "Setup Videos",
     prepNotes: "Preparation Notes",
     newsFundamental: "Market",
+    coachTab: "AI Coach",
     adminVerification: "Admin Verification",
     roleManagement: "Role Management",
     
