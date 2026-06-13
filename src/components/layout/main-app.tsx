@@ -329,7 +329,7 @@ export function MainApp() {
         </header>
 
         {/* Tab content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
           {renderTab()}
         </div>
       </main>

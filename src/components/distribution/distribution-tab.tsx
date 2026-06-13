@@ -84,7 +84,7 @@ export function DistributionTab() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+      <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Card key={i} className="p-4"><Skeleton className="h-16 w-full" /></Card>
@@ -165,13 +165,13 @@ export function DistributionTab() {
   const hasData = statsData?.totalTrades > 0;
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">
+      <div className="min-w-0">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate">
           {t(language, "distributionRR")}
         </h2>
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-sm text-muted-foreground mt-1 truncate">
           {t(language, "completeRRAnalysis")}
         </p>
       </div>

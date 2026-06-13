@@ -24,7 +24,7 @@ interface TimeFilterBarProps {
 
 export function TimeFilterBar({ language, period, onPeriodChange, className }: TimeFilterBarProps) {
   return (
-    <div className={cn("flex items-center gap-1 p-1 rounded-xl bg-muted/50 border border-border/50", className)}>
+    <div className={cn("flex flex-wrap items-center gap-1 p-1 rounded-xl bg-muted/50 border border-border/50", className)}>
       {PERIOD_CONFIG.map(({ value, icon: Icon, key }) => {
         const isActive = period === value;
         return (
@@ -32,13 +32,13 @@ export function TimeFilterBar({ language, period, onPeriodChange, className }: T
             key={value}
             onClick={() => onPeriodChange(value)}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
+              "flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap",
               isActive
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            <Icon className="w-3.5 h-3.5" />
+            <Icon className="w-3.5 h-3.5 hidden sm:block" />
             <span>{t(language, key as any)}</span>
           </button>
         );

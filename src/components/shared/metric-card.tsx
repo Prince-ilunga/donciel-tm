@@ -16,7 +16,7 @@ export function MetricCard({ label, value, icon: Icon, trend, className }: Metri
   return (
     <Card className={cn("p-4 metric-glow", className)}>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{label}</span>
+        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider truncate">{label}</span>
         {Icon && <Icon className="w-4 h-4 text-muted-foreground" />}
       </div>
       <div
