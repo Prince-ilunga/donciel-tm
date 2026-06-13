@@ -118,13 +118,35 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
       }
     }
 
+    // 2b. Third search - targeted query with month name for better weekly results
+    let searchData3 = '';
+    if (isWeek) {
+      try {
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const monthName = monthNames[monday.getMonth()];
+        const searchResults3 = await zai.functions.invoke('web_search', {
+          query: isFr
+            ? `calendrier économique ${monthName} ${monday.getFullYear()} semaine ${formatDate(monday)} ${formatDate(friday)} forex investing`
+            : `economic calendar ${monthName} ${monday.getFullYear()} week of ${formatDate(monday)} forex investing.com events`,
+          num: 8,
+          recency_days: 7,
+        });
+
+        if (Array.isArray(searchResults3)) {
+          searchData3 = searchResults3
+            .map((r: any) => `Title: ${r.title || r.name || ''}\nSnippet: ${r.snippet || r.description || ''}\nURL: ${r.url || r.link || ''}`)
+            .join('\n\n');
+        }
+      } catch (error) {
+        console.error('Calendar web search 3 error:', error instanceof Error ? error.message : 'Unknown error');
+      }
+    }
+
     // 3. Try to read ForexFactory calendar page
     let pageData = '';
     try {
       const pageResult = await zai.functions.invoke('page_reader', {
-        url: isWeek
-          ? 'https://www.forexfactory.com/calendar?week=this'
-          : 'https://www.forexfactory.com/calendar',
+        url: 'https://www.forexfactory.com/calendar',
       });
 
       if (pageResult?.data) {
@@ -136,7 +158,7 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
           .trim()
-          .substring(0, 12000);
+          .substring(0, 8000);
         pageData = `Page: ${title}\n\n${textContent}`;
       }
     } catch (error) {
@@ -160,7 +182,7 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
             .replace(/<[^>]+>/g, ' ')
             .replace(/\s+/g, ' ')
             .trim()
-            .substring(0, 10000);
+            .substring(0, 6000);
           investingData = `Page: ${title}\n\n${textContent}`;
         }
       } catch (error) {
@@ -172,8 +194,16 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
     const allRawData = [
       searchData ? `=== WEB SEARCH RESULTS ===\n${searchData}` : '',
       searchData2 ? `=== ADDITIONAL SEARCH RESULTS ===\n${searchData2}` : '',
+      searchData3 ? `=== WEEKLY SEARCH RESULTS ===\n${searchData3}` : '',
       pageData ? `=== FOREXFACTORY CALENDAR PAGE ===\n${pageData}` : '',
       investingData ? `=== INVESTING.COM CALENDAR ===\n${investingData}` : '',
+    ].filter(Boolean).join('\n\n');
+
+    // For weekly: also build a search-only dataset (without page reader noise) as fallback
+    const searchOnlyData = [
+      searchData ? `=== WEB SEARCH RESULTS ===\n${searchData}` : '',
+      searchData2 ? `=== ADDITIONAL SEARCH RESULTS ===\n${searchData2}` : '',
+      searchData3 ? `=== WEEKLY SEARCH RESULTS ===\n${searchData3}` : '',
     ].filter(Boolean).join('\n\n');
 
     if (!allRawData) {
@@ -183,21 +213,23 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
     const systemPrompt = isFr ? CALENDAR_SYSTEM_PROMPT_FR : CALENDAR_SYSTEM_PROMPT_EN;
     const today = formatDate(now);
 
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: 'assistant', content: systemPrompt },
-        {
-          role: 'user',
-          content: isFr
-            ? `Date d'aujourd'hui: ${today}
+    // Helper to call LLM with given data
+    async function parseWithLLM(rawData: string): Promise<any[]> {
+      const completion = await zai.chat.completions.create({
+        messages: [
+          { role: 'assistant', content: systemPrompt },
+          {
+            role: 'user',
+            content: isFr
+              ? `Date d'aujourd'hui: ${today}
 Semaine en cours: ${weekRangeStr}
-${isWeek ? 'Période demandée: CETTE SEMAINE (extrait TOUS les événements du lundi au vendredi de cette semaine, y compris les événements déjà passés)' : 'Période demandée: AUJOURD\'HUI (extrait uniquement les événements du jour)'}
+${isWeek ? `Période demandée: CETTE SEMAINE (${weekRangeStr}). Extrait TOUS les événements économiques du lundi ${formatDate(monday)} au vendredi ${formatDate(friday)}, Y COMPRIS les événements déjà passés cette semaine. Même si c'est le week-end, il y a eu des événements cette semaine.` : "Période demandée: AUJOURD'HUI (extrait uniquement les événements du jour)"}
 
-Extrait les événements économiques${isWeek ? ' de la semaine' : ' du jour'} à partir des données ci-dessous. Structure-les au format JSON.
-${isWeek ? '\nIMPORTANT: Inclus la date (champ "date") pour CHAQUE événement au format YYYY-MM-DD. Ne laisse AUCUN événement sans date.' : ''}
+Extrait les événements économiques${isWeek ? ' de la semaine du lundi au vendredi' : ' du jour'} à partir des données ci-dessous. Structure-les au format JSON.
+${isWeek ? '\nIMPORTANT: Inclus la date (champ "date") pour CHAQUE événement au format YYYY-MM-DD. Les dates doivent être entre ' + formatDate(monday) + ' et ' + formatDate(friday) + '. Ne laisse AUCUN événement sans date.' : ''}
 
 DONNÉES BRUTES:
-${allRawData}
+${rawData}
 
 Réponds au format JSON suivant:
 {
@@ -217,15 +249,15 @@ Réponds au format JSON suivant:
   "highImpactCount": nombre,
   "nextHighImpact": { prochain événement high impact } ou null
 }`
-            : `Today's date: ${today}
+              : `Today's date: ${today}
 Current week: ${weekRangeStr}
-${isWeek ? 'Requested period: THIS WEEK (extract ALL events from Monday to Friday of this week, including past events)' : 'Requested period: TODAY (extract only today\'s events)'}
+${isWeek ? `Requested period: THIS WEEK (${weekRangeStr}). Extract ALL economic events from Monday ${formatDate(monday)} to Friday ${formatDate(friday)}, INCLUDING past events that already occurred this week. Even though it may be the weekend, there were events this week.` : 'Requested period: TODAY (extract only today\'s events)'}
 
 Extract ${isWeek ? 'this week\'s' : 'today\'s'} economic events from the data below. Structure them in JSON format.
-${isWeek ? '\nIMPORTANT: Include the date (field "date") for EVERY event in YYYY-MM-DD format. Do NOT leave any event without a date.' : ''}
+${isWeek ? '\nIMPORTANT: Include the date (field "date") for EVERY event in YYYY-MM-DD format. Dates must be between ' + formatDate(monday) + ' and ' + formatDate(friday) + '. Do NOT leave any event without a date.' : ''}
 
 RAW DATA:
-${allRawData}
+${rawData}
 
 Respond in the following JSON format:
 {
@@ -245,26 +277,48 @@ Respond in the following JSON format:
   "highImpactCount": number,
   "nextHighImpact": { next high impact event } or null
 }`,
-        },
-      ],
-      thinking: { type: 'disabled' },
-    });
+          },
+        ],
+        thinking: { type: 'disabled' },
+      });
 
-    const content = completion.choices[0]?.message?.content || '';
-    try {
+      const content = completion.choices[0]?.message?.content || '';
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          events: Array.isArray(parsed.events) ? parsed.events : [],
-          highImpactCount: parsed.highImpactCount || 0,
-          nextHighImpact: parsed.nextHighImpact || null,
-          updatedAt: new Date().toISOString(),
-        };
+        return Array.isArray(parsed.events) ? parsed.events : [];
       }
+      return [];
+    }
+
+    // First attempt: use all data (search + page readers)
+    let events: any[] = [];
+    try {
+      events = await parseWithLLM(allRawData);
     } catch {}
 
-    return emptyResult;
+    // Retry for weekly: if first attempt returns 0 events, try with search-only data (less noise)
+    if (isWeek && events.length === 0 && searchOnlyData) {
+      console.log('Calendar: First LLM attempt returned 0 events for weekly, retrying with search-only data...');
+      try {
+        events = await parseWithLLM(searchOnlyData);
+      } catch {}
+    }
+
+    // Compute derived fields
+    const highImpactEvents = events.filter((e: any) => (e.impact || '').toLowerCase() === 'high');
+    const highImpactCount = highImpactEvents.length;
+    const nextHighImpact = highImpactEvents.find((e: any) => {
+      if (!e.date) return false;
+      return new Date(e.date) > now;
+    }) || null;
+
+    return {
+      events,
+      highImpactCount,
+      nextHighImpact,
+      updatedAt: new Date().toISOString(),
+    };
   } catch (error) {
     console.error('Calendar API error:', error instanceof Error ? error.message : 'Unknown error');
     return { ...emptyResult, error: isFr ? 'Service temporairement indisponible' : 'Service temporarily unavailable' };

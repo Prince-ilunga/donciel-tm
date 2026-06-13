@@ -368,20 +368,26 @@ function CalendarSubTab({ language }: { language: string }) {
     return normalizedEvents.find(e => e.impact === "HIGH" && new Date(e.date) > now) || null;
   }, [normalizedEvents]);
 
-  // Week events: all events from Monday to Friday of this week (including past days)
+  // Week events: use normalizedEvents directly when period=week (API already returns correct period)
+  // For period=today fallback, filter by date range
   const weekEvents = useMemo(() => {
+    if (period === "week") {
+      // API already returns the correct events for the week - just sort them
+      return [...normalizedEvents].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+    // Fallback: filter by local date range (used when period=today but showing week view)
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+    const dayOfWeek = now.getDay();
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
     const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 5); // Monday + 5 = Saturday 00:00 (includes all Friday)
+    friday.setDate(monday.getDate() + 5);
 
     return normalizedEvents.filter((e: any) => {
       const d = new Date(e.date);
       return d >= monday && d < friday;
     }).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [normalizedEvents]);
+  }, [normalizedEvents, period]);
 
   // Today's events
   const todayEvents = useMemo(() => {
