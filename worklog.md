@@ -22,3 +22,29 @@ Stage Summary:
 - Sentiment shows different values: VIX 17.68→23.06, RISK-ON→RISK-OFF for weekly view
 - Alertes shows "Briefing Hebdomadaire" with additional risk events for weekly view
 - Statistiques shows 8 events/4 high impact for weekly vs 3 events for daily
+
+---
+Task ID: 1
+Agent: main
+Task: Fix MARCHÉ sub-tabs weekly data not passing through
+
+Work Log:
+- Read current news-tab.tsx, calendar/sentiment/briefing API routes
+- Tested APIs: Calendar returned 0 events for period=week while sentiment/briefing worked fine
+- Identified root cause: Calendar API's LLM parsing failed for weekly data due to noisy page reader data overwhelming the LLM
+- Fixed backend Calendar API:
+  - Added 3rd web search query with month name for better weekly results
+  - Reduced page reader data size (12000→8000 for ForexFactory, 10000→6000 for investing.com) to avoid LLM overload
+  - Added retry mechanism: if first LLM call returns 0 events for period=week, retry with search-only data (no page reader noise)
+  - Improved LLM prompt to explicitly include past events and date ranges for weekly period
+  - Fixed ForexFactory URL (removed ?week=this which may not work)
+- Fixed frontend CalendarSubTab:
+  - When period=week, use normalizedEvents directly instead of double-filtering by local date range
+  - The API already returns the correct period's events, so double-filtering was redundant and could cause timezone issues
+- Tested all 5 sub-tabs via browser: Calendar (5 events), Sentiment (working), Alertes (working), Statistiques (working), Analyse IA (working)
+- Pushed to GitHub
+
+Stage Summary:
+- Calendar API now returns 5 events for period=week (was 0 before)
+- All sub-tabs confirmed working with weekly data
+- Code pushed to Prince-ilunga/donciel-tm main branch
