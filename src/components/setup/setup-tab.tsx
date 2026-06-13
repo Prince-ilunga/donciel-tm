@@ -278,9 +278,6 @@ export function SetupTab() {
           </p>
         </div>
 
-        {/* Time Filter */}
-        <TimeFilterBar language={language} period={period} onPeriodChange={setPeriod} />
-
         {/* Setup Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {/* DONCIEL SETUP */}
