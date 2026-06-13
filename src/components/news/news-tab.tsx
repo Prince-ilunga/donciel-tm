@@ -53,8 +53,8 @@ const DAYS_FR: Record<string, string> = { Mon: "Lun", Tue: "Mar", Wed: "Mer", Th
 
 const barChartConfig = {
   count: {
-    label: "News",
-    color: "hsl(var(--primary))",
+    label: "Actualités",
+    color: "var(--chart-1)",
   },
 } as const;
 
@@ -524,7 +524,7 @@ export function NewsTab() {
                   />
                   <Bar
                     dataKey="count"
-                    fill="hsl(var(--primary))"
+                    fill="var(--color-count)"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={40}
                   />
