@@ -267,7 +267,7 @@ export function SetupTab() {
   // ─── Main View ────────────────────────────────────
   if (subView === "main") {
     return (
-      <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+      <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
         {/* Header */}
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground">
@@ -335,37 +335,37 @@ export function SetupTab() {
   const setupPrefix = isDonciel ? "donciel" : "custom";
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
       {/* Header with back button */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => setSubView("main")} className="gap-1">
+      <div className="flex items-center gap-2 md:gap-3 min-w-0">
+        <Button variant="ghost" size="sm" onClick={() => setSubView("main")} className="gap-1 shrink-0">
           <ArrowLeft className="w-4 h-4" />
           {t(language, "back")}
         </Button>
-        <div>
-          <h2 className="text-xl font-bold">{title}</h2>
+        <div className="min-w-0">
+          <h2 className="text-lg md:text-xl font-bold truncate">{title}</h2>
         </div>
       </div>
 
       {/* Sub-navigation buttons */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button
           variant={subView.endsWith("verification") ? "default" : "outline"}
           size="sm"
-          className="gap-2"
+          className="gap-1 sm:gap-2 text-[10px] sm:text-xs"
           onClick={() => setSubView(`${setupPrefix}-verification` as any)}
         >
-          <List className="w-4 h-4" />
-          {t(language, "doncielSetupVerification")}
+          <List className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <span className="truncate">{t(language, "doncielSetupVerification")}</span>
         </Button>
         <Button
           variant={subView.endsWith("saisie") ? "default" : "outline"}
           size="sm"
-          className="gap-2"
+          className="gap-1 sm:gap-2 text-[10px] sm:text-xs"
           onClick={() => openSaisie(isDonciel ? "donciel" : "custom")}
         >
-          <FileEdit className="w-4 h-4" />
-          {t(language, "saisieDesTrades")}
+          <FileEdit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+          <span className="truncate">{t(language, "saisieDesTrades")}</span>
         </Button>
       </div>
 

@@ -28,7 +28,7 @@ export function RoleManagementTab() {
   const isAdmin = user?.role === "admin";
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent">
@@ -42,14 +42,14 @@ export function RoleManagementTab() {
       </div>
 
       <Tabs defaultValue="individual">
-        <TabsList>
-          <TabsTrigger value="individual" className="gap-1">
-            <Users className="w-3.5 h-3.5" />
-            {t(language, "individualStats")}
+        <TabsList className="w-full">
+          <TabsTrigger value="individual" className="gap-1 text-[10px] sm:text-xs px-2 sm:px-3">
+            <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
+            <span className="truncate">{t(language, "individualStats")}</span>
           </TabsTrigger>
-          <TabsTrigger value="global" className="gap-1">
-            <Crown className="w-3.5 h-3.5" />
-            {t(language, "globalStats")}
+          <TabsTrigger value="global" className="gap-1 text-[10px] sm:text-xs px-2 sm:px-3">
+            <Crown className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
+            <span className="truncate">{t(language, "globalStats")}</span>
           </TabsTrigger>
         </TabsList>
 

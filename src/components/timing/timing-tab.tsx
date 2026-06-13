@@ -60,7 +60,7 @@ export function TimingTab() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+      <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i} className="p-4"><Skeleton className="h-64 w-full" /></Card>
@@ -120,7 +120,7 @@ export function TimingTab() {
   }));
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-foreground">

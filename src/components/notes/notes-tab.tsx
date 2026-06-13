@@ -190,7 +190,7 @@ export function NotesTab() {
   const triggeredAlerts = standaloneAlerts.filter((a: any) => a.triggered);
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

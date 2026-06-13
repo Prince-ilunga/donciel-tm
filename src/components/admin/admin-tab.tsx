@@ -135,7 +135,7 @@ export function AdminTab() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent">
@@ -147,38 +147,38 @@ export function AdminTab() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="p-4 text-center">
-          <Clock className="w-5 h-5 mx-auto text-gold mb-2" />
-          <div className="text-2xl font-bold">{users.filter(u => u.status === "pending").length || "—"}</div>
-          <div className="text-xs text-muted-foreground">{t(language, "pendingMembers")}</div>
+      <div className="grid grid-cols-3 gap-2 md:gap-3">
+        <Card className="p-3 md:p-4 text-center">
+          <Clock className="w-4 h-4 md:w-5 md:h-5 mx-auto text-gold mb-1.5" />
+          <div className="text-xl md:text-2xl font-bold">{users.filter(u => u.status === "pending").length || "—"}</div>
+          <div className="text-[10px] md:text-xs text-muted-foreground truncate">{t(language, "pendingMembers")}</div>
         </Card>
-        <Card className="p-4 text-center">
-          <UserCheck className="w-5 h-5 mx-auto text-profit mb-2" />
-          <div className="text-2xl font-bold">{users.filter(u => u.status === "approved").length || "—"}</div>
-          <div className="text-xs text-muted-foreground">{t(language, "approvedMembers")}</div>
+        <Card className="p-3 md:p-4 text-center">
+          <UserCheck className="w-4 h-4 md:w-5 md:h-5 mx-auto text-profit mb-1.5" />
+          <div className="text-xl md:text-2xl font-bold">{users.filter(u => u.status === "approved").length || "—"}</div>
+          <div className="text-[10px] md:text-xs text-muted-foreground truncate">{t(language, "approvedMembers")}</div>
         </Card>
-        <Card className="p-4 text-center">
-          <UserX className="w-5 h-5 mx-auto text-loss mb-2" />
-          <div className="text-2xl font-bold">{users.filter(u => u.status === "rejected").length || "—"}</div>
-          <div className="text-xs text-muted-foreground">{t(language, "rejectedMembers")}</div>
+        <Card className="p-3 md:p-4 text-center">
+          <UserX className="w-4 h-4 md:w-5 md:h-5 mx-auto text-loss mb-1.5" />
+          <div className="text-xl md:text-2xl font-bold">{users.filter(u => u.status === "rejected").length || "—"}</div>
+          <div className="text-[10px] md:text-xs text-muted-foreground truncate">{t(language, "rejectedMembers")}</div>
         </Card>
       </div>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid grid-cols-3 w-full max-w-md">
-          <TabsTrigger value="pending" className="gap-1">
-            <Clock className="w-3.5 h-3.5" />
-            {t(language, "pendingMembers")}
+        <TabsList className="grid grid-cols-3 w-full">
+          <TabsTrigger value="pending" className="gap-1 text-[10px] sm:text-xs px-1 sm:px-3">
+            <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
+            <span className="truncate">{t(language, "pendingMembers")}</span>
           </TabsTrigger>
-          <TabsTrigger value="approved" className="gap-1">
-            <UserCheck className="w-3.5 h-3.5" />
-            {t(language, "approvedMembers")}
+          <TabsTrigger value="approved" className="gap-1 text-[10px] sm:text-xs px-1 sm:px-3">
+            <UserCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
+            <span className="truncate">{t(language, "approvedMembers")}</span>
           </TabsTrigger>
-          <TabsTrigger value="rejected" className="gap-1">
-            <UserX className="w-3.5 h-3.5" />
-            {t(language, "rejectedMembers")}
+          <TabsTrigger value="rejected" className="gap-1 text-[10px] sm:text-xs px-1 sm:px-3">
+            <UserX className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
+            <span className="truncate">{t(language, "rejectedMembers")}</span>
           </TabsTrigger>
         </TabsList>
 
@@ -200,11 +200,11 @@ export function AdminTab() {
             ) : (
               <div className="space-y-3 mt-3">
                 {users.map((u) => (
-                  <Card key={u.id} className="p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
+                  <Card key={u.id} className="p-3 md:p-4">
+                    <div className="flex items-center justify-between gap-2 md:gap-3">
+                      <div className="flex items-center gap-2 md:gap-3 min-w-0">
                         <div className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold",
+                          "w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold",
                           u.status === "approved" && "bg-profit/10 text-profit",
                           u.status === "pending" && "bg-gold/10 text-gold",
                           u.status === "rejected" && "bg-loss/10 text-loss"
@@ -214,42 +214,42 @@ export function AdminTab() {
                         <div className="min-w-0">
                           <div className="font-semibold text-sm truncate">{u.name || "—"}</div>
                           <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Mail className="w-3 h-3" />
+                            <Mail className="w-3 h-3 shrink-0" />
                             <span className="truncate">{u.email}</span>
                           </div>
                           <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                            <Calendar className="w-3 h-3" />
+                            <Calendar className="w-3 h-3 shrink-0" />
                             {new Date(u.createdAt).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US")}
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 shrink-0">
                         {tab === "pending" && (
                           <>
-                            <Button size="sm" onClick={() => handleApprove(u.id)} className="gap-1 h-8 text-xs">
-                              <Check className="w-3.5 h-3.5" />
+                            <Button size="sm" onClick={() => handleApprove(u.id)} className="gap-1 h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3">
+                              <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                               {t(language, "approve")}
                             </Button>
-                            <Button size="sm" variant="destructive" onClick={() => handleReject(u.id)} className="gap-1 h-8 text-xs">
-                              <X className="w-3.5 h-3.5" />
+                            <Button size="sm" variant="destructive" onClick={() => handleReject(u.id)} className="gap-1 h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3">
+                              <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                               {t(language, "reject")}
                             </Button>
                           </>
                         )}
                         {tab === "approved" && (
-                          <Button size="sm" variant="ghost" onClick={() => handleDelete(u.id)} className="gap-1 h-8 text-xs text-loss">
-                            <X className="w-3.5 h-3.5" />
+                          <Button size="sm" variant="ghost" onClick={() => handleDelete(u.id)} className="gap-1 h-7 sm:h-8 text-[10px] sm:text-xs text-loss px-2 sm:px-3">
+                            <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                             {t(language, "delete")}
                           </Button>
                         )}
                         {tab === "rejected" && (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => handleApprove(u.id)} className="gap-1 h-8 text-xs">
-                              <Check className="w-3.5 h-3.5" />
+                            <Button size="sm" variant="outline" onClick={() => handleApprove(u.id)} className="gap-1 h-7 sm:h-8 text-[10px] sm:text-xs px-2 sm:px-3">
+                              <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                               {t(language, "approve")}
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => handleDelete(u.id)} className="gap-1 h-8 text-xs text-loss">
-                              <X className="w-3.5 h-3.5" />
+                            <Button size="sm" variant="ghost" onClick={() => handleDelete(u.id)} className="gap-1 h-7 sm:h-8 text-[10px] sm:text-xs text-loss px-2 sm:px-3">
+                              <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                             </Button>
                           </>
                         )}

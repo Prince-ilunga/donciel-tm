@@ -388,7 +388,7 @@ export function JournalTab() {
 
   if (loading) {
     return (
-      <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
+      <div className="p-4 md:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 lg:flex-[3]">
             <Card className="p-6">
@@ -411,7 +411,7 @@ export function JournalTab() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
+    <div className="p-4 md:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
       <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
         {/* Calendar Section (Left - 60%) */}
         <div className="flex-1 lg:flex-[3]">
