@@ -4,7 +4,8 @@ import { getAuthUser } from '@/lib/auth';
 // In-memory cache
 interface CacheEntry { data: any; timestamp: number; }
 const cache = new Map<string, CacheEntry>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes (today)
+const CACHE_DURATION_WEEK = 15 * 60 * 1000; // 15 minutes (week - changes less)
 
 // System prompts for LLM
 const CALENDAR_SYSTEM_PROMPT_FR = `Tu es DONCIEL-AI™, un analyste de calendrier économique spécialisé. Tu extrais et structures les événements économiques à partir de données brutes du web.
@@ -18,6 +19,7 @@ RÈGLES STRICTES :
 6. Associe le bon pays/drapeau à chaque événement
 7. Si des valeurs actual/forecast/previous sont disponibles, inclus-les
 8. Format de l'heure en HH:MM (heure de publication, généralement EST/ET)
+9. IMPORTANT: Inclus la date de chaque événement au format YYYY-MM-DD
 
 Tu réponds TOUJOURS au format JSON demandé, sans texte additionnel.`;
 
@@ -32,6 +34,7 @@ STRICT RULES:
 6. Associate the correct country/flag with each event
 7. If actual/forecast/previous values are available, include them
 8. Time format in HH:MM (release time, typically EST/ET)
+9. IMPORTANT: Include the date of each event in YYYY-MM-DD format
 
 You ALWAYS respond in the requested JSON format, with no additional text.`;
 
@@ -55,20 +58,32 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
     const zai = await getZAI();
 
     const isWeek = period === 'week';
-    const recencyDays = isWeek ? 7 : 1;
+    const recencyDays = isWeek ? 7 : 2;
 
-    // 1. Web search for today's and this week's economic events
+    // Compute date range for the week
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() + mondayOffset);
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 4);
+
+    const formatDate = (d: Date) => d.toISOString().split('T')[0];
+    const weekRangeStr = `${formatDate(monday)} to ${formatDate(friday)}`;
+
+    // 1. Web search for economic events
     let searchData = '';
     try {
       const searchResults = await zai.functions.invoke('web_search', {
         query: isFr
           ? isWeek
-            ? 'calendrier économique cette semaine forex factory investing.com événements'
+            ? `calendrier économique semaine ${weekRangeStr} forex factory événements indicateurs`
             : 'calendrier économique aujourd\'hui forex factory investing.com événements'
           : isWeek
-            ? 'economic calendar this week forex factory investing.com events'
+            ? `economic calendar week ${weekRangeStr} forex factory investing.com events schedule`
             : 'economic calendar today forex factory investing.com events',
-        num: 8,
+        num: 10,
         recency_days: recencyDays,
       });
 
@@ -81,43 +96,92 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
       console.error('Calendar web search error:', error instanceof Error ? error.message : 'Unknown error');
     }
 
-    // 2. Try to read ForexFactory calendar page
+    // 2. Second search with different terms for more coverage (especially for weekly)
+    let searchData2 = '';
+    if (isWeek) {
+      try {
+        const searchResults2 = await zai.functions.invoke('web_search', {
+          query: isFr
+            ? `événements économiques cette semaine CPI NFP FOMC GDP PMI ${now.getFullYear()}`
+            : `this week economic events CPI NFP FOMC GDP PMI schedule ${now.getFullYear()}`,
+          num: 8,
+          recency_days: 7,
+        });
+
+        if (Array.isArray(searchResults2)) {
+          searchData2 = searchResults2
+            .map((r: any) => `Title: ${r.title || r.name || ''}\nSnippet: ${r.snippet || r.description || ''}\nURL: ${r.url || r.link || ''}`)
+            .join('\n\n');
+        }
+      } catch (error) {
+        console.error('Calendar web search 2 error:', error instanceof Error ? error.message : 'Unknown error');
+      }
+    }
+
+    // 3. Try to read ForexFactory calendar page
     let pageData = '';
     try {
       const pageResult = await zai.functions.invoke('page_reader', {
-        url: 'https://www.forexfactory.com/calendar',
+        url: isWeek
+          ? 'https://www.forexfactory.com/calendar?week=this'
+          : 'https://www.forexfactory.com/calendar',
       });
 
       if (pageResult?.data) {
-        // Extract text content from HTML - just get the text, not raw HTML
         const html = pageResult.data.html || '';
         const title = pageResult.data.title || '';
-        // Strip HTML tags for a cleaner LLM input (limit size)
         const textContent = html
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
           .trim()
-          .substring(0, 8000);
+          .substring(0, 12000);
         pageData = `Page: ${title}\n\n${textContent}`;
       }
     } catch (error) {
       console.error('Calendar page reader error:', error instanceof Error ? error.message : 'Unknown error');
     }
 
-    // 3. Use LLM to parse and structure the events
-    if (!searchData && !pageData) {
+    // 4. Try to read investing.com calendar for weekly data
+    let investingData = '';
+    if (isWeek) {
+      try {
+        const investingResult = await zai.functions.invoke('page_reader', {
+          url: 'https://www.investing.com/economic-calendar/',
+        });
+
+        if (investingResult?.data) {
+          const html = investingResult.data.html || '';
+          const title = investingResult.data.title || '';
+          const textContent = html
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 10000);
+          investingData = `Page: ${title}\n\n${textContent}`;
+        }
+      } catch (error) {
+        console.error('Calendar investing.com reader error:', error instanceof Error ? error.message : 'Unknown error');
+      }
+    }
+
+    // 5. Use LLM to parse and structure the events
+    const allRawData = [
+      searchData ? `=== WEB SEARCH RESULTS ===\n${searchData}` : '',
+      searchData2 ? `=== ADDITIONAL SEARCH RESULTS ===\n${searchData2}` : '',
+      pageData ? `=== FOREXFACTORY CALENDAR PAGE ===\n${pageData}` : '',
+      investingData ? `=== INVESTING.COM CALENDAR ===\n${investingData}` : '',
+    ].filter(Boolean).join('\n\n');
+
+    if (!allRawData) {
       return { ...emptyResult, error: isFr ? 'Aucune donnée disponible' : 'No data available' };
     }
 
     const systemPrompt = isFr ? CALENDAR_SYSTEM_PROMPT_FR : CALENDAR_SYSTEM_PROMPT_EN;
-    const today = new Date().toISOString().split('T')[0];
-
-    const rawData = [
-      searchData ? `=== WEB SEARCH RESULTS ===\n${searchData}` : '',
-      pageData ? `=== FOREXFACTORY CALENDAR PAGE ===\n${pageData}` : '',
-    ].filter(Boolean).join('\n\n');
+    const today = formatDate(now);
 
     const completion = await zai.chat.completions.create({
       messages: [
@@ -126,17 +190,20 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
           role: 'user',
           content: isFr
             ? `Date d'aujourd'hui: ${today}
-${isWeek ? 'Période demandée: CETTE SEMAINE (extrait TOUS les événements de la semaine)' : 'Période demandée: AUJOURD\'HUI (extrait uniquement les événements du jour)'}
+Semaine en cours: ${weekRangeStr}
+${isWeek ? 'Période demandée: CETTE SEMAINE (extrait TOUS les événements du lundi au vendredi de cette semaine, y compris les événements déjà passés)' : 'Période demandée: AUJOURD\'HUI (extrait uniquement les événements du jour)'}
 
 Extrait les événements économiques${isWeek ? ' de la semaine' : ' du jour'} à partir des données ci-dessous. Structure-les au format JSON.
+${isWeek ? '\nIMPORTANT: Inclus la date (champ "date") pour CHAQUE événement au format YYYY-MM-DD. Ne laisse AUCUN événement sans date.' : ''}
 
 DONNÉES BRUTES:
-${rawData}
+${allRawData}
 
 Réponds au format JSON suivant:
 {
   "events": [
     {
+      "date": "YYYY-MM-DD",
       "time": "HH:MM",
       "currency": "USD",
       "impact": "high|medium|low",
@@ -151,17 +218,20 @@ Réponds au format JSON suivant:
   "nextHighImpact": { prochain événement high impact } ou null
 }`
             : `Today's date: ${today}
-${isWeek ? 'Requested period: THIS WEEK (extract ALL events for the week)' : 'Requested period: TODAY (extract only today\'s events)'}
+Current week: ${weekRangeStr}
+${isWeek ? 'Requested period: THIS WEEK (extract ALL events from Monday to Friday of this week, including past events)' : 'Requested period: TODAY (extract only today\'s events)'}
 
 Extract ${isWeek ? 'this week\'s' : 'today\'s'} economic events from the data below. Structure them in JSON format.
+${isWeek ? '\nIMPORTANT: Include the date (field "date") for EVERY event in YYYY-MM-DD format. Do NOT leave any event without a date.' : ''}
 
 RAW DATA:
-${rawData}
+${allRawData}
 
 Respond in the following JSON format:
 {
   "events": [
     {
+      "date": "YYYY-MM-DD",
       "time": "HH:MM",
       "currency": "USD",
       "impact": "high|medium|low",
@@ -215,7 +285,8 @@ export async function GET(request: NextRequest) {
     // Check cache
     const cacheKey = `calendar-${lang}-${period}`;
     const cached = cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    const cacheDuration = period === 'week' ? CACHE_DURATION_WEEK : CACHE_DURATION;
+    if (cached && Date.now() - cached.timestamp < cacheDuration) {
       return NextResponse.json(cached.data);
     }
 

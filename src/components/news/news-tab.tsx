@@ -319,6 +319,11 @@ function CalendarSubTab({ language }: { language: string }) {
     }
   }, [language, isFr, period]);
 
+  // Reset loading when period changes
+  useEffect(() => {
+    setLoading(true);
+  }, [period]);
+
   useEffect(() => {
     fetchCalendar();
     intervalRef.current = setInterval(fetchCalendar, 5 * 60 * 1000);
@@ -363,6 +368,30 @@ function CalendarSubTab({ language }: { language: string }) {
     return normalizedEvents.find(e => e.impact === "HIGH" && new Date(e.date) > now) || null;
   }, [normalizedEvents]);
 
+  // Week events: all events from Monday to Friday of this week (including past days)
+  const weekEvents = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+    const friday = new Date(monday);
+    friday.setDate(monday.getDate() + 5); // Monday + 5 = Saturday 00:00 (includes all Friday)
+
+    return normalizedEvents.filter((e: any) => {
+      const d = new Date(e.date);
+      return d >= monday && d < friday;
+    }).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [normalizedEvents]);
+
+  // Today's events
+  const todayEvents = useMemo(() => {
+    const now = new Date();
+    return normalizedEvents.filter((e: any) => {
+      const d = new Date(e.date);
+      return d.toDateString() === now.toDateString();
+    });
+  }, [normalizedEvents]);
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -403,23 +432,6 @@ function CalendarSubTab({ language }: { language: string }) {
 
   const highCount = normalizedEvents.filter((e: any) => e.impact === "HIGH").length;
   const mediumCount = normalizedEvents.filter((e: any) => e.impact === "MEDIUM").length;
-
-  const todayEvents = normalizedEvents.filter((e: any) => {
-    const d = new Date(e.date);
-    const now = new Date();
-    return d.toDateString() === now.toDateString();
-  });
-
-  const weekEvents = normalizedEvents.filter((e: any) => {
-    const d = new Date(e.date);
-    const now = new Date();
-    const weekEnd = new Date(now);
-    weekEnd.setDate(now.getDate() + 7);
-    return d >= now && d <= weekEnd;
-  });
-
-  // When period is "today", show only today's events; when "week", show all (which are already weekly from API)
-  const displayEvents = period === "today" ? todayEvents : normalizedEvents;
 
   return (
     <div className="space-y-4">
@@ -490,33 +502,68 @@ function CalendarSubTab({ language }: { language: string }) {
         </Card>
       )}
 
-      {/* This week's events (shown when period is week) */}
-      {period === "week" && weekEvents.length > 0 && (
-        <Card className="p-4 sm:p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <CalendarDays className="w-4 h-4 text-amber-500" />
-            <h3 className="font-bold text-sm">{isFr ? "Cette Semaine" : "This Week"}</h3>
-            <Badge variant="secondary" className="text-[10px]">{weekEvents.length}</Badge>
-          </div>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {weekEvents.map((evt: any, i: number) => (
-              <CalendarEventRow key={i} event={evt} language={language} isHighlighted={nextHighImpact?.title === evt.title} />
-            ))}
-          </div>
-        </Card>
-      )}
+      {/* This week's events (shown when period is week) - grouped by day */}
+      {period === "week" && weekEvents.length > 0 && (() => {
+        // Group events by day
+        const dayNamesFr = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+        const dayNamesEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const grouped: Record<string, any[]> = {};
+        weekEvents.forEach((evt: any) => {
+          const d = new Date(evt.date);
+          const key = d.toDateString();
+          if (!grouped[key]) grouped[key] = [];
+          grouped[key].push(evt);
+        });
+        const sortedDays = Object.keys(grouped).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        const todayStr = new Date().toDateString();
 
-      {normalizedEvents.length === 0 && (
+        return sortedDays.map(dayStr => {
+          const dayDate = new Date(dayStr);
+          const dayName = isFr ? dayNamesFr[dayDate.getDay()] : dayNamesEn[dayDate.getDay()];
+          const dayEvents = grouped[dayStr];
+          const isToday = dayStr === todayStr;
+          const isPast = dayDate < new Date(new Date().toDateString());
+          return (
+            <Card key={dayStr} className={cn(
+              "p-4 sm:p-6",
+              isToday && "border-2 border-primary/20"
+            )}>
+              <div className="flex items-center gap-2 mb-3">
+                <CalendarDays className={cn("w-4 h-4", isToday ? "text-primary" : isPast ? "text-muted-foreground" : "text-amber-500")} />
+                <h3 className={cn("font-bold text-sm", isPast && "text-muted-foreground")}>
+                  {dayName} {dayDate.getDate()}
+                </h3>
+                {isToday && <Badge className="text-[9px] gap-0.5 bg-primary/10 text-primary border-primary/20">{isFr ? "Aujourd'hui" : "Today"}</Badge>}
+                {isPast && <Badge variant="secondary" className="text-[9px]">{isFr ? "Passé" : "Past"}</Badge>}
+                <Badge variant="secondary" className="text-[10px]">{dayEvents.length}</Badge>
+              </div>
+              <div className="space-y-2">
+                {dayEvents.map((evt: any, i: number) => (
+                  <CalendarEventRow key={i} event={evt} language={language} isHighlighted={nextHighImpact?.title === evt.title} showDate={false} />
+                ))}
+              </div>
+            </Card>
+          );
+        });
+      })()}
+
+      {period === "today" && todayEvents.length === 0 && (
         <Card className="p-8 text-center">
           <CalendarClock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
-          <p className="text-sm text-muted-foreground">{isFr ? "Aucun événement économique prévu" : "No economic events scheduled"}</p>
+          <p className="text-sm text-muted-foreground">{isFr ? "Aucun événement économique prévu aujourd'hui" : "No economic events scheduled today"}</p>
+        </Card>
+      )}
+      {period === "week" && weekEvents.length === 0 && (
+        <Card className="p-8 text-center">
+          <CalendarClock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+          <p className="text-sm text-muted-foreground">{isFr ? "Aucun événement économique cette semaine" : "No economic events this week"}</p>
         </Card>
       )}
     </div>
   );
 }
 
-function CalendarEventRow({ event, language, isHighlighted }: { event: any; language: string; isHighlighted: boolean }) {
+function CalendarEventRow({ event, language, isHighlighted, showDate = false }: { event: any; language: string; isHighlighted: boolean; showDate?: boolean }) {
   const isFr = language === "fr";
   const impactDot = event.impact === "HIGH" ? "🔴" : event.impact === "MEDIUM" ? "🟡" : "🟢";
 
@@ -1052,6 +1099,11 @@ function SentimentSubTab({ language }: { language: string }) {
     }
   }, [language, isFr, period]);
 
+  // Reset loading when period changes
+  useEffect(() => {
+    setLoading(true);
+  }, [period]);
+
   useEffect(() => {
     fetchSentiment();
     intervalRef.current = setInterval(fetchSentiment, 5 * 60 * 1000);
@@ -1318,6 +1370,11 @@ function AlertsSubTab({ language }: { language: string }) {
       setLoading(false);
     }
   }, [language, isFr, period]);
+
+  // Reset loading when period changes
+  useEffect(() => {
+    setLoading(true);
+  }, [period]);
 
   useEffect(() => {
     fetchData();
@@ -1607,6 +1664,11 @@ function StatisticsSubTab({ language }: { language: string }) {
       setLoading(false);
     }
   }, [language, isFr, period]);
+
+  // Reset loading when period changes
+  useEffect(() => {
+    setLoading(true);
+  }, [period]);
 
   useEffect(() => {
     fetchAllData();

@@ -4,7 +4,8 @@ import { getAuthUser } from '@/lib/auth';
 // In-memory cache
 interface CacheEntry { data: any; timestamp: number; }
 const cache = new Map<string, CacheEntry>();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes (today)
+const CACHE_DURATION_WEEK = 10 * 60 * 1000; // 10 minutes (week - changes less)
 
 // System prompts for LLM
 const SENTIMENT_SYSTEM_PROMPT_FR = `Tu es DONCIEL-AI™, un analyste de sentiment de marché expert. Tu interprètes les données de sentiment de marché et fournis une analyse contrarienne éclairée.
@@ -255,7 +256,8 @@ export async function GET(request: NextRequest) {
     // Check cache
     const cacheKey = `sentiment-${lang}-${period}`;
     const cached = cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    const cacheDuration = period === 'week' ? CACHE_DURATION_WEEK : CACHE_DURATION;
+    if (cached && Date.now() - cached.timestamp < cacheDuration) {
       return NextResponse.json(cached.data);
     }
 
