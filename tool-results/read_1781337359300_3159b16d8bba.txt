@@ -1,0 +1,920 @@
+     1→"use client";
+     2→
+     3→import React, { useState, useCallback, useEffect, useRef } from "react";
+     4→import { useAppStore } from "@/stores/app-store";
+     5→import { t } from "@/lib/i18n";
+     6→import { useNotes } from "@/lib/hooks";
+     7→import { cn } from "@/lib/utils";
+     8→import { Card } from "@/components/ui/card";
+     9→import { Button } from "@/components/ui/button";
+    10→import { Input } from "@/components/ui/input";
+    11→import { Label } from "@/components/ui/label";
+    12→import { Textarea } from "@/components/ui/textarea";
+    13→import { Badge } from "@/components/ui/badge";
+    14→import { Skeleton } from "@/components/ui/skeleton";
+    15→import { ScrollArea } from "@/components/ui/scroll-area";
+    16→import { Separator } from "@/components/ui/separator";
+    17→import {
+    18→  Dialog,
+    19→  DialogContent,
+    20→  DialogHeader,
+    21→  DialogTitle,
+    22→  DialogDescription,
+    23→  DialogFooter,
+    24→} from "@/components/ui/dialog";
+    25→import {
+    26→  StickyNote,
+    27→  Plus,
+    28→  Edit3,
+    29→  Trash2,
+    30→  Calendar,
+    31→  Sun,
+    32→  CalendarDays,
+    33→  CalendarRange,
+    34→  Save,
+    35→  Loader2,
+    36→  Bell,
+    37→  BellRing,
+    38→  ImagePlus,
+    39→  X,
+    40→  Eye,
+    41→  ExternalLink,
+    42→  Camera,
+    43→} from "lucide-react";
+    44→import { toast } from "sonner";
+    45→import { format } from "date-fns";
+    46→import { getFileUrl } from "@/lib/storage";
+    47→
+    48→const NOTE_TYPES = [
+    49→  { id: "DAY", label_fr: "Journée de Trading", label_en: "Trading Day", icon: Sun, color: "text-gold" },
+    50→  { id: "WEEK", label_fr: "Semaine de Trading", label_en: "Trading Week", icon: CalendarDays, color: "text-primary" },
+    51→  { id: "MONTH", label_fr: "Mois de Trading", label_en: "Trading Month", icon: CalendarRange, color: "text-profit" },
+    52→];
+    53→
+    54→// ─── Alert Hook ──────────────────────────────────────────
+    55→function useAlerts() {
+    56→  const [alerts, setAlerts] = useState<any[]>([]);
+    57→  const [loading, setLoading] = useState(true);
+    58→
+    59→  const fetchAlerts = useCallback(async () => {
+    60→    setLoading(true);
+    61→    try {
+    62→      const res = await fetch("/api/alerts");
+    63→      if (res.ok) {
+    64→        const data = await res.json();
+    65→        setAlerts(data.alerts || []);
+    66→      }
+    67→    } catch {
+    68→      setAlerts([]);
+    69→    }
+    70→    setLoading(false);
+    71→  }, []);
+    72→
+    73→  return { alerts, loading, refetch: fetchAlerts };
+    74→}
+    75→
+    76→// ─── Notification Checker ────────────────────────────────
+    77→function useNotificationChecker(alerts: any[]) {
+    78→  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    79→  const triggeredRef = useRef<Set<string>>(new Set());
+    80→
+    81→  useEffect(() => {
+    82→    if (!alerts.length) return;
+    83→
+    84→    const checkAlerts = () => {
+    85→      const now = new Date();
+    86→      alerts.forEach((alert) => {
+    87→        if (alert.triggered) return;
+    88→        if (triggeredRef.current.has(alert.id)) return;
+    89→
+    90→        const alertTime = new Date(alert.alertDate);
+    91→        if (now >= alertTime) {
+    92→          triggeredRef.current.add(alert.id);
+    93→
+    94→          // Mark as triggered on server
+    95→          fetch(`/api/alerts/${alert.id}`, {
+    96→            method: "PUT",
+    97→            headers: { "Content-Type": "application/json" },
+    98→            body: JSON.stringify({ triggered: true }),
+    99→          }).catch(() => {});
+   100→
+   101→          // Show browser notification
+   102→          if ("Notification" in window) {
+   103→            if (Notification.permission === "granted") {
+   104→              new Notification("DONCIEL TM — Alerte", {
+   105→                body: alert.title + (alert.description ? `\n${alert.description}` : ""),
+   106→                icon: "/favicon.ico",
+   107→                tag: alert.id,
+   108→              });
+   109→            } else if (Notification.permission !== "denied") {
+   110→              Notification.requestPermission().then((perm) => {
+   111→                if (perm === "granted") {
+   112→                  new Notification("DONCIEL TM — Alerte", {
+   113→                    body: alert.title + (alert.description ? `\n${alert.description}` : ""),
+   114→                    icon: "/favicon.ico",
+   115→                    tag: alert.id,
+   116→                  });
+   117→                }
+   118→              });
+   119→            }
+   120→          }
+   121→        }
+   122→      });
+   123→    };
+   124→
+   125→    checkAlerts();
+   126→    intervalRef.current = setInterval(checkAlerts, 15000);
+   127→
+   128→    return () => {
+   129→      if (intervalRef.current) clearInterval(intervalRef.current);
+   130→    };
+   131→  }, [alerts]);
+   132→}
+   133→
+   134→// ─── Main Component ──────────────────────────────────────
+   135→export function NotesTab() {
+   136→  const { language } = useAppStore();
+   137→  const [activeType, setActiveType] = useState<string>("DAY");
+   138→  const { notes, loading, refetch } = useNotes(activeType);
+   139→  const { alerts, refetch: refetchAlerts } = useAlerts();
+   140→
+   141→  useNotificationChecker(alerts);
+   142→
+   143→  // Fetch on mount
+   144→  React.useEffect(() => { refetch(); refetchAlerts(); }, [refetch, refetchAlerts]);
+   145→  const [showDialog, setShowDialog] = useState(false);
+   146→  const [editingNote, setEditingNote] = useState<any>(null);
+   147→  const [viewingNote, setViewingNote] = useState<any>(null);
+   148→
+   149→  const handleDelete = async (id: string) => {
+   150→    if (!confirm(language === "fr" ? "Supprimer cette note ?" : "Delete this note?")) return;
+   151→    try {
+   152→      const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
+   153→      if (res.ok) {
+   154→        toast.success(language === "fr" ? "Note supprimée" : "Note deleted");
+   155→        refetch();
+   156→        refetchAlerts();
+   157→      }
+   158→    } catch {
+   159→      toast.error("Error");
+   160→    }
+   161→  };
+   162→
+   163→  const handleEdit = (note: any) => {
+   164→    setEditingNote(note);
+   165→    setShowDialog(true);
+   166→  };
+   167→
+   168→  const handleAdd = () => {
+   169→    setEditingNote(null);
+   170→    setShowDialog(true);
+   171→  };
+   172→
+   173→  const handleDeleteAlert = async (id: string) => {
+   174→    if (!confirm(language === "fr" ? "Supprimer cette alerte ?" : "Delete this alert?")) return;
+   175→    try {
+   176→      const res = await fetch(`/api/alerts/${id}`, { method: "DELETE" });
+   177→      if (res.ok) {
+   178→        toast.success(language === "fr" ? "Alerte supprimée" : "Alert deleted");
+   179→        refetchAlerts();
+   180→        refetch();
+   181→      }
+   182→    } catch {
+   183→      toast.error("Error");
+   184→    }
+   185→  };
+   186→
+   187→  // Standalone alerts (not linked to any note)
+   188→  const standaloneAlerts = alerts.filter((a: any) => !a.noteId);
+   189→  const pendingAlerts = standaloneAlerts.filter((a: any) => !a.triggered);
+   190→  const triggeredAlerts = standaloneAlerts.filter((a: any) => a.triggered);
+   191→
+   192→  return (
+   193→    <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
+   194→      {/* Header */}
+   195→      <div className="flex items-center justify-between">
+   196→        <div>
+   197→          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-emerald bg-clip-text text-transparent">
+   198→            {t(language, "prepNotes")}
+   199→          </h2>
+   200→          <p className="text-sm text-muted-foreground mt-1">
+   201→            {language === "fr" ? "Préparez vos sessions de trading" : "Prepare your trading sessions"}
+   202→          </p>
+   203→        </div>
+   204→        <div className="flex items-center gap-2">
+   205→          <Button
+   206→            variant="outline"
+   207→            className="gap-2"
+   208→            onClick={() => window.open("https://fr.tradingview.com/", "_blank", "noopener,noreferrer")}
+   209→          >
+   210→            <ExternalLink className="w-4 h-4" />
+   211→            <span className="hidden sm:inline">TradingView</span>
+   212→          </Button>
+   213→          <Button onClick={handleAdd} className="gap-2">
+   214→            <Plus className="w-4 h-4" />
+   215→            {t(language, "addNote")}
+   216→          </Button>
+   217→        </div>
+   218→      </div>
+   219→
+   220→      {/* TradingView Button — prominent */}
+   221→      <Card className="p-4 flex items-center justify-between bg-gradient-to-r from-primary/5 to-emerald/5 border-primary/20">
+   222→        <div className="flex items-center gap-3">
+   223→          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+   224→            <ExternalLink className="w-5 h-5 text-primary" />
+   225→          </div>
+   226→          <div>
+   227→            <h3 className="text-sm font-semibold">TradingView</h3>
+   228→            <p className="text-xs text-muted-foreground">
+   229→              {language === "fr" ? "Accéder aux graphiques en temps réel" : "Access real-time charts"}
+   230→            </p>
+   231→          </div>
+   232→        </div>
+   233→        <Button
+   234→          className="gap-2"
+   235→          onClick={() => window.open("https://fr.tradingview.com/", "_blank", "noopener,noreferrer")}
+   236→        >
+   237→          <ExternalLink className="w-4 h-4" />
+   238→          {language === "fr" ? "Ouvrir TradingView" : "Open TradingView"}
+   239→        </Button>
+   240→      </Card>
+   241→
+   242→      {/* Standalone Alerts Section */}
+   243→      {(pendingAlerts.length > 0 || triggeredAlerts.length > 0) && (
+   244→        <div className="space-y-3">
+   245→          <div className="flex items-center gap-2">
+   246→            <BellRing className="w-4 h-4 text-primary" />
+   247→            <h3 className="text-sm font-semibold">
+   248→              {language === "fr" ? "Mes Alertes" : "My Alerts"}
+   249→            </h3>
+   250→            <Badge variant="secondary" className="text-[10px]">{pendingAlerts.length}</Badge>
+   251→          </div>
+   252→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   253→            {pendingAlerts.map((alert: any) => (
+   254→              <Card key={alert.id} className="p-3 hover:border-primary/30 transition-colors">
+   255→                <div className="flex items-start justify-between gap-2">
+   256→                  <div className="flex-1 min-w-0">
+   257→                    <div className="flex items-center gap-2 mb-1">
+   258→                      <Bell className="w-3.5 h-3.5 text-primary shrink-0" />
+   259→                      <h4 className="text-sm font-semibold truncate">{alert.title}</h4>
+   260→                    </div>
+   261→                    {alert.description && (
+   262→                      <p className="text-xs text-muted-foreground line-clamp-2 mb-1">{alert.description}</p>
+   263→                    )}
+   264→                    <Badge variant="outline" className="text-[10px]">
+   265→                      <Calendar className="w-3 h-3 mr-1" />
+   266→                      {new Date(alert.alertDate).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", {
+   267→                        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+   268→                      })}
+   269→                    </Badge>
+   270→                  </div>
+   271→                  <div className="flex items-center gap-1 shrink-0">
+   272→                    <Button variant="ghost" size="icon" className="h-6 w-6 text-loss" onClick={() => handleDeleteAlert(alert.id)}>
+   273→                      <Trash2 className="w-3 h-3" />
+   274→                    </Button>
+   275→                  </div>
+   276→                </div>
+   277→              </Card>
+   278→            ))}
+   279→            {triggeredAlerts.slice(0, 3).map((alert: any) => (
+   280→              <Card key={alert.id} className="p-3 opacity-50">
+   281→                <div className="flex items-center gap-2">
+   282→                  <BellRing className="w-3.5 h-3.5 text-muted-foreground" />
+   283→                  <h4 className="text-sm font-medium line-through truncate">{alert.title}</h4>
+   284→                </div>
+   285→              </Card>
+   286→            ))}
+   287→          </div>
+   288→        </div>
+   289→      )}
+   290→
+   291→      {/* Type Tabs */}
+   292→      <div className="grid grid-cols-3 gap-3">
+   293→        {NOTE_TYPES.map((nt) => {
+   294→          const Icon = nt.icon;
+   295→          const isActive = activeType === nt.id;
+   296→          const count = notes.filter((n: any) => n.type === nt.id).length;
+   297→          return (
+   298→            <button
+   299→              key={nt.id}
+   300→              onClick={() => setActiveType(nt.id)}
+   301→              className={cn(
+   302→                "p-4 rounded-xl border-2 transition-all duration-200 text-center",
+   303→                isActive
+   304→                  ? "border-primary bg-primary/10 shadow-lg shadow-primary/10"
+   305→                  : "border-border hover:border-primary/30 bg-card"
+   306→              )}
+   307→            >
+   308→              <Icon className={cn("w-6 h-6 mx-auto mb-2", nt.color)} />
+   309→              <div className="text-sm font-semibold">
+   310→                {language === "fr" ? nt.label_fr : nt.label_en}
+   311→              </div>
+   312→              <Badge variant="secondary" className="text-[10px] mt-2">{count}</Badge>
+   313→            </button>
+   314→          );
+   315→        })}
+   316→      </div>
+   317→
+   318→      {/* Notes List */}
+   319→      {loading ? (
+   320→        <div className="space-y-3">
+   321→          {Array.from({ length: 3 }).map((_, i) => (
+   322→            <Card key={i} className="p-4"><Skeleton className="h-24 w-full" /></Card>
+   323→          ))}
+   324→        </div>
+   325→      ) : notes.length === 0 ? (
+   326→        <Card className="p-12 text-center">
+   327→          <StickyNote className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+   328→          <p className="text-muted-foreground">{t(language, "noData")}</p>
+   329→          <Button onClick={handleAdd} variant="outline" className="mt-4 gap-2">
+   330→            <Plus className="w-4 h-4" />
+   331→            {t(language, "addNote")}
+   332→          </Button>
+   333→        </Card>
+   334→      ) : (
+   335→        <div className="space-y-3">
+   336→          {notes
+   337→            .filter((n: any) => n.type === activeType)
+   338→            .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+   339→            .map((note: any) => (
+   340→              <Card key={note.id} className="p-4 hover:border-primary/30 transition-colors cursor-pointer" onClick={() => setViewingNote(note)}>
+   341→                <div className="flex items-start justify-between gap-3">
+   342→                  <div className="flex-1 min-w-0">
+   343→                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+   344→                      <h4 className="font-semibold text-sm truncate">{note.title}</h4>
+   345→                      <Badge variant="outline" className="text-[10px] shrink-0">
+   346→                        {new Date(note.date).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US")}
+   347→                      </Badge>
+   348→                      {note.screenshots?.length > 0 && (
+   349→                        <Badge variant="secondary" className="text-[10px] shrink-0 gap-1">
+   350→                          <Camera className="w-3 h-3" />
+   351→                          {note.screenshots.length}
+   352→                        </Badge>
+   353→                      )}
+   354→                      {note.alerts?.length > 0 && (
+   355→                        <Badge variant="secondary" className="text-[10px] shrink-0 gap-1">
+   356→                          <Bell className="w-3 h-3" />
+   357→                          {note.alerts.filter((a: any) => !a.triggered).length}
+   358→                        </Badge>
+   359→                      )}
+   360→                    </div>
+   361→                    <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">{note.content}</p>
+   362→                    {/* Screenshot thumbnails */}
+   363→                    {note.screenshots?.length > 0 && (
+   364→                      <div className="flex gap-2 mt-2">
+   365→                        {note.screenshots.slice(0, 3).map((ss: any) => {
+   366→                          const src = ss.url.startsWith('http') ? ss.url : `/api/screenshots/${ss.url.replace('upload/screenshots/', '')}`;
+   367→                          return (
+   368→                            <div key={ss.id} className="w-12 h-8 rounded overflow-hidden border border-border">
+   369→                              <img src={src} alt="Screenshot" className="w-full h-full object-cover" />
+   370→                            </div>
+   371→                          );
+   372→                        })}
+   373→                        {note.screenshots.length > 3 && (
+   374→                          <div className="w-12 h-8 rounded border border-border flex items-center justify-center bg-muted text-[9px] font-medium text-muted-foreground">
+   375→                            +{note.screenshots.length - 3}
+   376→                          </div>
+   377→                        )}
+   378→                      </div>
+   379→                    )}
+   380→                    {/* Alert preview */}
+   381→                    {note.alerts?.filter((a: any) => !a.triggered).length > 0 && (
+   382→                      <div className="flex items-center gap-1.5 mt-2">
+   383→                        {note.alerts.filter((a: any) => !a.triggered).map((alert: any) => (
+   384→                          <Badge key={alert.id} variant="outline" className="text-[10px] gap-1 text-primary border-primary/30">
+   385→                            <Bell className="w-3 h-3" />
+   386→                            {alert.title} — {new Date(alert.alertDate).toLocaleTimeString(language === "fr" ? "fr-FR" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+   387→                          </Badge>
+   388→                        ))}
+   389→                      </div>
+   390→                    )}
+   391→                  </div>
+   392→                  <div className="flex items-center gap-1 shrink-0">
+   393→                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); handleEdit(note); }}>
+   394→                      <Edit3 className="w-3.5 h-3.5" />
+   395→                    </Button>
+   396→                    <Button variant="ghost" size="icon" className="h-7 w-7 text-loss" onClick={(e) => { e.stopPropagation(); handleDelete(note.id); }}>
+   397→                      <Trash2 className="w-3.5 h-3.5" />
+   398→                    </Button>
+   399→                  </div>
+   400→                </div>
+   401→              </Card>
+   402→            ))}
+   403→        </div>
+   404→      )}
+   405→
+   406→      {/* View Note Dialog */}
+   407→      <Dialog open={!!viewingNote} onOpenChange={(open) => { if (!open) setViewingNote(null); }}>
+   408→        <DialogContent className="max-w-lg">
+   409→          <DialogHeader>
+   410→            <DialogTitle className="flex items-center gap-2">
+   411→              <StickyNote className="w-5 h-5 text-primary" />
+   412→              {viewingNote?.title}
+   413→            </DialogTitle>
+   414→            <DialogDescription>
+   415→              {viewingNote?.date && new Date(viewingNote.date).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+   416→            </DialogDescription>
+   417→          </DialogHeader>
+   418→          <div className="max-h-96 overflow-y-auto">
+   419→            <p className="text-sm whitespace-pre-wrap break-words">{viewingNote?.content}</p>
+   420→            {/* Alerts in view */}
+   421→            {viewingNote?.alerts?.length > 0 && (
+   422→              <div className="mt-4 space-y-2">
+   423→                <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   424→                  {language === "fr" ? "Alertes" : "Alerts"}
+   425→                </h5>
+   426→                {viewingNote.alerts.map((alert: any) => (
+   427→                  <div key={alert.id} className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
+   428→                    <Bell className={cn("w-4 h-4 shrink-0", alert.triggered ? "text-muted-foreground" : "text-primary")} />
+   429→                    <div className="flex-1 min-w-0">
+   430→                      <p className={cn("text-sm font-medium truncate", alert.triggered && "line-through text-muted-foreground")}>{alert.title}</p>
+   431→                      {alert.description && <p className="text-xs text-muted-foreground line-clamp-1">{alert.description}</p>}
+   432→                    </div>
+   433→                    <Badge variant="outline" className="text-[10px] shrink-0">
+   434→                      {new Date(alert.alertDate).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", {
+   435→                        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+   436→                      })}
+   437→                    </Badge>
+   438→                  </div>
+   439→                ))}
+   440→              </div>
+   441→            )}
+   442→            {/* Screenshots in view */}
+   443→            {viewingNote?.screenshots?.length > 0 && (
+   444→              <div className="mt-4 space-y-2">
+   445→                <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   446→                  {language === "fr" ? "Captures d'écran" : "Screenshots"}
+   447→                </h5>
+   448→                <div className="grid grid-cols-3 gap-2">
+   449→                  {viewingNote.screenshots.map((ss: any) => {
+   450→                    const src = ss.url.startsWith('http') ? ss.url : `/api/screenshots/${ss.url.replace('upload/screenshots/', '')}`;
+   451→                    return (
+   452→                      <button
+   453→                        key={ss.id}
+   454→                        className="group relative aspect-video rounded-lg overflow-hidden border border-border hover:border-primary/30 transition-colors"
+   455→                        onClick={(e) => { e.stopPropagation(); window.open(src, '_blank'); }}
+   456→                      >
+   457→                        <img src={src} alt="Screenshot" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+   458→                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+   459→                          <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+   460→                        </div>
+   461→                      </button>
+   462→                    );
+   463→                  })}
+   464→                </div>
+   465→              </div>
+   466→            )}
+   467→          </div>
+   468→          <DialogFooter>
+   469→            <Button variant="outline" onClick={() => setViewingNote(null)}>{language === "fr" ? "Fermer" : "Close"}</Button>
+   470→            <Button onClick={() => { const n = viewingNote; setViewingNote(null); handleEdit(n); }}>{language === "fr" ? "Modifier" : "Edit"}</Button>
+   471→          </DialogFooter>
+   472→        </DialogContent>
+   473→      </Dialog>
+   474→
+   475→      {/* Add/Edit Note Dialog (with integrated alert + screenshots) */}
+   476→      <NoteDialog
+   477→        open={showDialog}
+   478→        onOpenChange={setShowDialog}
+   479→        note={editingNote}
+   480→        type={activeType}
+   481→        language={language}
+   482→        onSaved={() => { refetch(); refetchAlerts(); }}
+   483→      />
+   484→    </div>
+   485→  );
+   486→}
+   487→
+   488→// ─── Note Dialog (with integrated alert + screenshots) ──────
+   489→function NoteDialog({
+   490→  open,
+   491→  onOpenChange,
+   492→  note,
+   493→  type,
+   494→  language,
+   495→  onSaved,
+   496→}: {
+   497→  open: boolean;
+   498→  onOpenChange: (open: boolean) => void;
+   499→  note: any | null;
+   500→  type: string;
+   501→  language: "fr" | "en";
+   502→  onSaved: () => void;
+   503→}) {
+   504→  const [title, setTitle] = useState("");
+   505→  const [content, setContent] = useState("");
+   506→  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
+   507→  const [noteType, setNoteType] = useState(type);
+   508→  const [isSubmitting, setIsSubmitting] = useState(false);
+   509→
+   510→  // Screenshot state - files selected before save
+   511→  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+   512→  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+   513→  const [existingScreenshots, setExistingScreenshots] = useState<any[]>([]);
+   514→  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+   515→  const fileInputRef = useRef<HTMLInputElement>(null);
+   516→
+   517→  // Alert state - integrated into note form
+   518→  const [enableAlert, setEnableAlert] = useState(false);
+   519→  const [alertTitle, setAlertTitle] = useState("");
+   520→  const [alertDescription, setAlertDescription] = useState("");
+   521→  const [alertDate, setAlertDate] = useState("");
+   522→  const [alertTime, setAlertTime] = useState("");
+   523→  const [existingAlerts, setExistingAlerts] = useState<any[]>([]);
+   524→
+   525→  React.useEffect(() => {
+   526→    if (open) {
+   527→      if (note) {
+   528→        setTitle(note.title || "");
+   529→        setContent(note.content || "");
+   530→        setDate(note.date ? format(new Date(note.date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"));
+   531→        setNoteType(note.type || type);
+   532→        setExistingScreenshots(note.screenshots || []);
+   533→        setSelectedFiles([]);
+   534→        setPreviewUrls([]);
+   535→        // Load existing alerts
+   536→        if (note.alerts?.length > 0) {
+   537→          setExistingAlerts(note.alerts);
+   538→          const firstAlert = note.alerts[0];
+   539→          setEnableAlert(true);
+   540→          setAlertTitle(firstAlert.title || "");
+   541→          setAlertDescription(firstAlert.description || "");
+   542→          const d = new Date(firstAlert.alertDate);
+   543→          setAlertDate(format(d, "yyyy-MM-dd"));
+   544→          setAlertTime(format(d, "HH:mm"));
+   545→        } else {
+   546→          setExistingAlerts([]);
+   547→          setEnableAlert(false);
+   548→          setAlertTitle("");
+   549→          setAlertDescription("");
+   550→          setAlertDate(format(new Date(), "yyyy-MM-dd"));
+   551→          setAlertTime(format(new Date(), "HH:mm"));
+   552→        }
+   553→      } else {
+   554→        setTitle("");
+   555→        setContent("");
+   556→        setDate(format(new Date(), "yyyy-MM-dd"));
+   557→        setNoteType(type);
+   558→        setExistingScreenshots([]);
+   559→        setSelectedFiles([]);
+   560→        setPreviewUrls([]);
+   561→        setEnableAlert(false);
+   562→        setAlertTitle("");
+   563→        setAlertDescription("");
+   564→        setAlertDate(format(new Date(), "yyyy-MM-dd"));
+   565→        setAlertTime(format(new Date(), "HH:mm"));
+   566→        setExistingAlerts([]);
+   567→      }
+   568→    }
+   569→  }, [open, note, type]);
+   570→
+   571→  // Request notification permission when alert is enabled
+   572→  React.useEffect(() => {
+   573→    if (open && enableAlert && "Notification" in window && Notification.permission === "default") {
+   574→      Notification.requestPermission();
+   575→    }
+   576→  }, [open, enableAlert]);
+   577→
+   578→  // Handle file selection for screenshots
+   579→  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+   580→    const files = e.target.files;
+   581→    if (!files?.length) return;
+   582→
+   583→    const newFiles = Array.from(files);
+   584→    const newUrls = newFiles.map(f => URL.createObjectURL(f));
+   585→    setSelectedFiles(prev => [...prev, ...newFiles]);
+   586→    setPreviewUrls(prev => [...prev, ...newUrls]);
+   587→
+   588→    if (fileInputRef.current) fileInputRef.current.value = "";
+   589→  };
+   590→
+   591→  // Remove a pending file
+   592→  const handleRemovePendingFile = (index: number) => {
+   593→    URL.revokeObjectURL(previewUrls[index]);
+   594→    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+   595→    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+   596→  };
+   597→
+   598→  // Remove an existing screenshot
+   599→  const handleRemoveExistingScreenshot = async (screenshotId: string) => {
+   600→    try {
+   601→      await fetch(`/api/notes/screenshots?screenshotId=${screenshotId}`, { method: "DELETE" });
+   602→      setExistingScreenshots(prev => prev.filter((s) => s.id !== screenshotId));
+   603→      toast.success(language === "fr" ? "Capture supprimée" : "Screenshot removed");
+   604→    } catch {
+   605→      toast.error("Error");
+   606→    }
+   607→  };
+   608→
+   609→  const handleSubmit = async () => {
+   610→    if (!title) {
+   611→      toast.error(language === "fr" ? "Le titre est requis" : "Title is required");
+   612→      return;
+   613→    }
+   614→
+   615→    // Validate alert fields if alert is enabled
+   616→    if (enableAlert && (!alertTitle || !alertDate || !alertTime)) {
+   617→      toast.error(language === "fr" ? "Titre et date/heure de l'alerte requis" : "Alert title and date/time required");
+   618→      return;
+   619→    }
+   620→
+   621→    // Check notification permission if alert is enabled
+   622→    if (enableAlert && "Notification" in window && Notification.permission === "default") {
+   623→      await Notification.requestPermission();
+   624→    }
+   625→
+   626→    setIsSubmitting(true);
+   627→    try {
+   628→      // 1. Save or update the note
+   629→      const body = { title, content, date, type: noteType };
+   630→      let savedNoteId: string;
+   631→
+   632→      if (note) {
+   633→        const res = await fetch(`/api/notes/${note.id}`, {
+   634→          method: "PUT",
+   635→          headers: { "Content-Type": "application/json" },
+   636→          body: JSON.stringify(body),
+   637→        });
+   638→        if (!res.ok) {
+   639→          toast.error("Error");
+   640→          setIsSubmitting(false);
+   641→          return;
+   642→        }
+   643→        savedNoteId = note.id;
+   644→      } else {
+   645→        const res = await fetch("/api/notes", {
+   646→          method: "POST",
+   647→          headers: { "Content-Type": "application/json" },
+   648→          body: JSON.stringify(body),
+   649→        });
+   650→        if (!res.ok) {
+   651→          toast.error("Error");
+   652→          setIsSubmitting(false);
+   653→          return;
+   654→        }
+   655→        const data = await res.json();
+   656→        savedNoteId = data.note.id;
+   657→      }
+   658→
+   659→      // 2. Upload selected screenshots
+   660→      if (selectedFiles.length > 0) {
+   661→        setUploadingScreenshot(true);
+   662→        for (const file of selectedFiles) {
+   663→          const formData = new FormData();
+   664→          formData.append("noteId", savedNoteId);
+   665→          formData.append("file", file);
+   666→          try {
+   667→            await fetch("/api/notes/screenshots", { method: "POST", body: formData });
+   668→          } catch {
+   669→            // Continue uploading other files even if one fails
+   670→          }
+   671→        }
+   672→        setUploadingScreenshot(false);
+   673→      }
+   674→
+   675→      // 3. Save or update alert if enabled
+   676→      if (enableAlert && alertTitle && alertDate && alertTime) {
+   677→        const alertBody = {
+   678→          title: alertTitle,
+   679→          description: alertDescription || null,
+   680→          alertDate: `${alertDate}T${alertTime}:00`,
+   681→          noteId: savedNoteId,
+   682→        };
+   683→
+   684→        // Check if there's an existing alert to update
+   685→        const existingAlert = existingAlerts[0];
+   686→        if (existingAlert) {
+   687→          await fetch(`/api/alerts/${existingAlert.id}`, {
+   688→            method: "PUT",
+   689→            headers: { "Content-Type": "application/json" },
+   690→            body: JSON.stringify(alertBody),
+   691→          });
+   692→        } else {
+   693→          await fetch("/api/alerts", {
+   694→            method: "POST",
+   695→            headers: { "Content-Type": "application/json" },
+   696→            body: JSON.stringify(alertBody),
+   697→          });
+   698→        }
+   699→      } else if (!enableAlert && existingAlerts.length > 0) {
+   700→        // If alert was disabled but existed before, delete it
+   701→        for (const a of existingAlerts) {
+   702→          await fetch(`/api/alerts/${a.id}`, { method: "DELETE" });
+   703→        }
+   704→      }
+   705→
+   706→      toast.success(note ? (language === "fr" ? "Note modifiée" : "Note updated") : (language === "fr" ? "Note ajoutée" : "Note added"));
+   707→      onOpenChange(false);
+   708→      onSaved();
+   709→    } catch {
+   710→      toast.error("Error");
+   711→    }
+   712→    setIsSubmitting(false);
+   713→  };
+   714→
+   715→  // Cleanup preview URLs on unmount
+   716→  React.useEffect(() => {
+   717→    return () => {
+   718→      previewUrls.forEach(url => URL.revokeObjectURL(url));
+   719→    };
+   720→  }, []);
+   721→
+   722→  return (
+   723→    <Dialog open={open} onOpenChange={onOpenChange}>
+   724→      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   725→        <DialogHeader>
+   726→          <DialogTitle className="flex items-center gap-2">
+   727→            <StickyNote className="w-5 h-5 text-primary" />
+   728→            {note ? t(language, "editNote") : t(language, "addNote")}
+   729→          </DialogTitle>
+   730→          <DialogDescription>
+   731→            {language === "fr" ? "Rédigez votre note de préparation" : "Write your preparation note"}
+   732→          </DialogDescription>
+   733→        </DialogHeader>
+   734→        <div className="space-y-4">
+   735→          <div className="space-y-1.5">
+   736→            <Label className="text-xs">{language === "fr" ? "Type" : "Type"}</Label>
+   737→            <div className="grid grid-cols-3 gap-2">
+   738→              {NOTE_TYPES.map((nt) => {
+   739→                const Icon = nt.icon;
+   740→                return (
+   741→                  <button
+   742→                    key={nt.id}
+   743→                    onClick={() => setNoteType(nt.id)}
+   744→                    className={cn(
+   745→                      "p-2 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1.5 justify-center",
+   746→                      noteType === nt.id ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/30"
+   747→                    )}
+   748→                  >
+   749→                    <Icon className={cn("w-3.5 h-3.5", nt.color)} />
+   750→                    {language === "fr" ? nt.label_fr.split(" ")[0] : nt.label_en.split(" ")[0]}
+   751→                  </button>
+   752→                );
+   753→              })}
+   754→            </div>
+   755→          </div>
+   756→          <div className="space-y-1.5">
+   757→            <Label className="text-xs">{language === "fr" ? "Titre" : "Title"} *</Label>
+   758→            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={language === "fr" ? "Titre de la note" : "Note title"} />
+   759→          </div>
+   760→          <div className="space-y-1.5">
+   761→            <Label className="text-xs">{t(language, "date")}</Label>
+   762→            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+   763→          </div>
+   764→          <div className="space-y-1.5">
+   765→            <Label className="text-xs">{language === "fr" ? "Contenu" : "Content"}</Label>
+   766→            <Textarea
+   767→              value={content}
+   768→              onChange={(e) => setContent(e.target.value)}
+   769→              placeholder={language === "fr" ? "Écrivez votre préparation ici..." : "Write your preparation here..."}
+   770→              rows={8}
+   771→              className="resize-y !field-sizing-fixed overflow-y-auto break-words"
+   772→            />
+   773→          </div>
+   774→
+   775→          {/* ─── Screenshot Upload ──────────────────────────── */}
+   776→          <div className="space-y-2">
+   777→            <div className="flex items-center justify-between">
+   778→              <Label className="text-xs flex items-center gap-1.5">
+   779→                <Camera className="w-3.5 h-3.5" />
+   780→                {language === "fr" ? "Captures d'écran" : "Screenshots"}
+   781→              </Label>
+   782→              <Button
+   783→                variant="outline"
+   784→                size="sm"
+   785→                className="h-7 gap-1.5 text-xs"
+   786→                onClick={() => fileInputRef.current?.click()}
+   787→                disabled={uploadingScreenshot}
+   788→              >
+   789→                {uploadingScreenshot ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImagePlus className="w-3 h-3" />}
+   790→                {language === "fr" ? "Ajouter" : "Add"}
+   791→              </Button>
+   792→              <input
+   793→                ref={fileInputRef}
+   794→                type="file"
+   795→                accept="image/*"
+   796→                multiple
+   797→                className="hidden"
+   798→                onChange={handleFileSelect}
+   799→              />
+   800→            </div>
+   801→            {/* Existing screenshots (when editing) */}
+   802→            {existingScreenshots.length > 0 && (
+   803→              <div className="grid grid-cols-3 gap-2">
+   804→                {existingScreenshots.map((ss: any) => {
+   805→                  const src = ss.url.startsWith('http') ? ss.url : `/api/screenshots/${ss.url.replace('upload/screenshots/', '')}`;
+   806→                  return (
+   807→                    <div key={ss.id} className="group relative aspect-video rounded-lg overflow-hidden border border-border">
+   808→                      <img src={src} alt="Screenshot" className="w-full h-full object-cover" />
+   809→                      <button
+   810→                        onClick={() => handleRemoveExistingScreenshot(ss.id)}
+   811→                        className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+   812→                      >
+   813→                        <X className="w-3 h-3" />
+   814→                      </button>
+   815→                    </div>
+   816→                  );
+   817→                })}
+   818→              </div>
+   819→            )}
+   820→            {/* Newly selected files (preview before upload) */}
+   821→            {previewUrls.length > 0 && (
+   822→              <div className="grid grid-cols-3 gap-2">
+   823→                {previewUrls.map((url, index) => (
+   824→                  <div key={`pending-${index}`} className="group relative aspect-video rounded-lg overflow-hidden border border-primary/30 bg-primary/5">
+   825→                    <img src={url} alt="Preview" className="w-full h-full object-cover" />
+   826→                    <button
+   827→                      onClick={() => handleRemovePendingFile(index)}
+   828→                      className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+   829→                    >
+   830→                      <X className="w-3 h-3" />
+   831→                    </button>
+   832→                  </div>
+   833→                ))}
+   834→              </div>
+   835→            )}
+   836→            {existingScreenshots.length === 0 && previewUrls.length === 0 && (
+   837→              <p className="text-[10px] text-muted-foreground text-center py-2">
+   838→                {language === "fr" ? "Cliquez sur Ajouter pour sélectionner des captures" : "Click Add to select screenshots"}
+   839→              </p>
+   840→            )}
+   841→          </div>
+   842→
+   843→          <Separator />
+   844→
+   845→          {/* ─── Alert Section ────────────────────────────── */}
+   846→          <div className="space-y-3">
+   847→            <div className="flex items-center justify-between">
+   848→              <Label className="text-xs flex items-center gap-1.5">
+   849→                <Bell className="w-3.5 h-3.5" />
+   850→                {language === "fr" ? "Alerte" : "Alert"}
+   851→              </Label>
+   852→              <button
+   853→                onClick={() => setEnableAlert(!enableAlert)}
+   854→                className={cn(
+   855→                  "relative h-5 w-9 rounded-full transition-colors",
+   856→                  enableAlert ? "bg-primary" : "bg-muted"
+   857→                )}
+   858→              >
+   859→                <span
+   860→                  className={cn(
+   861→                    "absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform shadow-sm",
+   862→                    enableAlert ? "translate-x-4" : "translate-x-0.5"
+   863→                  )}
+   864→                />
+   865→              </button>
+   866→            </div>
+   867→
+   868→            {enableAlert && (
+   869→              <div className="space-y-3 p-3 rounded-lg border border-primary/10 bg-primary/5">
+   870→                <div className="space-y-1.5">
+   871→                  <Label className="text-xs">{language === "fr" ? "Titre de l'alerte" : "Alert Title"} *</Label>
+   872→                  <Input
+   873→                    value={alertTitle}
+   874→                    onChange={(e) => setAlertTitle(e.target.value)}
+   875→                    placeholder={language === "fr" ? "Ex: News NFP à 14h30" : "Ex: NFP News at 2:30 PM"}
+   876→                  />
+   877→                </div>
+   878→                <div className="space-y-1.5">
+   879→                  <Label className="text-xs">{language === "fr" ? "Description" : "Description"}</Label>
+   880→                  <Textarea
+   881→                    value={alertDescription}
+   882→                    onChange={(e) => setAlertDescription(e.target.value)}
+   883→                    placeholder={language === "fr" ? "Détails de l'alerte..." : "Alert details..."}
+   884→                    rows={2}
+   885→                    className="resize-none"
+   886→                  />
+   887→                </div>
+   888→                <div className="grid grid-cols-2 gap-3">
+   889→                  <div className="space-y-1.5">
+   890→                    <Label className="text-xs">{language === "fr" ? "Date" : "Date"} *</Label>
+   891→                    <Input type="date" value={alertDate} onChange={(e) => setAlertDate(e.target.value)} />
+   892→                  </div>
+   893→                  <div className="space-y-1.5">
+   894→                    <Label className="text-xs">{language === "fr" ? "Heure" : "Time"} *</Label>
+   895→                    <Input type="time" value={alertTime} onChange={(e) => setAlertTime(e.target.value)} />
+   896→                  </div>
+   897→                </div>
+   898→                {"Notification" in window && Notification.permission === "denied" && (
+   899→                  <p className="text-xs text-loss">
+   900→                    {language === "fr"
+   901→                      ? "Les notifications sont bloquées par votre navigateur. Autorisez-les dans les paramètres."
+   902→                      : "Notifications are blocked by your browser. Allow them in settings."}
+   903→                  </p>
+   904→                )}
+   905→              </div>
+   906→            )}
+   907→          </div>
+   908→        </div>
+   909→        <DialogFooter>
+   910→          <Button variant="outline" onClick={() => onOpenChange(false)}>{t(language, "cancel")}</Button>
+   911→          <Button onClick={handleSubmit} disabled={isSubmitting || uploadingScreenshot}>
+   912→            {isSubmitting || uploadingScreenshot ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
+   913→            {t(language, "save")}
+   914→          </Button>
+   915→        </DialogFooter>
+   916→      </DialogContent>
+   917→    </Dialog>
+   918→  );
+   919→}
+   920→
