@@ -205,14 +205,7 @@ export function NotesTab() {
           <Button
             variant="outline"
             className="gap-2"
-            onClick={() => {
-              // Open TradingView desktop app via hidden iframe (industry standard for deep linking)
-              const iframe = document.createElement('iframe');
-              iframe.style.cssText = 'display:none;width:0;height:0;border:none;position:absolute;';
-              iframe.src = 'tradingview://';
-              document.body.appendChild(iframe);
-              setTimeout(() => { if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 3000);
-            }}
+            onClick={() => window.open("https://www.tradingview.com/chart/", "_blank")}
           >
             <ExternalLink className="w-4 h-4" />
             <span className="hidden sm:inline">TradingView</span>
@@ -225,7 +218,7 @@ export function NotesTab() {
       </div>
 
       {/* TradingView Button — prominent */}
-      <Card className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-primary/5 to-emerald/5 border-primary/20">
+      <Card className="p-4 flex items-center justify-between bg-gradient-to-r from-primary/5 to-emerald/5 border-primary/20">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <ExternalLink className="w-5 h-5 text-primary" />
@@ -233,34 +226,17 @@ export function NotesTab() {
           <div>
             <h3 className="text-sm font-semibold">TradingView</h3>
             <p className="text-xs text-muted-foreground">
-              {language === "fr" ? "Ouvrir l'application de bureau" : "Open desktop application"}
+              {language === "fr" ? "Ouvrir TradingView Chart" : "Open TradingView Chart"}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            className="gap-2"
-            onClick={() => {
-              // Open TradingView desktop app via hidden iframe (industry standard for deep linking)
-              const iframe = document.createElement('iframe');
-              iframe.style.cssText = 'display:none;width:0;height:0;border:none;position:absolute;';
-              iframe.src = 'tradingview://';
-              document.body.appendChild(iframe);
-              setTimeout(() => { if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 3000);
-            }}
-          >
-            <ExternalLink className="w-4 h-4" />
-            {language === "fr" ? "Ouvrir TradingView" : "Open TradingView"}
-          </Button>
-          <a
-            href="https://fr.tradingview.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-muted-foreground underline hover:text-foreground transition-colors whitespace-nowrap"
-          >
-            {language === "fr" ? "Site web" : "Website"}
-          </a>
-        </div>
+        <Button
+          className="gap-2"
+          onClick={() => window.open("https://www.tradingview.com/chart/", "_blank")}
+        >
+          <ExternalLink className="w-4 h-4" />
+          {language === "fr" ? "Ouvrir TradingView" : "Open TradingView"}
+        </Button>
       </Card>
 
       {/* Standalone Alerts Section */}
