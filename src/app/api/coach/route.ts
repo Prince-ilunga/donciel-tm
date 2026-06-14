@@ -278,34 +278,9 @@ export async function POST(request: NextRequest) {
     // Add current user message
     messages.push({ role: 'user', content: message });
 
-    // Call LLM — try ZAI SDK first, then fall back to public API on Vercel
-    let completion: any = null;
-    const { getZAI, isVercel, callPublicZAI } = await import('@/lib/zai');
-
-    try {
-      const zai = await getZAI();
-      completion = await zai.chat.completions.create({
-        messages,
-        thinking: { type: 'disabled' },
-      });
-    } catch (sdkError: any) {
-      console.warn('Coach: ZAI SDK failed:', sdkError?.message);
-
-      // On Vercel, the SDK may fail because internal-api.z.ai is unreachable
-      // or because the public API needs different auth headers.
-      // Fall back to direct fetch to the Z.AI public API.
-      if (isVercel()) {
-        console.log('Coach: Trying direct fetch to Z.AI public API...');
-        try {
-          completion = await callPublicZAI(messages);
-        } catch (publicApiError: any) {
-          console.error('Coach: Public API also failed:', publicApiError?.message);
-          throw publicApiError;
-        }
-      } else {
-        throw sdkError;
-      }
-    }
+    // Call LLM using unified function that works on both sandbox and Vercel
+    const { callZAI } = await import('@/lib/zai');
+    const completion = await callZAI(messages);
 
     const response = completion?.choices?.[0]?.message?.content;
 

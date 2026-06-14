@@ -1,24 +1,14 @@
 // Helper to initialize ZAI SDK with environment-aware configuration
 //
 // On the sandbox: ZAI.create() reads .z-ai-config → internal-api.z.ai (private IPs, reachable)
-// On Vercel:      VERCEL env var is set → use public API (api.z.ai/api/paas/v4)
+// On Vercel:      Uses ZAI_PROXY_URL env var to call sandbox's /api/llm-proxy endpoint
+//                 The sandbox's Next.js server proxies the request to internal-api.z.ai
 // Fallback:       Hardcoded config with internal-api.z.ai (only works on sandbox/private network)
 
 let _zaiInstance: any = null;
-let _isVercel = false;
 
 const FALLBACK_CONFIG = {
   baseUrl: 'https://internal-api.z.ai/v1',
-  apiKey: 'Z.ai',
-  chatId: 'chat-37d327cb-5893-4e17-a4a9-e4098be752b9',
-  token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMjYxODEzODMtNzcwOS00YjY1LWJkZjctMDQ3MGM3NTdhYWM0IiwiY2hhdF9pZCI6ImNoYXQtMzdkMzI3Y2ItNTg5My00ZTE3LWE0YTktZTQwOThiZTc1MmI5IiwicGxhdGZvcm0iOiJ6YWkifQ.Y0FAcnkiB6qvQ5dPZgGdL7npfip_pYCxx_wYhwMAocw',
-  userId: '26181383-7709-4b65-bdf7-0470c757aac4',
-};
-
-export const ZAI_PUBLIC_CONFIG = {
-  // Z.AI public API — documented at https://docs.z.ai
-  // Path: /api/paas/v4/chat/completions (NOT /v1/chat/completions)
-  baseUrl: 'https://api.z.ai/api/paas/v4',
   apiKey: 'Z.ai',
   chatId: 'chat-37d327cb-5893-4e17-a4a9-e4098be752b9',
   token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMjYxODEzODMtNzcwOS00YjY1LWJkZjctMDQ3MGM3NTdhYWM0IiwiY2hhdF9pZCI6ImNoYXQtMzdkMzI3Y2ItNTg5My00ZTE3LWE0YTktZTQwOThiZTc1MmI5IiwicGxhdGZvcm0iOiJ6YWkifQ.Y0FAcnkiB6qvQ5dPZgGdL7npfip_pYCxx_wYhwMAocw',
@@ -38,6 +28,7 @@ export async function getZAI() {
 
     // Strategy 1: Try env vars (for Vercel with env vars configured)
     if (process.env.ZAI_BASE_URL && process.env.ZAI_API_KEY) {
+      console.log('[ZAI] Using env var config');
       _zaiInstance = new ZAI({
         baseUrl: process.env.ZAI_BASE_URL,
         apiKey: process.env.ZAI_API_KEY,
@@ -48,13 +39,14 @@ export async function getZAI() {
       return _zaiInstance;
     }
 
-    // Strategy 2: On Vercel (public cloud), use public API endpoint
-    // internal-api.z.ai resolves to private IPs (172.25.x.x) unreachable from Vercel
+    // Strategy 2: On Vercel, we cannot use the SDK directly (internal-api unreachable)
+    // The caller should use callSandboxProxy() instead
     if (process.env.VERCEL) {
-      console.log('[ZAI] Detected Vercel environment — using public API (api.z.ai/api/paas/v4)');
-      _isVercel = true;
-      _zaiInstance = new ZAI(ZAI_PUBLIC_CONFIG);
-      return _zaiInstance;
+      console.log('[ZAI] Vercel detected — SDK cannot reach internal-api.z.ai, use callSandboxProxy()');
+      // Return a dummy instance that will fail — caller must handle this
+      // by falling back to callSandboxProxy()
+      _zaiInstance = null;
+      return null;
     }
 
     // Strategy 3: Try file-based config (local dev / sandbox)
@@ -73,32 +65,73 @@ export async function getZAI() {
 }
 
 /**
- * Direct fetch to the Z.AI public API — fallback for Vercel where the SDK's
- * default headers (Authorization: Bearer Z.ai) don't work with the public endpoint.
- * The public API at api.z.ai/api/paas/v4 expects a JWT Bearer token.
+ * Call the ZAI LLM API through the sandbox proxy.
+ *
+ * On Vercel, internal-api.z.ai is unreachable (private IPs).
+ * The sandbox runs a Next.js server with /api/llm-proxy that
+ * forwards requests to internal-api.z.ai using the ZAI SDK.
+ *
+ * This function calls that proxy endpoint through the Caddy gateway.
+ *
+ * Required env var: ZAI_PROXY_URL (e.g., http://8.212.10.159:81)
  */
-export async function callPublicZAI(messages: { role: string; content: string }[]): Promise<any> {
-  const url = 'https://api.z.ai/api/paas/v4/chat/completions';
-  const token = ZAI_PUBLIC_CONFIG.token;
+export async function callSandboxProxy(messages: { role: string; content: string }[]): Promise<any> {
+  const proxyUrl = process.env.ZAI_PROXY_URL;
+  if (!proxyUrl) {
+    throw new Error('ZAI_PROXY_URL not configured. Set it to the sandbox URL (e.g., http://YOUR_SANDBOX_IP:81)');
+  }
+
+  const url = `${proxyUrl}/api/llm-proxy`;
+
+  console.log(`[ZAI Proxy] Calling sandbox proxy at ${url}`);
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'glm-4-plus',
       messages,
       thinking: { type: 'disabled' },
     }),
-    signal: AbortSignal.timeout(120000),
+    signal: AbortSignal.timeout(120000), // 2 min timeout for LLM responses
   });
 
   if (!response.ok) {
     const errorBody = await response.text();
-    throw new Error(`ZAI Public API error (${response.status}): ${errorBody}`);
+    throw new Error(`Sandbox proxy error (${response.status}): ${errorBody}`);
   }
 
-  return await response.json();
+  const data = await response.json();
+
+  // The /api/llm-proxy route returns the raw ZAI SDK response
+  // which has the same format as chat.completions.create()
+  return data;
+}
+
+/**
+ * Unified LLM call that works on both sandbox and Vercel.
+ *
+ * - On sandbox/local: Uses the ZAI SDK directly
+ * - On Vercel: Uses callSandboxProxy() to route through the sandbox
+ */
+export async function callZAI(messages: { role: string; content: string }[]): Promise<any> {
+  // On Vercel, use the sandbox proxy
+  if (process.env.VERCEL) {
+    try {
+      return await callSandboxProxy(messages);
+    } catch (proxyError: any) {
+      console.error('[ZAI] Sandbox proxy failed:', proxyError?.message);
+      throw proxyError;
+    }
+  }
+
+  // On sandbox/local, use the ZAI SDK directly
+  const zai = await getZAI();
+  if (!zai) {
+    throw new Error('ZAI SDK not initialized');
+  }
+
+  return await zai.chat.completions.create({
+    messages,
+    thinking: { type: 'disabled' },
+  });
 }
