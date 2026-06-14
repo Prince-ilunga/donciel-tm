@@ -278,14 +278,52 @@ export async function POST(request: NextRequest) {
     // Add current user message
     messages.push({ role: 'user', content: message });
 
-    // Use z-ai-web-dev-sdk (same as market routes — works on Vercel)
-    const { getZAI } = await import('@/lib/zai');
-    const zai = await getZAI();
+    // Call LLM — try ZAI SDK first (works from internal network / sandbox),
+    // then fall back to LLM proxy through Caddy gateway (works from Vercel)
+    let completion: any = null;
 
-    const completion = await zai.chat.completions.create({
-      messages,
-      thinking: { type: 'disabled' },
-    });
+    // Strategy 1: ZAI SDK (works from internal network)
+    try {
+      const { getZAI } = await import('@/lib/zai');
+      const zai = await getZAI();
+      completion = await zai.chat.completions.create({
+        messages,
+        thinking: { type: 'disabled' },
+      });
+    } catch (sdkError: any) {
+      console.warn('ZAI SDK failed, trying LLM proxy:', sdkError?.message);
+
+      // Strategy 2: LLM proxy through Caddy gateway (works from Vercel)
+      const PROXY_URLS = [
+        'http://localhost:3030/chat/completions',
+        'https://47.57.242.119:81/chat/completions?XTransformPort=3030',
+      ];
+
+      for (const proxyUrl of PROXY_URLS) {
+        try {
+          const proxyResponse = await fetch(proxyUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages, thinking: { type: 'disabled' } }),
+            signal: AbortSignal.timeout(60000),
+          });
+
+          if (!proxyResponse.ok) continue;
+          completion = await proxyResponse.json();
+          break;
+        } catch {
+          continue;
+        }
+      }
+    }
+
+    if (!completion) {
+      throw new Error(
+        language === 'fr'
+          ? 'Impossible de contacter le serveur IA. Veuillez réessayer.'
+          : 'Unable to reach the AI server. Please try again.'
+      );
+    }
 
     const response = completion.choices[0]?.message?.content;
 
