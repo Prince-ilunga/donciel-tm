@@ -5,104 +5,123 @@
  * so they call this proxy through the Caddy gateway instead.
  *
  * Port: 3030
+ * Run from project root: node mini-services/llm-proxy/index.ts
  */
 
-import fs from "fs";
-import path from "path";
-import os from "os";
-
-const PORT = 3030;
+const http = require("http");
+const https = require("https");
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
 
 // ──────────────────── Load LLM Config ────────────────────
 function loadLLMConfig() {
   const configPaths = [
     path.join(process.cwd(), '.z-ai-config'),
+    path.join(process.cwd(), '..', '..', '.z-ai-config'),
     path.join(os.homedir(), '.z-ai-config'),
-    '/etc/.z-ai-config'
+    '/etc/.z-ai-config',
   ];
   for (const filePath of configPaths) {
     try {
       const configStr = fs.readFileSync(filePath, 'utf-8');
       const config = JSON.parse(configStr);
       if (config.baseUrl && config.apiKey) {
+        console.log(`[llm-proxy] Config loaded from ${filePath}`);
         return config;
       }
     } catch {}
   }
-  throw new Error('LLM config not found');
+  throw new Error('[llm-proxy] LLM config not found');
 }
 
-// ──────────────────── Bun Server ────────────────────
-const server = Bun.serve({
-  port: PORT,
-  idleTimeout: 255,
-  async fetch(req) {
-    const url = new URL(req.url);
+const CONFIG = loadLLMConfig();
+const PORT = 3030;
 
-    // CORS preflight
-    if (req.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      });
-    }
+// ──────────────────── HTTP Server ────────────────────
+const server = http.createServer((req: any, res: any) => {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-    // Health check
-    if (req.method === "GET" && url.pathname === "/health") {
-      return Response.json({ status: "ok", service: "llm-proxy" });
-    }
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
 
-    // Proxy chat completion requests
-    if (req.method === "POST" && url.pathname === "/chat/completions") {
+  const url = new URL(req.url, `http://localhost:${PORT}`);
+
+  // Health check
+  if (req.method === 'GET' && url.pathname === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', service: 'llm-proxy', baseUrl: CONFIG.baseUrl }));
+    return;
+  }
+
+  // Proxy chat completion requests
+  if (req.method === 'POST' && url.pathname === '/chat/completions') {
+    let body = '';
+    req.on('data', (chunk: string) => { body += chunk; });
+    req.on('end', () => {
       try {
-        const config = loadLLMConfig();
-        const body = await req.json();
+        const parsed = JSON.parse(body);
+        const requestBody = { ...parsed, thinking: parsed.thinking || { type: 'disabled' } };
 
-        const apiUrl = `${config.baseUrl}/chat/completions`;
+        const apiUrl = `${CONFIG.baseUrl}/chat/completions`;
         const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${config.apiKey}`,
-          "X-Z-AI-From": "Z",
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${CONFIG.apiKey}`,
+          'X-Z-AI-From': 'Z',
         };
-        if (config.chatId) headers["X-Chat-Id"] = config.chatId;
-        if (config.userId) headers["X-User-Id"] = config.userId;
-        if (config.token) headers["X-Token"] = config.token;
+        if (CONFIG.chatId) headers['X-Chat-Id'] = CONFIG.chatId;
+        if (CONFIG.userId) headers['X-User-Id'] = CONFIG.userId;
+        if (CONFIG.token) headers['X-Token'] = CONFIG.token;
 
-        const requestBody = {
-          ...body,
-          thinking: body.thinking || { type: "disabled" },
-        };
+        const postData = JSON.stringify(requestBody);
+        headers['Content-Length'] = String(Buffer.byteLength(postData));
 
-        console.log(`[llm-proxy] Proxying request to ${apiUrl} (${(JSON.stringify(requestBody.messages).length / 1024).toFixed(1)}KB)`);
+        console.log(`[llm-proxy] Proxying to ${apiUrl} (${(postData.length / 1024).toFixed(1)}KB)`);
 
-        const response = await fetch(apiUrl, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(requestBody),
+        const urlObj = new URL(apiUrl);
+        const mod = urlObj.protocol === 'https:' ? https : http;
+
+        const proxyReq = mod.request(apiUrl, { method: 'POST', headers }, (proxyRes: any) => {
+          let data = '';
+          proxyRes.on('data', (chunk: string) => { data += chunk; });
+          proxyRes.on('end', () => {
+            console.log(`[llm-proxy] Response: ${proxyRes.statusCode} (${(data.length / 1024).toFixed(1)}KB)`);
+            res.writeHead(proxyRes.statusCode, { 'Content-Type': 'application/json' });
+            res.end(data);
+          });
         });
 
-        if (!response.ok) {
-          const errorBody = await response.text();
-          console.error(`[llm-proxy] API error ${response.status}: ${errorBody.substring(0, 200)}`);
-          return Response.json({ error: `LLM API error ${response.status}` }, { status: response.status });
-        }
+        proxyReq.on('error', (err: Error) => {
+          console.error(`[llm-proxy] Proxy error: ${err.message}`);
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        });
 
-        const result = await response.json();
-        console.log(`[llm-proxy] Response received (${(JSON.stringify(result).length / 1024).toFixed(1)}KB)`);
-
-        return Response.json(result);
-      } catch (error: any) {
-        console.error("[llm-proxy] Error:", error.message);
-        return Response.json({ error: error.message }, { status: 500 });
+        proxyReq.write(postData);
+        proxyReq.end();
+      } catch (err: any) {
+        console.error(`[llm-proxy] Handler error: ${err.message}`);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
       }
-    }
+    });
+    return;
+  }
 
-    return Response.json({ error: "Not found" }, { status: 404 });
-  },
+  res.writeHead(404, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ error: 'Not found' }));
 });
 
-console.log(`[llm-proxy] Running on port ${PORT} — proxying to internal-api.z.ai`);
+process.on('uncaughtException', (err: Error) => {
+  console.error(`[llm-proxy] UNCAUGHT: ${err.message}`);
+});
+
+server.listen(PORT, () => {
+  console.log(`[llm-proxy] Running on port ${PORT} — proxying to ${CONFIG.baseUrl}`);
+});
