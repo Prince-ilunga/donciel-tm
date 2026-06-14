@@ -278,96 +278,13 @@ export async function POST(request: NextRequest) {
     // Add current user message
     messages.push({ role: 'user', content: message });
 
-    // Call LLM with multiple fallback strategies for maximum compatibility
-    // Strategy 1: ZAI SDK (works from internal network / sandbox)
-    // Strategy 2: Public ZAI API (works from Vercel — public IPs)
-    // Strategy 3: Sandbox proxy through Caddy gateway (backup for Vercel)
-    let completion: any = null;
-
-    // Strategy 1: ZAI SDK (works locally where internal-api.z.ai is reachable)
-    try {
-      const { getZAI } = await import('@/lib/zai');
-      const zai = await getZAI();
-      completion = await zai.chat.completions.create({
-        messages,
-        thinking: { type: 'disabled' },
-      });
-    } catch (sdkError: any) {
-      console.warn('Coach: ZAI SDK failed:', sdkError?.message);
-
-      // ZAI API config for direct fetch fallback (same config as SDK fallback)
-      const LLM_CONFIG = {
-        baseUrl: 'https://api.z.ai/v1',
-        internalUrl: 'https://internal-api.z.ai/v1',
-        apiKey: 'Z.ai',
-        chatId: 'chat-37d327cb-5893-4e17-a4a9-e4098be752b9',
-        token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMjYxODEzODMtNzcwOS00YjY1LWJkZjctMDQ3MGM3NTdhYWM0IiwiY2hhdF9pZCI6ImNoYXQtMzdkMzI3Y2ItNTg5My00ZTE3LWE0YTktZTQwOThiZTc1MmI5IiwicGxhdGZvcm0iOiJ6YWkifQ.Y0FAcnkiB6qvQ5dPZgGdL7npfip_pYCxx_wYhwMAocw',
-        userId: '26181383-7709-4b65-bdf7-0470c757aac4',
-      };
-
-      const llmHeaders: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LLM_CONFIG.apiKey}`,
-        'X-Z-AI-From': 'Z',
-        'X-Chat-Id': LLM_CONFIG.chatId,
-        'X-User-Id': LLM_CONFIG.userId,
-        'X-Token': LLM_CONFIG.token,
-      };
-
-      const requestBody = JSON.stringify({
-        messages,
-        thinking: { type: 'disabled' },
-      });
-
-      // Strategy 2: Public ZAI API (api.z.ai resolves to public IPs — reachable from Vercel)
-      try {
-        const publicResponse = await fetch(`${LLM_CONFIG.baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: llmHeaders,
-          body: requestBody,
-          signal: AbortSignal.timeout(60000),
-        });
-        if (publicResponse.ok) {
-          completion = await publicResponse.json();
-          console.log('Coach: Public API (api.z.ai) succeeded');
-        } else {
-          console.warn('Coach: Public API returned', publicResponse.status);
-        }
-      } catch (publicError: any) {
-        console.warn('Coach: Public API failed:', publicError?.message);
-      }
-
-      // Strategy 3: Sandbox LLM proxy route through Caddy gateway (backup for Vercel)
-      // The sandbox's Next.js server can reach internal-api.z.ai, so we call
-      // its /api/llm-proxy route through the Caddy gateway
-      if (!completion) {
-        const SANDBOX_PROXY = 'http://47.57.242.119:81/api/llm-proxy';
-        try {
-          const proxyResponse = await fetch(SANDBOX_PROXY, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: requestBody,
-            signal: AbortSignal.timeout(60000),
-          });
-          if (proxyResponse.ok) {
-            completion = await proxyResponse.json();
-            console.log('Coach: Sandbox proxy succeeded');
-          } else {
-            console.warn('Coach: Sandbox proxy returned', proxyResponse.status);
-          }
-        } catch (proxyError: any) {
-          console.warn('Coach: Sandbox proxy failed:', proxyError?.message);
-        }
-      }
-    }
-
-    if (!completion) {
-      throw new Error(
-        language === 'fr'
-          ? 'Impossible de contacter le serveur IA. Veuillez réessayer.'
-          : 'Unable to reach the AI server. Please try again.'
-      );
-    }
+    // Call LLM via ZAI SDK — same pattern as news/briefing routes
+    const { getZAI } = await import('@/lib/zai');
+    const zai = await getZAI();
+    const completion = await zai.chat.completions.create({
+      messages,
+      thinking: { type: 'disabled' },
+    });
 
     const response = completion.choices[0]?.message?.content;
 
