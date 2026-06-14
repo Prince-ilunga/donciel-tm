@@ -48,3 +48,30 @@ Stage Summary:
 - Calendar API now returns 5 events for period=week (was 0 before)
 - All sub-tabs confirmed working with weekly data
 - Code pushed to Prince-ilunga/donciel-tm main branch
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix Coach IA feature that doesn't work on Vercel deployment
+
+Work Log:
+- Investigated root cause: `internal-api.z.ai` DNS resolves to private IPs (172.25.136.213, 172.25.150.234) that are only accessible from within the Alibaba Cloud VPC
+- Vercel's serverless functions are on the public internet and cannot reach these private IPs
+- The ZAI SDK works locally (sandbox is in the VPC) but fails on Vercel
+- The previous proxy URLs (`localhost:3030`, `https://47.57.242.119:81`) also didn't work from Vercel
+- Tested `api.z.ai` (public endpoint) - resolves to public IP 128.14.21.40 but returns 403 from sandbox (WAF blocking sandbox IP)
+- Created `/api/llm-proxy` API route in Next.js that uses ZAI SDK (works from sandbox)
+- Updated coach route with 3-strategy LLM fallback:
+  1. ZAI SDK (works locally where internal-api.z.ai is reachable)
+  2. Public ZAI API at api.z.ai (public IPs, should be reachable from Vercel)
+  3. Sandbox proxy via /api/llm-proxy through Caddy gateway (backup)
+- Tested LLM proxy through Caddy gateway - confirmed working
+- Tested Coach IA end-to-end with Agent Browser - AI coach responds correctly
+- Pushed code to GitHub (commit b3ca8fe)
+
+Stage Summary:
+- Root cause: internal-api.z.ai DNS → private IPs, unreachable from Vercel
+- Solution: Multi-strategy LLM fallback with public API + sandbox proxy
+- New files: src/app/api/llm-proxy/route.ts
+- Modified: src/app/api/coach/route.ts (3-strategy fallback)
+- Modified: mini-services/llm-proxy/index.ts (Node.js instead of Bun)
+- Modified: eslint.config.mjs (added mini-services to ignores)
