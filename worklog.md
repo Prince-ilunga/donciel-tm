@@ -87,3 +87,34 @@ Stage Summary:
 - Fix: Added RSS-based fallback (investing.com feeds) to all 3 routes, same pattern as working /api/news
 - Statistiques sub-tab works because it uses calendar + sentiment + briefing APIs (all now have fallbacks)
 - All other functionality preserved and tested
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Fix 4 Marché tab issues: Calendar week data, event interpretation, French language, asset-specific views
+
+Work Log:
+- Analyzed user's 4 requests: Calendar week data, event details, French language, asset-specific views
+- Updated 3 API routes (calendar, sentiment, briefing) with RSS-based fallback enhancements
+- Calendar route: Added FRENCH_EVENT_TRANSLATIONS, event interpretation/direction/impactedPairs logic, asset query param, fixed week filtering
+- Sentiment route: Added ASSET_KEYWORD_MAP, asset-specific sentiment computation, fixed French labels (NEUTRE, confiance levels)
+- Briefing route: Added ASSET_BRIEFING_DATA, asset-specific briefing (key levels, scenario adjustment), French translations
+- Updated news-tab.tsx frontend:
+  - Added asset selectors (Tous/XAUUSD/EURUSD/GBPUSD/US30/US100) to Calendar, Sentiment, Alerts sub-tabs
+  - Enhanced CalendarEventRow with expandable details (interpretation, direction, impacted pairs)
+  - Added asset-specific display cards for each sub-tab
+  - Fixed normalized events to include interpretation/direction/impactedPairs fields
+  - Fixed displayEvents useMemo to normalize assetEvents properly
+- Tested with agent browser: all features working
+  - Calendar expansion shows interpretation (French), direction (HAUSSIER/BAISSIER/NEUTRE), impacted pairs
+  - Week data shows events grouped by day
+  - Asset selectors visible and functional across all sub-tabs
+  - French language respected throughout
+- Lint passes with no errors
+- Pushed to GitHub: commit fe93439
+
+Stage Summary:
+- All 4 user requests implemented and tested
+- Calendar now shows week data, expandable event details with interpretation/direction/pairs
+- All Marché sub-tabs display in French when language is French
+- Asset selectors (Tous/XAUUSD/EURUSD/GBPUSD/US30/US100) added to Calendar, Sentiment, Alerts
