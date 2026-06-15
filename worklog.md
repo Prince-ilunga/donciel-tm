@@ -49,3 +49,41 @@ Stage Summary:
 - BILAN section added as third tab in Role Management with professional color-coded layout
 - API endpoint /api/stats/bilan provides classified configuration analysis
 - All other functionality preserved and tested
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Fix 4 broken Marché sub-tabs (Calendrier, Sentiment, Alertes, Statistiques)
+
+Work Log:
+- Analyzed uploaded screenshot showing Marché tab with 5 sub-tabs
+- Investigated codebase: all 3 API routes (calendar, sentiment, briefing) rely 100% on ZAI SDK
+- ZAI SDK works in sandbox but fails on Vercel deployment (private network)
+- "Analyse IA" works because /api/news has RSS-based fallback from investing.com
+- Added RSS-based fallback to /api/market/calendar/route.ts:
+  - Fetches from investing.com RSS feeds (feeds 1, 14, 11)
+  - Keyword-based event classification (high/medium/low impact)
+  - Currency detection from title text
+  - Period filtering (today/week)
+- Added RSS-based fallback to /api/market/sentiment/route.ts:
+  - Fetches from investing.com RSS feeds (feeds 1, 14, 25)
+  - Keyword-based Fear & Greed scoring (bullish/bearish word counting)
+  - VIX estimation from news context
+  - Smart Money vs Retail divergence detection
+  - Contrarian signal generation
+- Added RSS-based fallback to /api/market/briefing/route.ts:
+  - Fetches from investing.com RSS feeds (feeds 1, 11, 14, 25)
+  - Asian market news detection
+  - Sentiment-driven briefing generation
+  - Scenario probability calculation
+  - Risk event extraction from news
+- All routes: ZAI SDK tried first, RSS fallback when SDK unavailable
+- Tested with agent browser: all 5 sub-tabs now work (Calendrier shows 5 events)
+- Lint passes with no errors
+- Pushed to GitHub: commit 25583b4
+
+Stage Summary:
+- Root cause: Calendar/Sentiment/Briefing routes had no fallback when ZAI SDK unavailable
+- Fix: Added RSS-based fallback (investing.com feeds) to all 3 routes, same pattern as working /api/news
+- Statistiques sub-tab works because it uses calendar + sentiment + briefing APIs (all now have fallbacks)
+- All other functionality preserved and tested
