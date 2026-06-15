@@ -22,3 +22,30 @@ Stage Summary:
 - Solution: On Vercel, route LLM requests through the sandbox's /api/llm-proxy endpoint via Caddy gateway
 - User needs to set ZAI_PROXY_URL env var on Vercel (e.g., http://8.212.10.159:81)
 - Modified files: src/lib/zai.ts, src/app/api/coach/route.ts
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Remove Coach IA tab and add BILAN section to Role Management
+
+Work Log:
+- Removed Coach IA tab from main-app.tsx navigation (import, navItems, renderTab switch)
+- Removed 'coach' from TabId type in app-store.ts
+- Removed coachTab i18n entries from both fr and en translations
+- Added BILAN i18n entries (bestConfigs, avgConfigs, weakConfigs, etc.) in fr and en
+- Created /api/stats/bilan/route.ts with smart classification algorithm
+- Classification: Composite score (60% winRate + 40% normalized avgRR), top 33% = best, bottom 33% = weak
+- Override rules: winRate >= 60% and avgRR > 0 → best; winRate < 30% → weak
+- Analyzes 10 dimensions: Paire, Direction, Session, Condition, Timeframe, Setup, Structure, Modèle, Durée, Timing
+- Added BilanSection component with 3-tier display (emerald/amber/red color coding)
+- Added summary cards showing counts for each tier
+- Added BilanTierCard component with grouped categories, progress bars, and detailed metrics
+- Tested with Agent Browser: all tabs work, BILAN displays correctly
+- Lint passes with no errors
+- Pushed to GitHub: commit 7e790f2
+
+Stage Summary:
+- Coach IA tab fully removed from UI, store, routing, and i18n
+- BILAN section added as third tab in Role Management with professional color-coded layout
+- API endpoint /api/stats/bilan provides classified configuration analysis
+- All other functionality preserved and tested
