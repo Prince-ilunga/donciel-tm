@@ -192,7 +192,7 @@ function BilanSection({ language }: { language: "fr" | "en" }) {
         <Card className="p-4 border-emerald-500/20 bg-emerald-500/5">
           <div className="flex items-center gap-2 mb-1">
             <Award className="w-4 h-4 text-emerald-500" />
-            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+            <span className="text-[10px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase leading-tight min-w-0 break-words">
               {t(language, "bestConfigs")}
             </span>
           </div>
@@ -202,7 +202,7 @@ function BilanSection({ language }: { language: "fr" | "en" }) {
         <Card className="p-4 border-amber-500/20 bg-amber-500/5">
           <div className="flex items-center gap-2 mb-1">
             <Minus className="w-4 h-4 text-amber-500" />
-            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+            <span className="text-[10px] sm:text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase leading-tight min-w-0 break-words">
               {t(language, "avgConfigs")}
             </span>
           </div>
@@ -212,7 +212,7 @@ function BilanSection({ language }: { language: "fr" | "en" }) {
         <Card className="p-4 border-red-500/20 bg-red-500/5">
           <div className="flex items-center gap-2 mb-1">
             <AlertTriangle className="w-4 h-4 text-red-500" />
-            <span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
+            <span className="text-[10px] sm:text-xs font-semibold text-red-600 dark:text-red-400 uppercase leading-tight min-w-0 break-words">
               {t(language, "weakConfigs")}
             </span>
           </div>
