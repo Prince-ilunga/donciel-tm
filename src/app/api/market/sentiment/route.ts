@@ -11,6 +11,84 @@ const CACHE_DURATION_WEEK = 10 * 60 * 1000; // 10 minutes (week - changes less)
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
 
 // ──────────────────────────────────────────────────────
+// Asset-specific sentiment keyword maps
+// ──────────────────────────────────────────────────────
+
+const ASSET_KEYWORD_MAP: Record<string, { bullish: string[]; bearish: string[]; keywords: string[] }> = {
+  XAUUSD: {
+    bullish: ['gold rally', 'gold surge', 'gold rise', 'safe haven', 'inflation hedge', 'gold bullish', 'gold support', 'gold climb'],
+    bearish: ['gold drop', 'gold fall', 'gold decline', 'gold selloff', 'gold bearish', 'dollar strength', 'rate hike', 'higher rates', 'gold plunge'],
+    keywords: ['gold', 'xau', 'fed', 'inflation', 'dollar', 'rate', 'safe haven', 'treasury', 'yields'],
+  },
+  EURUSD: {
+    bullish: ['euro rally', 'euro surge', 'euro rise', 'ecb hawkish', 'euro strength', 'dollar weak', 'eur bullish'],
+    bearish: ['euro drop', 'euro fall', 'euro decline', 'ecb dovish', 'dollar strength', 'euro zone crisis', 'eur bearish'],
+    keywords: ['euro', 'ecb', 'dollar', 'eur', 'fed', 'rate', 'inflation', 'germany', 'eu'],
+  },
+  GBPUSD: {
+    bullish: ['pound rally', 'pound surge', 'pound rise', 'boe hawkish', 'uk growth', 'pound strength', 'gbp bullish'],
+    bearish: ['pound drop', 'pound fall', 'pound decline', 'boe dovish', 'uk recession', 'brexit', 'gbp bearish'],
+    keywords: ['pound', 'boe', 'bank of england', 'uk', 'britain', 'sterling', 'gbp', 'rate'],
+  },
+  US30: {
+    bullish: ['dow rally', 'dow surge', 'dow rise', 'stock rally', 'earnings beat', 'bull market', 'dow record', 'blue chip rally'],
+    bearish: ['dow drop', 'dow fall', 'stock selloff', 'earnings miss', 'bear market', 'dow decline', 'recession', 'crash'],
+    keywords: ['dow', 'stock', 'earnings', 'fed', 'rate', 'blue chip', 'industrial', 'market'],
+  },
+  US100: {
+    bullish: ['nasdaq rally', 'nasdaq surge', 'tech rally', 'ai boom', 'tech earnings beat', 'nasdaq record', 'growth stock rally'],
+    bearish: ['nasdaq drop', 'nasdaq fall', 'tech selloff', 'ai bubble', 'tech earnings miss', 'growth stock decline', 'nasdaq decline'],
+    keywords: ['nasdaq', 'tech', 'ai ', 'semiconductor', 'growth', 'fed', 'rate', 'earnings'],
+  },
+};
+
+function computeAssetSentiment(text: string, asset: string, lang: string): {
+  direction: string;
+  confidence: string;
+  interpretation: string;
+} | null {
+  const isFr = lang === 'fr';
+  const map = ASSET_KEYWORD_MAP[asset.toUpperCase()];
+  if (!map) return null;
+
+  const lowerText = text.toLowerCase();
+
+  let bullScore = 0;
+  let bearScore = 0;
+  map.bullish.forEach(w => { const matches = lowerText.match(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')); if (matches) bullScore += matches.length * 2; });
+  map.bearish.forEach(w => { const matches = lowerText.match(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')); if (matches) bearScore += matches.length * 2; });
+
+  // Also count general bullish/bearish words when asset keywords are present nearby
+  const generalBullish = ['rally', 'surge', 'gain', 'rise', 'bullish', 'recovery', 'optimism', 'boost', 'jump', 'climb', 'strong', 'higher'];
+  const generalBearish = ['crash', 'selloff', 'fear', 'decline', 'bearish', 'recession', 'slump', 'tumble', 'plunge', 'drop', 'fall', 'weak', 'lower'];
+
+  // Check if any asset keyword is present
+  const hasAssetKeyword = map.keywords.some(kw => lowerText.includes(kw));
+  if (hasAssetKeyword) {
+    generalBullish.forEach(w => { const matches = lowerText.match(new RegExp(w, 'gi')); if (matches) bullScore += matches.length; });
+    generalBearish.forEach(w => { const matches = lowerText.match(new RegExp(w, 'gi')); if (matches) bearScore += matches.length; });
+  }
+
+  const totalSignals = bullScore + bearScore;
+  const direction = bullScore > bearScore * 1.3 ? 'LONG' : bearScore > bullScore * 1.3 ? 'SHORT' : 'NEUTRE';
+  const confidence = totalSignals > 8 ? (isFr ? 'élevée' : 'high') : totalSignals > 4 ? (isFr ? 'moyenne' : 'medium') : (isFr ? 'faible' : 'low');
+
+  const dirLabel = direction === 'LONG'
+    ? (isFr ? 'haussier' : 'bullish')
+    : direction === 'SHORT'
+    ? (isFr ? 'baissier' : 'bearish')
+    : (isFr ? 'neutre' : 'neutral');
+
+  const interpretation = totalSignals === 0
+    ? (isFr ? `Données insuffisantes pour déterminer le sentiment sur ${asset}.` : `Insufficient data to determine sentiment for ${asset}.`)
+    : isFr
+    ? `Le sentiment sur ${asset} est ${dirLabel} avec une confiance ${confidence}. ${direction === 'LONG' ? "Les signaux d'achat dominent." : direction === 'SHORT' ? "Les signaux de vente dominent." : "Les signaux sont équilibrés."} (${bullScore} signaux haussiers, ${bearScore} signaux baissiers)`
+    : `Sentiment on ${asset} is ${dirLabel} with ${confidence} confidence. ${direction === 'LONG' ? 'Buying signals dominate.' : direction === 'SHORT' ? 'Selling signals dominate.' : 'Signals are balanced.'} (${bullScore} bullish, ${bearScore} bearish signals)`;
+
+  return { direction, confidence, interpretation };
+}
+
+// ──────────────────────────────────────────────────────
 // RSS fallback (works without ZAI SDK)
 // ──────────────────────────────────────────────────────
 
@@ -73,28 +151,34 @@ function analyzeSentimentFromNews(titles: string[], lang: string): {
     ? (isFr ? 'Volatilité modérée — prudence recommandée' : 'Moderate volatility — caution recommended')
     : (isFr ? 'Volatilité basse — marché calme' : 'Low volatility — calm market');
 
-  // Smart money vs retail estimation
-  const smartMoneyDir = bullScore > bearScore * 1.3 ? 'LONG' : bearScore > bullScore * 1.3 ? 'SHORT' : 'NEUTRAL';
-  const retailDir = bullScore > bearScore * 1.5 ? 'LONG' : bearScore > bullScore * 1.5 ? 'SHORT' : 'NEUTRAL';
-  const smartMoneyConf = totalSignals > 8 ? 'high' : totalSignals > 4 ? 'medium' : 'low';
-  const retailConf = totalSignals > 10 ? 'high' : totalSignals > 5 ? 'medium' : 'low';
+  // Smart money vs retail estimation — use French labels when lang=fr
+  const smartMoneyDirRaw = bullScore > bearScore * 1.3 ? 'LONG' : bearScore > bullScore * 1.3 ? 'SHORT' : 'NEUTRAL';
+  const retailDirRaw = bullScore > bearScore * 1.5 ? 'LONG' : bearScore > bullScore * 1.5 ? 'SHORT' : 'NEUTRAL';
+  const smartMoneyConf = totalSignals > 8 ? (isFr ? 'élevée' : 'high') : totalSignals > 4 ? (isFr ? 'moyenne' : 'medium') : (isFr ? 'faible' : 'low');
+  const retailConf = totalSignals > 10 ? (isFr ? 'élevée' : 'high') : totalSignals > 5 ? (isFr ? 'moyenne' : 'medium') : (isFr ? 'faible' : 'low');
 
-  // Contrarian signal
-  let contrarianSignal = isFr
-    ? 'Données insuffisantes pour un signal contrarien fiable'
-    : 'Insufficient data for a reliable contrarian signal';
-  if (smartMoneyDir !== retailDir && smartMoneyDir !== 'NEUTRAL' && retailDir !== 'NEUTRAL') {
+  // Use French direction labels when lang=fr
+  const smartMoneyDir = smartMoneyDirRaw === 'NEUTRAL' && isFr ? 'NEUTRE' : smartMoneyDirRaw;
+  const retailDir = retailDirRaw === 'NEUTRAL' && isFr ? 'NEUTRE' : retailDirRaw;
+
+  // Contrarian signal — always fully in the requested language
+  let contrarianSignal: string;
+  if (smartMoneyDir !== retailDir && smartMoneyDirRaw !== 'NEUTRAL' && retailDirRaw !== 'NEUTRAL') {
     contrarianSignal = isFr
       ? `Divergence détectée : Smart Money ${smartMoneyDir} vs Retail ${retailDir} — le suivi Smart Money est recommandé`
-      : `Divergence detected: Smart Money ${smartMoneyDir} vs Retail ${retailDir} — following Smart Money is recommended`;
-  } else if (retailDir === 'LONG' && fearGreedValue > 65) {
+      : `Divergence detected: Smart Money ${smartMoneyDirRaw} vs Retail ${retailDirRaw} — following Smart Money is recommended`;
+  } else if (retailDirRaw === 'LONG' && fearGreedValue > 65) {
     contrarianSignal = isFr
       ? 'Cupidité excessive détectée — prudence, correction possible'
       : 'Excessive greed detected — caution, correction possible';
-  } else if (retailDir === 'SHORT' && fearGreedValue < 35) {
+  } else if (retailDirRaw === 'SHORT' && fearGreedValue < 35) {
     contrarianSignal = isFr
       ? 'Peur excessive détectée — opportunité d\'achat potentielle'
       : 'Excessive fear detected — potential buying opportunity';
+  } else {
+    contrarianSignal = isFr
+      ? 'Données insuffisantes pour un signal contrarien fiable'
+      : 'Insufficient data for a reliable contrarian signal';
   }
 
   // Overall sentiment
@@ -110,9 +194,13 @@ function analyzeSentimentFromNews(titles: string[], lang: string): {
     ? (isFr ? 'baissier' : 'bearish')
     : (isFr ? 'neutre' : 'neutral');
 
+  const smartMoneyConfLabel = smartMoneyConf; // Already in correct language
+  const noContrarianFr = 'Aucun signal contrarien significatif détecté.';
+  const noContrarianEn = 'No significant contrarian signal detected.';
+
   const interpretation = isFr
-    ? `Le sentiment de marché est actuellement ${direction} avec un Fear & Greed Index à ${fearGreedValue}/100. ${fearGreedValue >= 55 ? "L'appétit pour le risque est présent" : fearGreedValue <= 45 ? "L'aversion au risque domine" : "Le marché est dans une zone d'incertitude"}. Le VIX est estimé à ${vixValue}, indiquant ${vixValue > 25 ? "une volatilité élevée" : vixValue > 20 ? "une volatilité modérée" : "des conditions calmes"}. ${smartMoneyDir !== 'NEUTRAL' ? `Les institutionnels sont positionnés ${smartMoneyDir} avec une confiance ${smartMoneyConf === 'high' ? 'élevée' : smartMoneyConf === 'medium' ? 'moyenne' : 'faible'}` : "Les positions institutionnelles sont neutres"}. ${contrarianSignal !== 'Insufficient data for a reliable contrarian signal' && contrarianSignal !== 'Données insuffisantes pour un signal contrarien fiable' ? contrarianSignal : 'Aucun signal contrarien significatif détecté.'}`
-    : `Market sentiment is currently ${direction} with a Fear & Greed Index at ${fearGreedValue}/100. ${fearGreedValue >= 55 ? "Risk appetite is present" : fearGreedValue <= 45 ? "Risk aversion dominates" : "The market is in a zone of uncertainty"}. VIX is estimated at ${vixValue}, indicating ${vixValue > 25 ? "high volatility" : vixValue > 20 ? "moderate volatility" : "calm conditions"}. ${smartMoneyDir !== 'NEUTRAL' ? `Institutionals are positioned ${smartMoneyDir} with ${smartMoneyConf} confidence` : "Institutional positions are neutral"}. ${contrarianSignal !== 'Insufficient data for a reliable contrarian signal' ? contrarianSignal : 'No significant contrarian signal detected.'}`;
+    ? `Le sentiment de marché est actuellement ${direction} avec un Fear & Greed Index à ${fearGreedValue}/100. ${fearGreedValue >= 55 ? "L'appétit pour le risque est présent" : fearGreedValue <= 45 ? "L'aversion au risque domine" : "Le marché est dans une zone d'incertitude"}. Le VIX est estimé à ${vixValue}, indiquant ${vixValue > 25 ? "une volatilité élevée" : vixValue > 20 ? "une volatilité modérée" : "des conditions calmes"}. ${smartMoneyDirRaw !== 'NEUTRAL' ? `Les institutionnels sont positionnés ${smartMoneyDir} avec une confiance ${smartMoneyConfLabel}` : "Les positions institutionnelles sont neutres"}. ${contrarianSignal !== 'Données insuffisantes pour un signal contrarien fiable' ? contrarianSignal : noContrarianFr}`
+    : `Market sentiment is currently ${direction} with a Fear & Greed Index at ${fearGreedValue}/100. ${fearGreedValue >= 55 ? "Risk appetite is present" : fearGreedValue <= 45 ? "Risk aversion dominates" : "The market is in a zone of uncertainty"}. VIX is estimated at ${vixValue}, indicating ${vixValue > 25 ? "high volatility" : vixValue > 20 ? "moderate volatility" : "calm conditions"}. ${smartMoneyDirRaw !== 'NEUTRAL' ? `Institutionals are positioned ${smartMoneyDirRaw} with ${smartMoneyConf} confidence` : "Institutional positions are neutral"}. ${contrarianSignal !== 'Insufficient data for a reliable contrarian signal' ? contrarianSignal : noContrarianEn}`;
 
   return {
     fearGreed: { value: fearGreedValue, label: fearGreedLabel, trend: fearGreedTrend },
@@ -176,6 +264,8 @@ RÈGLES STRICTES :
 7. Le signal contrarien est le plus important quand retail et smart money divergent
 8. overallSentiment doit être un des : "RISK-ON", "RISK-OFF", "NEUTRAL"
 9. Fournis une interprétation complète et actionnable
+10. Les champs direction doivent utiliser "LONG", "SHORT" ou "NEUTRE" (en français)
+11. Les champs confidence doivent être en français : "élevée", "moyenne", "faible"
 
 Tu réponds TOUJOURS au format JSON demandé, sans texte additionnel.`;
 
@@ -210,8 +300,8 @@ async function fetchSentimentWithZAI(lang: string, period: string): Promise<{
   const fallbackResult = {
     fearGreed: { value: 50, label: isFr ? 'Neutre' : 'Neutral', trend: 'stable' },
     vix: { value: 0, trend: 'stable', interpretation: isFr ? 'Données non disponibles' : 'Data unavailable' },
-    smartMoney: { direction: 'NEUTRAL', confidence: 'low' },
-    retail: { direction: 'NEUTRAL', confidence: 'low' },
+    smartMoney: { direction: isFr ? 'NEUTRE' : 'NEUTRAL', confidence: isFr ? 'faible' : 'low' },
+    retail: { direction: isFr ? 'NEUTRE' : 'NEUTRAL', confidence: isFr ? 'faible' : 'low' },
     contrarianSignal: isFr ? 'Données insuffisantes' : 'Insufficient data',
     overallSentiment: 'NEUTRAL',
     interpretation: isFr ? 'Données temporairement indisponibles.' : 'Data temporarily unavailable.',
@@ -291,13 +381,13 @@ ${combinedData}
 
 Réponds au format JSON suivant:
 {
-  "fearGreed": { "value": nombre 0-100, "label": "Extreme Fear|Fear|Neutral|Greed|Extreme Greed", "trend": "rising|declining|stable" },
-  "vix": { "value": nombre, "trend": "rising|declining|stable", "interpretation": "interprétation courte" },
-  "smartMoney": { "direction": "LONG|SHORT|NEUTRAL", "confidence": "high|medium|low" },
-  "retail": { "direction": "LONG|SHORT|NEUTRAL", "confidence": "high|medium|low" },
-  "contrarianSignal": "Signal contrarien",
+  "fearGreed": { "value": nombre 0-100, "label": "Peur Extrême|Peur|Neutre|Cupidité Modérée|Cupidité", "trend": "rising|declining|stable" },
+  "vix": { "value": nombre, "trend": "rising|declining|stable", "interpretation": "interprétation courte en français" },
+  "smartMoney": { "direction": "LONG|SHORT|NEUTRE", "confidence": "élevée|moyenne|faible" },
+  "retail": { "direction": "LONG|SHORT|NEUTRE", "confidence": "élevée|moyenne|faible" },
+  "contrarianSignal": "Signal contrarien en français",
   "overallSentiment": "RISK-ON|RISK-OFF|NEUTRAL",
-  "interpretation": "Interprétation complète"
+  "interpretation": "Interprétation complète en français"
 }`
             : `Analyze the following market sentiment data and provide a complete interpretation.
 
@@ -348,7 +438,7 @@ Respond in the following JSON format:
 // Main fetch with fallback chain: ZAI SDK → RSS
 // ──────────────────────────────────────────────────────
 
-async function fetchSentimentData(lang: string, period: string = 'today'): Promise<{
+async function fetchSentimentData(lang: string, period: string = 'today', asset?: string): Promise<{
   fearGreed: { value: number; label: string; trend: string };
   vix: { value: number; trend: string; interpretation: string };
   smartMoney: { direction: string; confidence: string };
@@ -356,6 +446,7 @@ async function fetchSentimentData(lang: string, period: string = 'today'): Promi
   contrarianSignal: string;
   overallSentiment: string;
   interpretation: string;
+  assetSentiment?: { direction: string; confidence: string; interpretation: string };
   updatedAt: string;
   error?: string;
 }> {
@@ -364,8 +455,8 @@ async function fetchSentimentData(lang: string, period: string = 'today'): Promi
   const fallbackResult = {
     fearGreed: { value: 50, label: isFr ? 'Neutre' : 'Neutral', trend: 'stable' },
     vix: { value: 0, trend: 'stable', interpretation: isFr ? 'Données non disponibles' : 'Data unavailable' },
-    smartMoney: { direction: 'NEUTRAL', confidence: 'low' },
-    retail: { direction: 'NEUTRAL', confidence: 'low' },
+    smartMoney: { direction: isFr ? 'NEUTRE' : 'NEUTRAL', confidence: isFr ? 'faible' : 'low' },
+    retail: { direction: isFr ? 'NEUTRE' : 'NEUTRAL', confidence: isFr ? 'faible' : 'low' },
     contrarianSignal: isFr ? 'Données insuffisantes pour un signal contrarien' : 'Insufficient data for contrarian signal',
     overallSentiment: 'NEUTRAL',
     interpretation: isFr ? 'Données de sentiment temporairement indisponibles. Veuillez réessayer dans quelques minutes.' : 'Sentiment data temporarily unavailable. Please try again in a few minutes.',
@@ -375,7 +466,18 @@ async function fetchSentimentData(lang: string, period: string = 'today'): Promi
   // 1. Try ZAI SDK first
   const zaiResult = await fetchSentimentWithZAI(lang, period);
   if (zaiResult) {
-    return zaiResult;
+    const result: any = { ...zaiResult };
+    // Compute asset-specific sentiment if asset is provided
+    if (asset) {
+      // Fetch RSS titles for asset-specific analysis
+      try {
+        const titles = await fetchSentimentRSS();
+        if (titles.length > 0) {
+          result.assetSentiment = computeAssetSentiment(titles.join(' '), asset, lang);
+        }
+      } catch {}
+    }
+    return result;
   }
 
   // 2. Fallback: RSS feeds + keyword analysis
@@ -384,17 +486,30 @@ async function fetchSentimentData(lang: string, period: string = 'today'): Promi
     const titles = await fetchSentimentRSS();
     if (titles.length > 0) {
       const analysis = analyzeSentimentFromNews(titles, lang);
-      return {
+      const result: any = {
         ...analysis,
         updatedAt: new Date().toISOString(),
       };
+      // Add asset-specific sentiment if requested
+      if (asset) {
+        result.assetSentiment = computeAssetSentiment(titles.join(' '), asset, lang);
+      }
+      return result;
     }
   } catch (error) {
     console.error('Sentiment RSS fallback error:', error instanceof Error ? error.message : 'Unknown error');
   }
 
   // 3. Both failed
-  return { ...fallbackResult, error: isFr ? 'Aucune donnée de sentiment disponible' : 'No sentiment data available' };
+  const failResult: any = { ...fallbackResult, error: isFr ? 'Aucune donnée de sentiment disponible' : 'No sentiment data available' };
+  if (asset) {
+    failResult.assetSentiment = {
+      direction: isFr ? 'NEUTRE' : 'NEUTRAL',
+      confidence: isFr ? 'faible' : 'low',
+      interpretation: isFr ? `Données insuffisantes pour ${asset}.` : `Insufficient data for ${asset}.`,
+    };
+  }
+  return failResult;
 }
 
 export async function GET(request: NextRequest) {
@@ -407,16 +522,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const lang = searchParams.get('lang') === 'en' ? 'en' : 'fr';
     const period = searchParams.get('period') === 'week' ? 'week' : 'today';
+    const asset = searchParams.get('asset') || undefined;
 
     // Check cache
-    const cacheKey = `sentiment-${lang}-${period}`;
+    const cacheKey = `sentiment-${lang}-${period}${asset ? `-${asset}` : ''}`;
     const cached = cache.get(cacheKey);
     const cacheDuration = period === 'week' ? CACHE_DURATION_WEEK : CACHE_DURATION;
     if (cached && Date.now() - cached.timestamp < cacheDuration) {
       return NextResponse.json(cached.data);
     }
 
-    const data = await fetchSentimentData(lang, period);
+    const data = await fetchSentimentData(lang, period, asset);
 
     cache.set(cacheKey, { data, timestamp: Date.now() });
     return NextResponse.json(data);
@@ -425,13 +541,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Erreur lors de la récupération du sentiment',
-        fearGreed: { value: 50, label: 'Neutral', trend: 'stable' },
-        vix: { value: 0, trend: 'stable', interpretation: 'Unavailable' },
-        smartMoney: { direction: 'NEUTRAL', confidence: 'low' },
-        retail: { direction: 'NEUTRAL', confidence: 'low' },
-        contrarianSignal: 'Unavailable',
+        fearGreed: { value: 50, label: 'Neutre', trend: 'stable' },
+        vix: { value: 0, trend: 'stable', interpretation: 'Non disponible' },
+        smartMoney: { direction: 'NEUTRE', confidence: 'faible' },
+        retail: { direction: 'NEUTRE', confidence: 'faible' },
+        contrarianSignal: 'Non disponible',
         overallSentiment: 'NEUTRAL',
-        interpretation: 'Sentiment data temporarily unavailable.',
+        interpretation: 'Données de sentiment temporairement indisponibles.',
         updatedAt: new Date().toISOString(),
       },
       { status: 500 }

@@ -303,11 +303,13 @@ function CalendarSubTab({ language }: { language: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodFilter>("today");
+  const [activeAsset, setActiveAsset] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchCalendar = useCallback(async () => {
     try {
-      const res = await fetch(`/api/market/calendar?lang=${language}&period=${period}`);
+      const assetParam = activeAsset ? `&asset=${activeAsset}` : '';
+      const res = await fetch(`/api/market/calendar?lang=${language}&period=${period}${assetParam}`);
       if (!res.ok) throw new Error("Fetch failed");
       const data = await res.json();
       setCalendarData(data);
@@ -317,12 +319,12 @@ function CalendarSubTab({ language }: { language: string }) {
     } finally {
       setLoading(false);
     }
-  }, [language, isFr, period]);
+  }, [language, isFr, period, activeAsset]);
 
-  // Reset loading when period changes
+  // Reset loading when period or asset changes
   useEffect(() => {
     setLoading(true);
-  }, [period]);
+  }, [period, activeAsset]);
 
   useEffect(() => {
     fetchCalendar();
@@ -358,6 +360,9 @@ function CalendarSubTab({ language }: { language: string }) {
         forecast: evt.forecast || null,
         previous: evt.previous || null,
         actual: evt.actual || null,
+        interpretation: evt.interpretation || null,
+        direction: evt.direction || null,
+        impactedPairs: evt.impactedPairs || [],
       };
     });
   }, [calendarData]);
@@ -397,6 +402,44 @@ function CalendarSubTab({ language }: { language: string }) {
       return d.toDateString() === now.toDateString();
     });
   }, [normalizedEvents]);
+
+  // Merge assetEvents + general events when asset is selected
+  const displayEvents = useMemo(() => {
+    if (activeAsset && calendarData?.assetEvents?.length > 0) {
+      // Normalize asset events the same way as general events
+      const today = new Date();
+      const assetEvts = calendarData.assetEvents.map((evt: any) => {
+        let eventDate: Date;
+        if (evt.date) {
+          eventDate = new Date(evt.date);
+        } else if (evt.time) {
+          const [h, m] = (evt.time || "").split(":").map(Number);
+          eventDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), h || 0, m || 0);
+        } else {
+          eventDate = today;
+        }
+        return {
+          title: evt.event || evt.title || "",
+          date: eventDate.toISOString(),
+          time: evt.time || "",
+          currency: (evt.currency || "").toUpperCase(),
+          impact: (evt.impact || "low").toUpperCase(),
+          countryFlag: evt.country || "🌍",
+          forecast: evt.forecast || null,
+          previous: evt.previous || null,
+          actual: evt.actual || null,
+          interpretation: evt.interpretation || null,
+          direction: evt.direction || null,
+          impactedPairs: evt.impactedPairs || [],
+        };
+      });
+      const generalEvts = normalizedEvents.filter((e: any) =>
+        !assetEvts.some((ae: any) => ae.title === e.title)
+      );
+      return { assetEvents: assetEvts, generalEvents: generalEvts };
+    }
+    return { assetEvents: [], generalEvents: normalizedEvents };
+  }, [activeAsset, calendarData, normalizedEvents]);
 
   if (loading) {
     return (
@@ -443,6 +486,40 @@ function CalendarSubTab({ language }: { language: string }) {
     <div className="space-y-4">
       {/* Period Filter */}
       <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+
+      {/* Asset Selector */}
+      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+        <button
+          onClick={() => setActiveAsset(null)}
+          className={cn(
+            "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+            !activeAsset
+              ? "border-primary bg-primary/10 shadow-sm"
+              : "border-border hover:border-primary/30 bg-card"
+          )}
+        >
+          <div className="text-sm sm:text-lg">🌍</div>
+          <div className="text-[8px] sm:text-[10px] font-bold">{isFr ? "Tous" : "All"}</div>
+        </button>
+        {ASSETS.map((asset) => {
+          const isActive = activeAsset === asset.id;
+          return (
+            <button
+              key={asset.id}
+              onClick={() => setActiveAsset(isActive ? null : asset.id)}
+              className={cn(
+                "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+                isActive
+                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-sm"
+                  : "border-border hover:border-primary/30 bg-card"
+              )}
+            >
+              <div className="text-sm sm:text-lg">{asset.emoji}</div>
+              <div className="text-[7px] sm:text-[10px] font-bold">{asset.id}</div>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
@@ -571,7 +648,9 @@ function CalendarSubTab({ language }: { language: string }) {
 
 function CalendarEventRow({ event, language, isHighlighted, showDate = false }: { event: any; language: string; isHighlighted: boolean; showDate?: boolean }) {
   const isFr = language === "fr";
+  const [expanded, setExpanded] = useState(false);
   const impactDot = event.impact === "HIGH" ? "🔴" : event.impact === "MEDIUM" ? "🟡" : "🟢";
+  const impactLevel = (event.impact || "").toUpperCase();
 
   const timeStr = event.time
     || (event.date
@@ -581,37 +660,117 @@ function CalendarEventRow({ event, language, isHighlighted, showDate = false }: 
         )
       : "--:--");
 
+  // Direction display
+  const direction = event.direction || "";
+  const isUp = direction.includes("HAUSS") || direction.includes("BULL");
+  const isDown = direction.includes("BAISS") || direction.includes("BEAR");
+
+  // Impacted pairs
+  const impactedPairs: string[] = event.impactedPairs || [];
+
   return (
     <div className={cn(
-      "flex items-center gap-3 p-2.5 rounded-lg border transition-all",
+      "rounded-lg border transition-all",
       isHighlighted
         ? "border-loss/30 bg-loss/5"
         : "border-border hover:border-primary/20 hover:bg-primary/5"
     )}>
-      <span className="text-[10px] font-mono text-muted-foreground w-12 shrink-0">{timeStr}</span>
-      <span className="text-xs">{event.countryFlag || "🌍"}</span>
-      <span className="text-[10px] font-bold w-10 shrink-0 text-center">{event.currency || ""}</span>
-      <span className="text-xs">{impactDot}</span>
-      <div className="flex-1 min-w-0">
-        <h4 className="text-xs font-medium line-clamp-1">{event.title}</h4>
+      {/* Main row - always visible */}
+      <div className="flex items-center gap-3 p-2.5 cursor-pointer" onClick={() => setExpanded(!expanded)}>
+        <span className="text-[10px] font-mono text-muted-foreground w-12 shrink-0">{timeStr}</span>
+        <span className="text-xs">{event.countryFlag || "🌍"}</span>
+        <span className="text-[10px] font-bold w-10 shrink-0 text-center">{event.currency || ""}</span>
+        <span className="text-xs">{impactDot}</span>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-xs font-medium line-clamp-1">{event.title}</h4>
+        </div>
+        {direction && (
+          <span className={cn(
+            "text-[10px] font-bold shrink-0",
+            isUp && "text-profit",
+            isDown && "text-loss",
+            !isUp && !isDown && "text-amber-500"
+          )}>
+            {isUp ? "▲" : isDown ? "▼" : "●"} {direction}
+          </span>
+        )}
+        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+          {event.actual && (
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-profit/30 text-profit">
+              {isFr ? "Act." : "Act"} {event.actual}
+            </Badge>
+          )}
+          {event.forecast && (
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+              {isFr ? "Prév." : "Fcst"} {event.forecast}
+            </Badge>
+          )}
+        </div>
+        <span className="text-muted-foreground text-[10px]">{expanded ? "▲" : "▼"}</span>
       </div>
-      <div className="hidden sm:flex items-center gap-2 shrink-0">
-        {event.actual && (
-          <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-profit/30 text-profit">
-            {isFr ? "Act." : "Act"} {event.actual}
-          </Badge>
-        )}
-        {event.forecast && (
-          <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-            {isFr ? "Prév." : "Fcst"} {event.forecast}
-          </Badge>
-        )}
-        {event.previous && (
-          <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
-            {isFr ? "Préc." : "Prev"} {event.previous}
-          </Badge>
-        )}
-      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="px-3 pb-3 pt-1 space-y-2 border-t border-border/50">
+          {/* Interpretation */}
+          {event.interpretation && (
+            <div className="flex items-start gap-2">
+              <Brain className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+              <p className="text-[11px] text-muted-foreground leading-relaxed">{event.interpretation}</p>
+            </div>
+          )}
+
+          {/* Direction + Impact */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {direction && (
+              <Badge className={cn(
+                "text-[9px] gap-0.5",
+                isUp && "bg-profit/15 text-profit border-profit/30",
+                isDown && "bg-loss/15 text-loss border-loss/30",
+                !isUp && !isDown && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+              )}>
+                {isUp && <TrendingUp className="w-3 h-3" />}
+                {isDown && <TrendingDown className="w-3 h-3" />}
+                {!isUp && !isDown && <Minus className="w-3 h-3" />}
+                {direction}
+              </Badge>
+            )}
+            <Badge variant="outline" className={cn(
+              "text-[9px]",
+              impactLevel === "HIGH" && "border-loss/40 text-loss",
+              impactLevel === "MEDIUM" && "border-amber-500/40 text-amber-500",
+              impactLevel === "LOW" && "border-muted-foreground/40 text-muted-foreground"
+            )}>
+              {impactLevel === "HIGH" ? (isFr ? "Impact Élevé" : "High Impact")
+                : impactLevel === "MEDIUM" ? (isFr ? "Impact Modéré" : "Medium Impact")
+                : (isFr ? "Impact Faible" : "Low Impact")}
+            </Badge>
+          </div>
+
+          {/* Impacted Pairs */}
+          {impactedPairs.length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] text-muted-foreground font-medium">{isFr ? "Paires impactées :" : "Impacted pairs:"}</span>
+              {impactedPairs.map((pair, i) => (
+                <Badge key={i} variant="secondary" className="text-[9px] px-1.5 py-0">{pair}</Badge>
+              ))}
+            </div>
+          )}
+
+          {/* Values row */}
+          <div className="flex items-center gap-3 text-[10px]">
+            {event.actual && (
+              <span className="text-profit">{isFr ? "Actuel" : "Actual"}: {event.actual}</span>
+            )}
+            {event.forecast && (
+              <span>{isFr ? "Prévision" : "Forecast"}: {event.forecast}</span>
+            )}
+            {event.previous && (
+              <span className="text-muted-foreground">{isFr ? "Précédent" : "Previous"}: {event.previous}</span>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1089,11 +1248,13 @@ function SentimentSubTab({ language }: { language: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodFilter>("today");
+  const [activeAsset, setActiveAsset] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchSentiment = useCallback(async () => {
     try {
-      const res = await fetch(`/api/market/sentiment?lang=${language}&period=${period}`);
+      const assetParam = activeAsset ? `&asset=${activeAsset}` : '';
+      const res = await fetch(`/api/market/sentiment?lang=${language}&period=${period}${assetParam}`);
       if (!res.ok) throw new Error("Fetch failed");
       const data = await res.json();
       setSentimentData(data);
@@ -1103,12 +1264,12 @@ function SentimentSubTab({ language }: { language: string }) {
     } finally {
       setLoading(false);
     }
-  }, [language, isFr, period]);
+  }, [language, isFr, period, activeAsset]);
 
-  // Reset loading when period changes
+  // Reset loading when period or asset changes
   useEffect(() => {
     setLoading(true);
-  }, [period]);
+  }, [period, activeAsset]);
 
   useEffect(() => {
     fetchSentiment();
@@ -1171,6 +1332,78 @@ function SentimentSubTab({ language }: { language: string }) {
     <div className="space-y-4">
       {/* Period Filter */}
       <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+
+      {/* Asset Selector */}
+      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+        <button
+          onClick={() => setActiveAsset(null)}
+          className={cn(
+            "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+            !activeAsset
+              ? "border-primary bg-primary/10 shadow-sm"
+              : "border-border hover:border-primary/30 bg-card"
+          )}
+        >
+          <div className="text-sm sm:text-lg">🌍</div>
+          <div className="text-[8px] sm:text-[10px] font-bold">{isFr ? "Tous" : "All"}</div>
+        </button>
+        {ASSETS.map((asset) => {
+          const isActive = activeAsset === asset.id;
+          return (
+            <button
+              key={asset.id}
+              onClick={() => setActiveAsset(isActive ? null : asset.id)}
+              className={cn(
+                "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+                isActive
+                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-sm"
+                  : "border-border hover:border-primary/30 bg-card"
+              )}
+            >
+              <div className="text-sm sm:text-lg">{asset.emoji}</div>
+              <div className="text-[7px] sm:text-[10px] font-bold">{asset.id}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Asset-specific sentiment */}
+      {activeAsset && sentimentData?.assetSentiment && (
+        <Card className="p-4 sm:p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <h3 className="font-bold text-sm">
+              {isFr ? "Sentiment" : "Sentiment"} {activeAsset}
+            </h3>
+            <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+              <Brain className="w-3 h-3" />
+              AI
+            </Badge>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{isFr ? "Direction probable" : "Likely direction"}</span>
+              <Badge className={cn(
+                "text-xs font-bold gap-1",
+                sentimentData.assetSentiment.direction?.includes("HAUSS") && "bg-profit/15 text-profit border-profit/30",
+                sentimentData.assetSentiment.direction?.includes("BAISS") && "bg-loss/15 text-loss border-loss/30",
+                !sentimentData.assetSentiment.direction?.includes("HAUSS") && !sentimentData.assetSentiment.direction?.includes("BAISS") && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+              )}>
+                {sentimentData.assetSentiment.direction?.includes("HAUSS") && <TrendingUp className="w-3 h-3" />}
+                {sentimentData.assetSentiment.direction?.includes("BAISS") && <TrendingDown className="w-3 h-3" />}
+                {sentimentData.assetSentiment.direction || "NEUTRE"}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{isFr ? "Confiance" : "Confidence"}</span>
+              <Badge variant="outline" className="text-xs">{sentimentData.assetSentiment.confidence || (isFr ? "faible" : "low")}</Badge>
+            </div>
+            {sentimentData.assetSentiment.interpretation && (
+              <p className="text-xs text-muted-foreground leading-relaxed">{sentimentData.assetSentiment.interpretation}</p>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Fear & Greed Gauge + Market Regime */}
       <Card className="p-4 sm:p-6">
@@ -1353,12 +1586,14 @@ function AlertsSubTab({ language }: { language: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodFilter>("today");
+  const [activeAsset, setActiveAsset] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
+      const assetParam = activeAsset ? `&asset=${activeAsset}` : '';
       const [briefingRes, calendarRes] = await Promise.all([
-        fetch(`/api/market/briefing?lang=${language}&period=${period}`),
-        fetch(`/api/market/calendar?lang=${language}&period=${period}`),
+        fetch(`/api/market/briefing?lang=${language}&period=${period}${assetParam}`),
+        fetch(`/api/market/calendar?lang=${language}&period=${period}${assetParam}`),
       ]);
 
       if (briefingRes.ok) {
@@ -1375,12 +1610,12 @@ function AlertsSubTab({ language }: { language: string }) {
     } finally {
       setLoading(false);
     }
-  }, [language, isFr, period]);
+  }, [language, isFr, period, activeAsset]);
 
-  // Reset loading when period changes
+  // Reset loading when period or asset changes
   useEffect(() => {
     setLoading(true);
-  }, [period]);
+  }, [period, activeAsset]);
 
   useEffect(() => {
     fetchData();
@@ -1465,6 +1700,74 @@ function AlertsSubTab({ language }: { language: string }) {
     <div className="space-y-4">
       {/* Period Filter */}
       <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+
+      {/* Asset Selector */}
+      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+        <button
+          onClick={() => setActiveAsset(null)}
+          className={cn(
+            "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+            !activeAsset
+              ? "border-primary bg-primary/10 shadow-sm"
+              : "border-border hover:border-primary/30 bg-card"
+          )}
+        >
+          <div className="text-sm sm:text-lg">🌍</div>
+          <div className="text-[8px] sm:text-[10px] font-bold">{isFr ? "Tous" : "All"}</div>
+        </button>
+        {ASSETS.map((asset) => {
+          const isActive = activeAsset === asset.id;
+          return (
+            <button
+              key={asset.id}
+              onClick={() => setActiveAsset(isActive ? null : asset.id)}
+              className={cn(
+                "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+                isActive
+                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-sm"
+                  : "border-border hover:border-primary/30 bg-card"
+              )}
+            >
+              <div className="text-sm sm:text-lg">{asset.emoji}</div>
+              <div className="text-[7px] sm:text-[10px] font-bold">{asset.id}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Asset-specific briefing */}
+      {activeAsset && briefingData?.assetBriefing && (
+        <Card className="p-4 sm:p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <h3 className="font-bold text-sm">
+              {isFr ? "Briefing" : "Briefing"} {activeAsset}
+            </h3>
+            <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+              <Brain className="w-3 h-3" />
+              AI
+            </Badge>
+          </div>
+          <div className="space-y-3">
+            {briefingData.assetBriefing.keyLevels?.length > 0 && (
+              <div>
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{isFr ? "Niveaux clés" : "Key Levels"}</span>
+                <div className="space-y-1 mt-1">
+                  {briefingData.assetBriefing.keyLevels.map((level: string, i: number) => (
+                    <div key={i} className="flex items-center gap-2 p-1.5 rounded border border-border">
+                      <CircleDot className="w-3 h-3 text-primary shrink-0" />
+                      <span className="text-xs">{level}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {briefingData.assetBriefing.scenarioAdjustment && (
+              <p className="text-xs text-muted-foreground leading-relaxed">{briefingData.assetBriefing.scenarioAdjustment}</p>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Morning/Weekly Briefing */}
       {summary && (
