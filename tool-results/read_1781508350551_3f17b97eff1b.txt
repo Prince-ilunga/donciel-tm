@@ -1,0 +1,2002 @@
+     1→"use client";
+     2→
+     3→import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+     4→import { useAppStore } from "@/stores/app-store";
+     5→import { cn } from "@/lib/utils";
+     6→import { Card } from "@/components/ui/card";
+     7→import { Button } from "@/components/ui/button";
+     8→import { Badge } from "@/components/ui/badge";
+     9→import { Skeleton } from "@/components/ui/skeleton";
+    10→import { Separator } from "@/components/ui/separator";
+    11→import {
+    12→  Brain,
+    13→  RefreshCw,
+    14→  TrendingUp,
+    15→  TrendingDown,
+    16→  Minus,
+    17→  ExternalLink,
+    18→  Clock,
+    19→  AlertTriangle,
+    20→  Shield,
+    21→  Zap,
+    22→  Loader2,
+    23→  Globe,
+    24→  Calendar,
+    25→  CalendarDays,
+    26→  BarChart3,
+    27→  CalendarClock,
+    28→  Activity,
+    29→  Target,
+    30→  AlertCircle,
+    31→  Sparkles,
+    32→  ArrowUpRight,
+    33→  ArrowDownRight,
+    34→  MinusCircle,
+    35→  Radio,
+    36→  Timer,
+    37→  Gauge,
+    38→  Eye,
+    39→  Users,
+    40→  Sunrise,
+    41→  Flame,
+    42→  ShieldAlert,
+    43→  CircleDot,
+    44→  PieChart,
+    45→  Layers,
+    46→} from "lucide-react";
+    47→
+    48→// ──────────────────────────────────────────────────────
+    49→// Constants
+    50→// ──────────────────────────────────────────────────────
+    51→
+    52→const ASSETS = [
+    53→  { id: "XAUUSD", emoji: "🥇", label_fr: "Or / Dollar", label_en: "Gold / Dollar", color: "from-amber-500/10 to-yellow-500/10" },
+    54→  { id: "EURUSD", emoji: "🇪🇺", label_fr: "Euro / Dollar", label_en: "Euro / Dollar", color: "from-blue-500/10 to-indigo-500/10" },
+    55→  { id: "GBPUSD", emoji: "🇬🇧", label_fr: "Livre / Dollar", label_en: "Pound / Dollar", color: "from-red-500/10 to-rose-500/10" },
+    56→  { id: "US30", emoji: "🏭", label_fr: "Dow Jones 30", label_en: "Dow Jones 30", color: "from-emerald-500/10 to-green-500/10" },
+    57→  { id: "US100", emoji: "💻", label_fr: "Nasdaq 100", label_en: "Nasdaq 100", color: "from-purple-500/10 to-violet-500/10" },
+    58→] as const;
+    59→
+    60→const DAYS_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    61→const DAYS_FR: Record<string, string> = { Mon: "Lun", Tue: "Mar", Wed: "Mer", Thu: "Jeu", Fri: "Ven", Sat: "Sam", Sun: "Dim" };
+    62→
+    63→type SubTab = "calendar" | "analysis" | "sentiment" | "alerts" | "statistics";
+    64→type PeriodFilter = "today" | "week";
+    65→
+    66→// ──────────────────────────────────────────────────────
+    67→// Period Filter Component
+    68→// ──────────────────────────────────────────────────────
+    69→
+    70→function PeriodFilterButtons({ period, setPeriod, language }: { period: PeriodFilter; setPeriod: (p: PeriodFilter) => void; language: string }) {
+    71→  const isFr = language === "fr";
+    72→  return (
+    73→    <div className="flex items-center gap-2">
+    74→      <Button
+    75→        variant={period === "today" ? "default" : "outline"}
+    76→        size="sm"
+    77→        className={cn("gap-1.5", period === "today" && "shadow-sm")}
+    78→        onClick={() => setPeriod("today")}
+    79→      >
+    80→        <Calendar className="w-3.5 h-3.5" />
+    81→        <span className="text-xs">{isFr ? "Aujourd'hui" : "Today"}</span>
+    82→      </Button>
+    83→      <Button
+    84→        variant={period === "week" ? "default" : "outline"}
+    85→        size="sm"
+    86→        className={cn("gap-1.5", period === "week" && "shadow-sm")}
+    87→        onClick={() => setPeriod("week")}
+    88→      >
+    89→        <CalendarDays className="w-3.5 h-3.5" />
+    90→        <span className="text-xs">{isFr ? "Cette Semaine" : "This Week"}</span>
+    91→      </Button>
+    92→    </div>
+    93→  );
+    94→}
+    95→
+    96→// ──────────────────────────────────────────────────────
+    97→// Shared Sub-components
+    98→// ──────────────────────────────────────────────────────
+    99→
+   100→function DirectionIcon({ direction, size = "sm" }: { direction: string; size?: "sm" | "md" | "lg" }) {
+   101→  const s = size === "sm" ? "w-3.5 h-3.5" : size === "md" ? "w-4 h-4" : "w-5 h-5";
+   102→  const isUp = direction?.toUpperCase().includes("HAUSS") || direction?.toUpperCase().includes("BULL");
+   103→  const isDown = direction?.toUpperCase().includes("BAISS") || direction?.toUpperCase().includes("BEAR");
+   104→
+   105→  if (isUp) return <ArrowUpRight className={cn(s, "text-profit")} />;
+   106→  if (isDown) return <ArrowDownRight className={cn(s, "text-loss")} />;
+   107→  return <MinusCircle className={cn(s, "text-amber-500")} />;
+   108→}
+   109→
+   110→function DirectionBadge({ direction, confidence }: { direction: string; confidence: string }) {
+   111→  const isUp = direction?.toUpperCase().includes("HAUSS") || direction?.toUpperCase().includes("BULL");
+   112→  const isDown = direction?.toUpperCase().includes("BAISS") || direction?.toUpperCase().includes("BEAR");
+   113→  const isNeutral = !isUp && !isDown;
+   114→
+   115→  const confLevel = confidence?.toLowerCase() || "moyen";
+   116→  const confColor = confLevel.includes("élev") || confLevel.includes("high")
+   117→    ? "text-profit" : confLevel.includes("fai") || confLevel.includes("low")
+   118→    ? "text-muted-foreground" : "text-amber-500";
+   119→
+   120→  return (
+   121→    <div className="flex items-center gap-2">
+   122→      <Badge
+   123→        className={cn(
+   124→          "text-xs font-bold gap-1 px-3 py-1",
+   125→          isUp && "bg-profit/15 text-profit border-profit/30",
+   126→          isDown && "bg-loss/15 text-loss border-loss/30",
+   127→          isNeutral && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+   128→        )}
+   129→      >
+   130→        {isUp && <TrendingUp className="w-3.5 h-3.5" />}
+   131→        {isDown && <TrendingDown className="w-3.5 h-3.5" />}
+   132→        {isNeutral && <Minus className="w-3.5 h-3.5" />}
+   133→        {direction || "N/A"}
+   134→      </Badge>
+   135→      <span className={cn("text-[10px] font-medium", confColor)}>
+   136→        {confidence || ""}
+   137→      </span>
+   138→    </div>
+   139→  );
+   140→}
+   141→
+   142→function ImpactBadge({ impact }: { impact: string }) {
+   143→  const isHigh = impact?.toUpperCase().includes("ÉLEV") || impact?.toUpperCase().includes("HIGH");
+   144→  const isLow = impact?.toUpperCase().includes("FAI") || impact?.toUpperCase().includes("LOW");
+   145→
+   146→  return (
+   147→    <Badge
+   148→      variant="outline"
+   149→      className={cn(
+   150→        "text-[10px] gap-1",
+   151→        isHigh && "border-loss/40 text-loss",
+   152→        isLow && "border-muted-foreground/40 text-muted-foreground",
+   153→        !isHigh && !isLow && "border-amber-500/40 text-amber-500"
+   154→      )}
+   155→    >
+   156→      {isHigh && <Zap className="w-3 h-3" />}
+   157→      {!isHigh && !isLow && <Shield className="w-3 h-3" />}
+   158→      {!isHigh && isLow && <AlertTriangle className="w-3 h-3" />}
+   159→      {impact || "N/A"}
+   160→    </Badge>
+   161→  );
+   162→}
+   163→
+   164→function SentimentGauge({ sentiment, language }: { sentiment: string; language: string }) {
+   165→  const s = sentiment?.toLowerCase() || "neutre";
+   166→  const isFr = language === "fr";
+   167→  const isVeryBull = s.includes("très haus") || s.includes("very bull") || s.includes("strongly bull");
+   168→  const isBull = s.includes("haus") || s.includes("bull") || s.includes("acheteur");
+   169→  const isVeryBear = s.includes("très bai") || s.includes("very bear") || s.includes("strongly bear");
+   170→  const isBear = s.includes("bai") || s.includes("bear") || s.includes("vendeur");
+   171→
+   172→  const value = isVeryBull ? 90 : isBull ? 70 : isVeryBear ? 10 : isBear ? 30 : 50;
+   173→  const label = isVeryBull ? (isFr ? "Très Haussier" : "Very Bullish")
+   174→    : isBull ? (isFr ? "Haussier" : "Bullish")
+   175→    : isVeryBear ? (isFr ? "Très Baissier" : "Very Bearish")
+   176→    : isBear ? (isFr ? "Baissier" : "Bearish")
+   177→    : (isFr ? "Neutre" : "Neutral");
+   178→
+   179→  const color = value >= 70 ? "bg-profit" : value >= 55 ? "bg-profit/60" : value <= 30 ? "bg-loss" : value <= 45 ? "bg-loss/60" : "bg-amber-500";
+   180→
+   181→  return (
+   182→    <div className="space-y-1.5">
+   183→      <div className="flex items-center justify-between">
+   184→        <span className="text-[10px] font-medium text-muted-foreground">{isFr ? "Sentiment" : "Sentiment"}</span>
+   185→        <span className={cn("text-[10px] font-bold",
+   186→          value >= 55 ? "text-profit" : value <= 45 ? "text-loss" : "text-amber-500"
+   187→        )}>{label}</span>
+   188→      </div>
+   189→      <div className="h-2 rounded-full bg-muted overflow-hidden">
+   190→        <div
+   191→          className={cn("h-full rounded-full transition-all duration-700", color)}
+   192→          style={{ width: `${value}%` }}
+   193→        />
+   194→      </div>
+   195→    </div>
+   196→  );
+   197→}
+   198→
+   199→/** Horizontal Fear & Greed gauge */
+   200→function FearGreedGauge({ value, label, language }: { value: number; label: string; language: string }) {
+   201→  const isFr = language === "fr";
+   202→  const color = value >= 75 ? "bg-profit" : value >= 55 ? "bg-profit/60" : value <= 25 ? "bg-loss" : value <= 45 ? "bg-loss/60" : "bg-amber-500";
+   203→  const textColor = value >= 55 ? "text-profit" : value <= 45 ? "text-loss" : "text-amber-500";
+   204→  const displayLabel = label || (value >= 80 ? (isFr ? "Extrême Avidité" : "Extreme Greed")
+   205→    : value >= 60 ? (isFr ? "Avidité" : "Greed")
+   206→    : value >= 40 ? (isFr ? "Neutre" : "Neutral")
+   207→    : value >= 20 ? (isFr ? "Peur" : "Fear")
+   208→    : (isFr ? "Extrême Peur" : "Extreme Fear"));
+   209→
+   210→  return (
+   211→    <div className="space-y-3">
+   212→      <div className="flex items-center justify-between">
+   213→        <div className="flex items-center gap-2">
+   214→          <Gauge className="w-5 h-5 text-primary" />
+   215→          <span className="text-sm font-bold">{isFr ? "Indice Peur & Avidité" : "Fear & Greed Index"}</span>
+   216→        </div>
+   217→        <div className="text-right">
+   218→          <div className={cn("text-3xl font-bold", textColor)}>{value}</div>
+   219→          <div className="text-[10px] text-muted-foreground font-medium">{displayLabel}</div>
+   220→        </div>
+   221→      </div>
+   222→      <div className="relative h-4 rounded-full bg-muted overflow-hidden">
+   223→        {/* Color gradient background */}
+   224→        <div className="absolute inset-0 flex">
+   225→          <div className="flex-1 bg-loss/30" />
+   226→          <div className="flex-1 bg-loss/15" />
+   227→          <div className="flex-1 bg-amber-500/15" />
+   228→          <div className="flex-1 bg-profit/15" />
+   229→          <div className="flex-1 bg-profit/30" />
+   230→        </div>
+   231→        {/* Indicator */}
+   232→        <div
+   233→          className="absolute top-0 h-full w-1 bg-foreground rounded-full transition-all duration-700 shadow-lg"
+   234→          style={{ left: `${Math.min(99, Math.max(1, value))}%` }}
+   235→        />
+   236→      </div>
+   237→      <div className="flex justify-between text-[9px] text-muted-foreground">
+   238→        <span>{isFr ? "Peur Extrême" : "Extreme Fear"}</span>
+   239→        <span>{isFr ? "Neutre" : "Neutral"}</span>
+   240→        <span>{isFr ? "Avidité Extrême" : "Extreme Greed"}</span>
+   241→      </div>
+   242→    </div>
+   243→  );
+   244→}
+   245→
+   246→/** Probability bar for scenario cards */
+   247→function ProbabilityBar({ value, color }: { value: number; color: string }) {
+   248→  return (
+   249→    <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+   250→      <div
+   251→        className={cn("h-full rounded-full transition-all duration-700", color)}
+   252→        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+   253→      />
+   254→    </div>
+   255→  );
+   256→}
+   257→
+   258→/** Countdown timer display */
+   259→function CountdownTimer({ targetDate, language }: { targetDate: string; language: string }) {
+   260→  const [timeLeft, setTimeLeft] = useState("");
+   261→  const isFr = language === "fr";
+   262→
+   263→  useEffect(() => {
+   264→    const update = () => {
+   265→      const now = new Date().getTime();
+   266→      const target = new Date(targetDate).getTime();
+   267→      const diff = target - now;
+   268→
+   269→      if (diff <= 0) {
+   270→        setTimeLeft(isFr ? "En cours" : "Live");
+   271→        return;
+   272→      }
+   273→
+   274→      const hours = Math.floor(diff / (1000 * 60 * 60));
+   275→      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+   276→      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+   277→
+   278→      if (hours > 24) {
+   279→        const days = Math.floor(hours / 24);
+   280→        setTimeLeft(`${days}d ${hours % 24}h`);
+   281→      } else if (hours > 0) {
+   282→        setTimeLeft(`${hours}h ${minutes}m`);
+   283→      } else {
+   284→        setTimeLeft(`${minutes}m ${seconds}s`);
+   285→      }
+   286→    };
+   287→
+   288→    update();
+   289→    const interval = setInterval(update, 1000);
+   290→    return () => clearInterval(interval);
+   291→  }, [targetDate, isFr]);
+   292→
+   293→  return <span className="text-[10px] font-mono font-bold text-primary">{timeLeft}</span>;
+   294→}
+   295→
+   296→// ──────────────────────────────────────────────────────
+   297→// Sub-tab: Calendar (📅)
+   298→// ──────────────────────────────────────────────────────
+   299→
+   300→function CalendarSubTab({ language }: { language: string }) {
+   301→  const isFr = language === "fr";
+   302→  const [calendarData, setCalendarData] = useState<any>(null);
+   303→  const [loading, setLoading] = useState(true);
+   304→  const [error, setError] = useState<string | null>(null);
+   305→  const [period, setPeriod] = useState<PeriodFilter>("today");
+   306→  const [activeAsset, setActiveAsset] = useState<string | null>(null);
+   307→  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+   308→
+   309→  const fetchCalendar = useCallback(async () => {
+   310→    try {
+   311→      const assetParam = activeAsset ? `&asset=${activeAsset}` : '';
+   312→      const res = await fetch(`/api/market/calendar?lang=${language}&period=${period}${assetParam}`);
+   313→      if (!res.ok) throw new Error("Fetch failed");
+   314→      const data = await res.json();
+   315→      setCalendarData(data);
+   316→      setError(null);
+   317→    } catch {
+   318→      setError(isFr ? "Erreur lors du chargement du calendrier" : "Error loading calendar");
+   319→    } finally {
+   320→      setLoading(false);
+   321→    }
+   322→  }, [language, isFr, period, activeAsset]);
+   323→
+   324→  // Reset loading when period or asset changes
+   325→  useEffect(() => {
+   326→    setLoading(true);
+   327→  }, [period, activeAsset]);
+   328→
+   329→  useEffect(() => {
+   330→    fetchCalendar();
+   331→    intervalRef.current = setInterval(fetchCalendar, 5 * 60 * 1000);
+   332→    return () => {
+   333→      if (intervalRef.current) clearInterval(intervalRef.current);
+   334→    };
+   335→  }, [fetchCalendar]);
+   336→
+   337→  // Normalize events from API format to component format
+   338→  const normalizedEvents = useMemo(() => {
+   339→    const rawEvents: any[] = calendarData?.events || [];
+   340→    return rawEvents.map((evt: any) => {
+   341→      // Build a date from today + time
+   342→      const today = new Date();
+   343→      let eventDate: Date;
+   344→      if (evt.date) {
+   345→        eventDate = new Date(evt.date);
+   346→      } else if (evt.time) {
+   347→        const [h, m] = evt.time.split(":").map(Number);
+   348→        eventDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), h || 0, m || 0);
+   349→      } else {
+   350→        eventDate = today;
+   351→      }
+   352→
+   353→      return {
+   354→        title: evt.event || evt.title || "",
+   355→        date: eventDate.toISOString(),
+   356→        time: evt.time || "",
+   357→        currency: (evt.currency || "").toUpperCase(),
+   358→        impact: (evt.impact || "low").toUpperCase(),
+   359→        countryFlag: evt.country || "🌍",
+   360→        forecast: evt.forecast || null,
+   361→        previous: evt.previous || null,
+   362→        actual: evt.actual || null,
+   363→        interpretation: evt.interpretation || null,
+   364→        direction: evt.direction || null,
+   365→        impactedPairs: evt.impactedPairs || [],
+   366→      };
+   367→    });
+   368→  }, [calendarData]);
+   369→
+   370→  // Find next high-impact event
+   371→  const nextHighImpact = useMemo(() => {
+   372→    const now = new Date();
+   373→    return normalizedEvents.find(e => e.impact === "HIGH" && new Date(e.date) > now) || null;
+   374→  }, [normalizedEvents]);
+   375→
+   376→  // Week events: use normalizedEvents directly when period=week (API already returns correct period)
+   377→  // For period=today fallback, filter by date range
+   378→  const weekEvents = useMemo(() => {
+   379→    if (period === "week") {
+   380→      // API already returns the correct events for the week - just sort them
+   381→      return [...normalizedEvents].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+   382→    }
+   383→    // Fallback: filter by local date range (used when period=today but showing week view)
+   384→    const now = new Date();
+   385→    const dayOfWeek = now.getDay();
+   386→    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+   387→    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+   388→    const friday = new Date(monday);
+   389→    friday.setDate(monday.getDate() + 5);
+   390→
+   391→    return normalizedEvents.filter((e: any) => {
+   392→      const d = new Date(e.date);
+   393→      return d >= monday && d < friday;
+   394→    }).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+   395→  }, [normalizedEvents, period]);
+   396→
+   397→  // Today's events
+   398→  const todayEvents = useMemo(() => {
+   399→    const now = new Date();
+   400→    return normalizedEvents.filter((e: any) => {
+   401→      const d = new Date(e.date);
+   402→      return d.toDateString() === now.toDateString();
+   403→    });
+   404→  }, [normalizedEvents]);
+   405→
+   406→  // Merge assetEvents + general events when asset is selected
+   407→  const displayEvents = useMemo(() => {
+   408→    if (activeAsset && calendarData?.assetEvents?.length > 0) {
+   409→      // Normalize asset events the same way as general events
+   410→      const today = new Date();
+   411→      const assetEvts = calendarData.assetEvents.map((evt: any) => {
+   412→        let eventDate: Date;
+   413→        if (evt.date) {
+   414→          eventDate = new Date(evt.date);
+   415→        } else if (evt.time) {
+   416→          const [h, m] = (evt.time || "").split(":").map(Number);
+   417→          eventDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), h || 0, m || 0);
+   418→        } else {
+   419→          eventDate = today;
+   420→        }
+   421→        return {
+   422→          title: evt.event || evt.title || "",
+   423→          date: eventDate.toISOString(),
+   424→          time: evt.time || "",
+   425→          currency: (evt.currency || "").toUpperCase(),
+   426→          impact: (evt.impact || "low").toUpperCase(),
+   427→          countryFlag: evt.country || "🌍",
+   428→          forecast: evt.forecast || null,
+   429→          previous: evt.previous || null,
+   430→          actual: evt.actual || null,
+   431→          interpretation: evt.interpretation || null,
+   432→          direction: evt.direction || null,
+   433→          impactedPairs: evt.impactedPairs || [],
+   434→        };
+   435→      });
+   436→      const generalEvts = normalizedEvents.filter((e: any) =>
+   437→        !assetEvts.some((ae: any) => ae.title === e.title)
+   438→      );
+   439→      return { assetEvents: assetEvts, generalEvents: generalEvts };
+   440→    }
+   441→    return { assetEvents: [], generalEvents: normalizedEvents };
+   442→  }, [activeAsset, calendarData, normalizedEvents]);
+   443→
+   444→  if (loading) {
+   445→    return (
+   446→      <div className="space-y-4">
+   447→        <div className="grid grid-cols-3 gap-3">
+   448→          <Card className="p-3 sm:p-4"><Skeleton className="h-8 w-12 mx-auto mb-1" /><Skeleton className="h-3 w-16 mx-auto" /></Card>
+   449→          <Card className="p-3 sm:p-4"><Skeleton className="h-8 w-12 mx-auto mb-1" /><Skeleton className="h-3 w-16 mx-auto" /></Card>
+   450→          <Card className="p-3 sm:p-4"><Skeleton className="h-8 w-12 mx-auto mb-1" /><Skeleton className="h-3 w-16 mx-auto" /></Card>
+   451→        </div>
+   452→        <Card className="p-4 sm:p-6">
+   453→          <Skeleton className="h-6 w-48 mb-4" />
+   454→          <div className="space-y-3">
+   455→            {Array.from({ length: 6 }).map((_, i) => (
+   456→              <div key={i} className="flex items-center gap-3">
+   457→                <Skeleton className="h-4 w-14" />
+   458→                <Skeleton className="h-4 w-6" />
+   459→                <Skeleton className="h-4 w-10" />
+   460→                <Skeleton className="h-4 flex-1" />
+   461→              </div>
+   462→            ))}
+   463→          </div>
+   464→        </Card>
+   465→      </div>
+   466→    );
+   467→  }
+   468→
+   469→  if (error) {
+   470→    return (
+   471→      <Card className="p-12 text-center">
+   472→        <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+   473→        <p className="text-muted-foreground">{error}</p>
+   474→        <Button onClick={fetchCalendar} variant="outline" className="mt-4 gap-2">
+   475→          <RefreshCw className="w-4 h-4" />
+   476→          {isFr ? "Réessayer" : "Retry"}
+   477→        </Button>
+   478→      </Card>
+   479→    );
+   480→  }
+   481→
+   482→  const highCount = normalizedEvents.filter((e: any) => e.impact === "HIGH").length;
+   483→  const mediumCount = normalizedEvents.filter((e: any) => e.impact === "MEDIUM").length;
+   484→
+   485→  return (
+   486→    <div className="space-y-4">
+   487→      {/* Period Filter */}
+   488→      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+   489→
+   490→      {/* Asset Selector */}
+   491→      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+   492→        <button
+   493→          onClick={() => setActiveAsset(null)}
+   494→          className={cn(
+   495→            "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+   496→            !activeAsset
+   497→              ? "border-primary bg-primary/10 shadow-sm"
+   498→              : "border-border hover:border-primary/30 bg-card"
+   499→          )}
+   500→        >
+   501→          <div className="text-sm sm:text-lg">🌍</div>
+   502→          <div className="text-[8px] sm:text-[10px] font-bold">{isFr ? "Tous" : "All"}</div>
+   503→        </button>
+   504→        {ASSETS.map((asset) => {
+   505→          const isActive = activeAsset === asset.id;
+   506→          return (
+   507→            <button
+   508→              key={asset.id}
+   509→              onClick={() => setActiveAsset(isActive ? null : asset.id)}
+   510→              className={cn(
+   511→                "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+   512→                isActive
+   513→                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-sm"
+   514→                  : "border-border hover:border-primary/30 bg-card"
+   515→              )}
+   516→            >
+   517→              <div className="text-sm sm:text-lg">{asset.emoji}</div>
+   518→              <div className="text-[7px] sm:text-[10px] font-bold">{asset.id}</div>
+   519→            </button>
+   520→          );
+   521→        })}
+   522→      </div>
+   523→
+   524→      {/* Stats row */}
+   525→      <div className="grid grid-cols-3 gap-3">
+   526→        <Card className="p-3 sm:p-4 text-center">
+   527→          <div className="text-2xl font-bold text-loss">{highCount}</div>
+   528→          <div className="text-[10px] text-muted-foreground">{isFr ? "Impact Élevé" : "High Impact"}</div>
+   529→        </Card>
+   530→        <Card className="p-3 sm:p-4 text-center">
+   531→          <div className="text-2xl font-bold text-amber-500">{mediumCount}</div>
+   532→          <div className="text-[10px] text-muted-foreground">{isFr ? "Impact Modéré" : "Medium Impact"}</div>
+   533→        </Card>
+   534→        <Card className="p-3 sm:p-4 text-center">
+   535→          <div className="text-2xl font-bold text-muted-foreground">{normalizedEvents.length}</div>
+   536→          <div className="text-[10px] text-muted-foreground">{isFr ? "Total" : "Total"}</div>
+   537→        </Card>
+   538→      </div>
+   539→
+   540→      {/* Next high-impact event highlight */}
+   541→      {nextHighImpact && (
+   542→        <Card className="p-4 border-2 border-loss/30 bg-gradient-to-r from-loss/5 to-transparent">
+   543→          <div className="flex items-center gap-2 mb-2">
+   544→            <Zap className="w-4 h-4 text-loss" />
+   545→            <span className="text-xs font-bold text-loss">
+   546→              {isFr ? "Prochain événement à fort impact" : "Next High-Impact Event"}
+   547→            </span>
+   548→          </div>
+   549→          <div className="flex items-center justify-between gap-2">
+   550→            <div className="min-w-0">
+   551→              <h4 className="text-sm font-bold">{nextHighImpact.title}</h4>
+   552→              <div className="flex items-center gap-2 mt-1 flex-wrap">
+   553→                <span className="text-xs">{nextHighImpact.countryFlag}</span>
+   554→                <span className="text-xs text-muted-foreground">{nextHighImpact.currency}</span>
+   555→                {nextHighImpact.forecast && (
+   556→                  <span className="text-[10px] text-muted-foreground">
+   557→                    {isFr ? "Prévision" : "Forecast"}: {nextHighImpact.forecast}
+   558→                  </span>
+   559→                )}
+   560→                {nextHighImpact.previous && (
+   561→                  <span className="text-[10px] text-muted-foreground">
+   562→                    {isFr ? "Précédent" : "Previous"}: {nextHighImpact.previous}
+   563→                  </span>
+   564→                )}
+   565→              </div>
+   566→            </div>
+   567→            <CountdownTimer targetDate={nextHighImpact.date} language={language} />
+   568→          </div>
+   569→        </Card>
+   570→      )}
+   571→
+   572→      {/* Today's events (shown when period is today) */}
+   573→      {period === "today" && todayEvents.length > 0 && (
+   574→        <Card className="p-4 sm:p-6">
+   575→          <div className="flex items-center gap-2 mb-4">
+   576→            <Calendar className="w-4 h-4 text-primary" />
+   577→            <h3 className="font-bold text-sm">{isFr ? "Aujourd'hui" : "Today"}</h3>
+   578→            <Badge variant="secondary" className="text-[10px]">{todayEvents.length}</Badge>
+   579→          </div>
+   580→          <div className="space-y-2 max-h-96 overflow-y-auto">
+   581→            {todayEvents.map((evt: any, i: number) => (
+   582→              <CalendarEventRow key={i} event={evt} language={language} isHighlighted={nextHighImpact?.title === evt.title} />
+   583→            ))}
+   584→          </div>
+   585→        </Card>
+   586→      )}
+   587→
+   588→      {/* This week's events (shown when period is week) - grouped by day */}
+   589→      {period === "week" && weekEvents.length > 0 && (() => {
+   590→        // Group events by day
+   591→        const dayNamesFr = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+   592→        const dayNamesEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+   593→        const grouped: Record<string, any[]> = {};
+   594→        weekEvents.forEach((evt: any) => {
+   595→          const d = new Date(evt.date);
+   596→          const key = d.toDateString();
+   597→          if (!grouped[key]) grouped[key] = [];
+   598→          grouped[key].push(evt);
+   599→        });
+   600→        const sortedDays = Object.keys(grouped).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+   601→        const todayStr = new Date().toDateString();
+   602→
+   603→        return sortedDays.map(dayStr => {
+   604→          const dayDate = new Date(dayStr);
+   605→          const dayName = isFr ? dayNamesFr[dayDate.getDay()] : dayNamesEn[dayDate.getDay()];
+   606→          const dayEvents = grouped[dayStr];
+   607→          const isToday = dayStr === todayStr;
+   608→          const isPast = dayDate < new Date(new Date().toDateString());
+   609→          return (
+   610→            <Card key={dayStr} className={cn(
+   611→              "p-4 sm:p-6",
+   612→              isToday && "border-2 border-primary/20"
+   613→            )}>
+   614→              <div className="flex items-center gap-2 mb-3">
+   615→                <CalendarDays className={cn("w-4 h-4", isToday ? "text-primary" : isPast ? "text-muted-foreground" : "text-amber-500")} />
+   616→                <h3 className={cn("font-bold text-sm", isPast && "text-muted-foreground")}>
+   617→                  {dayName} {dayDate.getDate()}
+   618→                </h3>
+   619→                {isToday && <Badge className="text-[9px] gap-0.5 bg-primary/10 text-primary border-primary/20">{isFr ? "Aujourd'hui" : "Today"}</Badge>}
+   620→                {isPast && <Badge variant="secondary" className="text-[9px]">{isFr ? "Passé" : "Past"}</Badge>}
+   621→                <Badge variant="secondary" className="text-[10px]">{dayEvents.length}</Badge>
+   622→              </div>
+   623→              <div className="space-y-2">
+   624→                {dayEvents.map((evt: any, i: number) => (
+   625→                  <CalendarEventRow key={i} event={evt} language={language} isHighlighted={nextHighImpact?.title === evt.title} showDate={false} />
+   626→                ))}
+   627→              </div>
+   628→            </Card>
+   629→          );
+   630→        });
+   631→      })()}
+   632→
+   633→      {period === "today" && todayEvents.length === 0 && (
+   634→        <Card className="p-8 text-center">
+   635→          <CalendarClock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+   636→          <p className="text-sm text-muted-foreground">{isFr ? "Aucun événement économique prévu aujourd'hui" : "No economic events scheduled today"}</p>
+   637→        </Card>
+   638→      )}
+   639→      {period === "week" && weekEvents.length === 0 && (
+   640→        <Card className="p-8 text-center">
+   641→          <CalendarClock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+   642→          <p className="text-sm text-muted-foreground">{isFr ? "Aucun événement économique cette semaine" : "No economic events this week"}</p>
+   643→        </Card>
+   644→      )}
+   645→    </div>
+   646→  );
+   647→}
+   648→
+   649→function CalendarEventRow({ event, language, isHighlighted, showDate = false }: { event: any; language: string; isHighlighted: boolean; showDate?: boolean }) {
+   650→  const isFr = language === "fr";
+   651→  const [expanded, setExpanded] = useState(false);
+   652→  const impactDot = event.impact === "HIGH" ? "🔴" : event.impact === "MEDIUM" ? "🟡" : "🟢";
+   653→  const impactLevel = (event.impact || "").toUpperCase();
+   654→
+   655→  const timeStr = event.time
+   656→    || (event.date
+   657→      ? new Date(event.date).toLocaleTimeString(
+   658→          isFr ? "fr-FR" : "en-US",
+   659→          { hour: "2-digit", minute: "2-digit" }
+   660→        )
+   661→      : "--:--");
+   662→
+   663→  // Direction display
+   664→  const direction = event.direction || "";
+   665→  const isUp = direction.includes("HAUSS") || direction.includes("BULL");
+   666→  const isDown = direction.includes("BAISS") || direction.includes("BEAR");
+   667→
+   668→  // Impacted pairs
+   669→  const impactedPairs: string[] = event.impactedPairs || [];
+   670→
+   671→  return (
+   672→    <div className={cn(
+   673→      "rounded-lg border transition-all",
+   674→      isHighlighted
+   675→        ? "border-loss/30 bg-loss/5"
+   676→        : "border-border hover:border-primary/20 hover:bg-primary/5"
+   677→    )}>
+   678→      {/* Main row - always visible */}
+   679→      <div className="flex items-center gap-3 p-2.5 cursor-pointer" onClick={() => setExpanded(!expanded)}>
+   680→        <span className="text-[10px] font-mono text-muted-foreground w-12 shrink-0">{timeStr}</span>
+   681→        <span className="text-xs">{event.countryFlag || "🌍"}</span>
+   682→        <span className="text-[10px] font-bold w-10 shrink-0 text-center">{event.currency || ""}</span>
+   683→        <span className="text-xs">{impactDot}</span>
+   684→        <div className="flex-1 min-w-0">
+   685→          <h4 className="text-xs font-medium line-clamp-1">{event.title}</h4>
+   686→        </div>
+   687→        {direction && (
+   688→          <span className={cn(
+   689→            "text-[10px] font-bold shrink-0",
+   690→            isUp && "text-profit",
+   691→            isDown && "text-loss",
+   692→            !isUp && !isDown && "text-amber-500"
+   693→          )}>
+   694→            {isUp ? "▲" : isDown ? "▼" : "●"} {direction}
+   695→          </span>
+   696→        )}
+   697→        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+   698→          {event.actual && (
+   699→            <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-profit/30 text-profit">
+   700→              {isFr ? "Act." : "Act"} {event.actual}
+   701→            </Badge>
+   702→          )}
+   703→          {event.forecast && (
+   704→            <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+   705→              {isFr ? "Prév." : "Fcst"} {event.forecast}
+   706→            </Badge>
+   707→          )}
+   708→        </div>
+   709→        <span className="text-muted-foreground text-[10px]">{expanded ? "▲" : "▼"}</span>
+   710→      </div>
+   711→
+   712→      {/* Expanded details */}
+   713→      {expanded && (
+   714→        <div className="px-3 pb-3 pt-1 space-y-2 border-t border-border/50">
+   715→          {/* Interpretation */}
+   716→          {event.interpretation && (
+   717→            <div className="flex items-start gap-2">
+   718→              <Brain className="w-3 h-3 text-primary mt-0.5 shrink-0" />
+   719→              <p className="text-[11px] text-muted-foreground leading-relaxed">{event.interpretation}</p>
+   720→            </div>
+   721→          )}
+   722→
+   723→          {/* Direction + Impact */}
+   724→          <div className="flex items-center gap-2 flex-wrap">
+   725→            {direction && (
+   726→              <Badge className={cn(
+   727→                "text-[9px] gap-0.5",
+   728→                isUp && "bg-profit/15 text-profit border-profit/30",
+   729→                isDown && "bg-loss/15 text-loss border-loss/30",
+   730→                !isUp && !isDown && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+   731→              )}>
+   732→                {isUp && <TrendingUp className="w-3 h-3" />}
+   733→                {isDown && <TrendingDown className="w-3 h-3" />}
+   734→                {!isUp && !isDown && <Minus className="w-3 h-3" />}
+   735→                {direction}
+   736→              </Badge>
+   737→            )}
+   738→            <Badge variant="outline" className={cn(
+   739→              "text-[9px]",
+   740→              impactLevel === "HIGH" && "border-loss/40 text-loss",
+   741→              impactLevel === "MEDIUM" && "border-amber-500/40 text-amber-500",
+   742→              impactLevel === "LOW" && "border-muted-foreground/40 text-muted-foreground"
+   743→            )}>
+   744→              {impactLevel === "HIGH" ? (isFr ? "Impact Élevé" : "High Impact")
+   745→                : impactLevel === "MEDIUM" ? (isFr ? "Impact Modéré" : "Medium Impact")
+   746→                : (isFr ? "Impact Faible" : "Low Impact")}
+   747→            </Badge>
+   748→          </div>
+   749→
+   750→          {/* Impacted Pairs */}
+   751→          {impactedPairs.length > 0 && (
+   752→            <div className="flex items-center gap-1.5 flex-wrap">
+   753→              <span className="text-[10px] text-muted-foreground font-medium">{isFr ? "Paires impactées :" : "Impacted pairs:"}</span>
+   754→              {impactedPairs.map((pair, i) => (
+   755→                <Badge key={i} variant="secondary" className="text-[9px] px-1.5 py-0">{pair}</Badge>
+   756→              ))}
+   757→            </div>
+   758→          )}
+   759→
+   760→          {/* Values row */}
+   761→          <div className="flex items-center gap-3 text-[10px]">
+   762→            {event.actual && (
+   763→              <span className="text-profit">{isFr ? "Actuel" : "Actual"}: {event.actual}</span>
+   764→            )}
+   765→            {event.forecast && (
+   766→              <span>{isFr ? "Prévision" : "Forecast"}: {event.forecast}</span>
+   767→            )}
+   768→            {event.previous && (
+   769→              <span className="text-muted-foreground">{isFr ? "Précédent" : "Previous"}: {event.previous}</span>
+   770→            )}
+   771→          </div>
+   772→        </div>
+   773→      )}
+   774→    </div>
+   775→  );
+   776→}
+   777→
+   778→// ──────────────────────────────────────────────────────
+   779→// Sub-tab: Analyse IA (🧠) — existing news analysis
+   780→// ──────────────────────────────────────────────────────
+   781→
+   782→function AnalysisSubTab({ language }: { language: string }) {
+   783→  const isFr = language === "fr";
+   784→  const [activeAsset, setActiveAsset] = useState<string>("XAUUSD");
+   785→  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("week");
+   786→  const [newsData, setNewsData] = useState<any>(null);
+   787→  const [loading, setLoading] = useState(false);
+   788→  const [error, setError] = useState<string | null>(null);
+   789→
+   790→  const fetchNews = useCallback(async (asset: string, period: PeriodFilter) => {
+   791→    setLoading(true);
+   792→    setError(null);
+   793→    try {
+   794→      const res = await fetch(`/api/news?asset=${asset}&lang=${language}&period=${period}`);
+   795→      if (!res.ok) throw new Error("Erreur lors du chargement");
+   796→      const data = await res.json();
+   797→      setNewsData(data);
+   798→    } catch {
+   799→      setError(isFr ? "Erreur lors du chargement des news" : "Error loading news");
+   800→    }
+   801→    setLoading(false);
+   802→  }, [language, isFr]);
+   803→
+   804→  useEffect(() => {
+   805→    fetchNews(activeAsset, periodFilter);
+   806→  }, [activeAsset, periodFilter, fetchNews]);
+   807→
+   808→  const handleRefresh = () => fetchNews(activeAsset, periodFilter);
+   809→
+   810→  const currentAsset = ASSETS.find(a => a.id === activeAsset);
+   811→  const analysis = newsData?.analysis;
+   812→  const aiPowered = newsData?.aiPowered;
+   813→
+   814→  const barChartData = useMemo(() => {
+   815→    if (!newsData?.dailyCounts) return [];
+   816→    const countMap: Record<string, number> = {};
+   817→    newsData.dailyCounts.forEach((d: any) => {
+   818→      countMap[d.day] = d.count;
+   819→    });
+   820→    return DAYS_ORDER.map(day => ({
+   821→      day: language === "fr" ? DAYS_FR[day] : day,
+   822→      count: countMap[day] || 0,
+   823→    }));
+   824→  }, [newsData, language]);
+   825→
+   826→  const upcomingCount = newsData?.upcomingEvents?.length || 0;
+   827→
+   828→  return (
+   829→    <div className="space-y-4">
+   830→      {/* Asset Selector */}
+   831→      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+   832→        {ASSETS.map((asset) => {
+   833→          const isActive = activeAsset === asset.id;
+   834→          return (
+   835→            <button
+   836→              key={asset.id}
+   837→              onClick={() => setActiveAsset(asset.id)}
+   838→              className={cn(
+   839→                "p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 text-center",
+   840→                isActive
+   841→                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-lg shadow-primary/10"
+   842→                  : "border-border hover:border-primary/30 bg-card"
+   843→              )}
+   844→            >
+   845→              <div className="text-lg sm:text-2xl mb-1">{asset.emoji}</div>
+   846→              <div className="text-[10px] sm:text-sm font-bold">{asset.id}</div>
+   847→              <div className="text-[8px] sm:text-xs text-muted-foreground hidden sm:block">
+   848→                {language === "fr" ? asset.label_fr : asset.label_en}
+   849→              </div>
+   850→            </button>
+   851→          );
+   852→        })}
+   853→      </div>
+   854→
+   855→      {/* Period Filter */}
+   856→      <div className="flex items-center gap-2">
+   857→        <Button
+   858→          variant={periodFilter === "today" ? "default" : "outline"}
+   859→          size="sm"
+   860→          className={cn("gap-1.5", periodFilter === "today" && "shadow-sm")}
+   861→          onClick={() => setPeriodFilter("today")}
+   862→        >
+   863→          <Calendar className="w-3.5 h-3.5" />
+   864→          {isFr ? "Aujourd'hui" : "Today"}
+   865→        </Button>
+   866→        <Button
+   867→          variant={periodFilter === "week" ? "default" : "outline"}
+   868→          size="sm"
+   869→          className={cn("gap-1.5", periodFilter === "week" && "shadow-sm")}
+   870→          onClick={() => setPeriodFilter("week")}
+   871→        >
+   872→          <CalendarDays className="w-3.5 h-3.5" />
+   873→          {isFr ? "Cette Semaine" : "This Week"}
+   874→        </Button>
+   875→      </div>
+   876→
+   877→      {/* Loading State */}
+   878→      {loading && (
+   879→        <div className="space-y-4">
+   880→          <Card className="p-6">
+   881→            <Skeleton className="h-6 w-48 mb-4" />
+   882→            <div className="space-y-3">
+   883→              <Skeleton className="h-4 w-full" />
+   884→              <Skeleton className="h-4 w-3/4" />
+   885→              <Skeleton className="h-4 w-1/2" />
+   886→            </div>
+   887→          </Card>
+   888→          <Card className="p-6">
+   889→            <Skeleton className="h-6 w-32 mb-4" />
+   890→            <div className="space-y-3">
+   891→              {Array.from({ length: 3 }).map((_, i) => (
+   892→                <Skeleton key={i} className="h-16 w-full" />
+   893→              ))}
+   894→            </div>
+   895→          </Card>
+   896→        </div>
+   897→      )}
+   898→
+   899→      {/* Error State */}
+   900→      {error && !loading && (
+   901→        <Card className="p-12 text-center">
+   902→          <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+   903→          <p className="text-muted-foreground">{error}</p>
+   904→          <Button onClick={handleRefresh} variant="outline" className="mt-4 gap-2">
+   905→            <RefreshCw className="w-4 h-4" />
+   906→            {isFr ? "Réessayer" : "Retry"}
+   907→          </Button>
+   908→        </Card>
+   909→      )}
+   910→
+   911→      {/* Content */}
+   912→      {newsData && !loading && !error && (
+   913→        <div className="space-y-4">
+   914→          {/* DONCIEL-AI™ Finance Analysis Card */}
+   915→          {analysis && (
+   916→            <Card className={cn(
+   917→              "p-4 sm:p-6 border-2 overflow-hidden",
+   918→              analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
+   919→                ? "border-profit/20 bg-gradient-to-br from-profit/5 to-transparent"
+   920→                : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
+   921→                ? "border-loss/20 bg-gradient-to-br from-loss/5 to-transparent"
+   922→                : "border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent"
+   923→            )}>
+   924→              <div className="flex items-start justify-between gap-3 mb-4">
+   925→                <div className="flex items-center gap-2 min-w-0">
+   926→                  <div className={cn(
+   927→                    "w-11 h-11 rounded-xl flex items-center justify-center shrink-0",
+   928→                    analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
+   929→                      ? "bg-profit/10" : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
+   930→                      ? "bg-loss/10" : "bg-amber-500/10"
+   931→                  )}>
+   932→                    <Brain className={cn(
+   933→                      "w-6 h-6",
+   934→                      analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
+   935→                        ? "text-profit" : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
+   936→                        ? "text-loss" : "text-amber-500"
+   937→                    )} />
+   938→                  </div>
+   939→                  <div className="min-w-0">
+   940→                    <div className="flex items-center gap-2 flex-wrap">
+   941→                      <h3 className="font-bold text-sm">
+   942→                        {aiPowered
+   943→                          ? (isFr ? "IA Financière Spécialisée" : "Finance AI Specialist")
+   944→                          : (isFr ? "Interprétation IA" : "AI Interpretation")} — {activeAsset}
+   945→                      </h3>
+   946→                      {aiPowered && (
+   947→                        <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+   948→                          <Sparkles className="w-3 h-3" />
+   949→                          DONCIEL-AI™
+   950→                        </Badge>
+   951→                      )}
+   952→                    </div>
+   953→                    <p className="text-[10px] text-muted-foreground">
+   954→                      {currentAsset && (isFr ? currentAsset.label_fr : currentAsset.label_en)}
+   955→                      {periodFilter === "today"
+   956→                        ? (isFr ? " · Aujourd'hui" : " · Today")
+   957→                        : (isFr ? " · Cette semaine" : " · This Week")}
+   958→                      {aiPowered && (
+   959→                        <span className="ml-1 text-purple-500">
+   960→                          · {isFr ? "Analyse CFA en temps réel" : "CFA-level real-time analysis"}
+   961→                        </span>
+   962→                      )}
+   963→                    </p>
+   964→                  </div>
+   965→                </div>
+   966→                <DirectionBadge direction={analysis.direction} confidence={analysis.confidence} />
+   967→              </div>
+   968→
+   969→              {analysis.summary && (
+   970→                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{analysis.summary}</p>
+   971→              )}
+   972→
+   973→              <Separator className="mb-4" />
+   974→
+   975→              {analysis.sentiment && (
+   976→                <div className="mb-4">
+   977→                  <SentimentGauge sentiment={analysis.sentiment} language={language} />
+   978→                </div>
+   979→              )}
+   980→
+   981→              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   982→                {analysis.keyFactors && analysis.keyFactors.length > 0 && (
+   983→                  <div className="sm:col-span-2">
+   984→                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+   985→                      {isFr ? "Facteurs Clés" : "Key Factors"}
+   986→                    </h4>
+   987→                    <div className="space-y-1.5">
+   988→                      {analysis.keyFactors.map((factor: string, i: number) => (
+   989→                        <div key={i} className="flex items-start gap-2 text-sm">
+   990→                          <span className="text-primary font-bold text-xs mt-0.5">•</span>
+   991→                          <span>{factor}</span>
+   992→                        </div>
+   993→                      ))}
+   994→                    </div>
+   995→                  </div>
+   996→                )}
+   997→
+   998→                <div className="space-y-3">
+   999→                  <div>
+  1000→                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+  1001→                      {isFr ? "Impact" : "Impact"}
+  1002→                    </h4>
+  1003→                    {analysis.impact && <ImpactBadge impact={analysis.impact} />}
+  1004→                  </div>
+  1005→                  {analysis.recommendation && (
+  1006→                    <div>
+  1007→                      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+  1008→                        {isFr ? "Conseil" : "Advice"}
+  1009→                      </h4>
+  1010→                      <p className="text-xs bg-primary/5 border border-primary/10 rounded-lg p-2.5">
+  1011→                        💡 {analysis.recommendation}
+  1012→                      </p>
+  1013→                    </div>
+  1014→                  )}
+  1015→                </div>
+  1016→              </div>
+  1017→
+  1018→              {(analysis.shortTerm || analysis.mediumTerm) && (
+  1019→                <>
+  1020→                  <Separator className="my-4" />
+  1021→                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1022→                    {analysis.shortTerm && (
+  1023→                      <div className="p-3 rounded-lg border border-border bg-card/50">
+  1024→                        <div className="flex items-center gap-1.5 mb-1.5">
+  1025→                          <Activity className="w-3.5 h-3.5 text-amber-500" />
+  1026→                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1027→                            {isFr ? "Court Terme (Intraday)" : "Short Term (Intraday)"}
+  1028→                          </span>
+  1029→                        </div>
+  1030→                        <p className="text-xs leading-relaxed">{analysis.shortTerm}</p>
+  1031→                      </div>
+  1032→                    )}
+  1033→                    {analysis.mediumTerm && (
+  1034→                      <div className="p-3 rounded-lg border border-border bg-card/50">
+  1035→                        <div className="flex items-center gap-1.5 mb-1.5">
+  1036→                          <Target className="w-3.5 h-3.5 text-primary" />
+  1037→                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1038→                            {isFr ? "Moyen Terme (Swing)" : "Medium Term (Swing)"}
+  1039→                          </span>
+  1040→                        </div>
+  1041→                        <p className="text-xs leading-relaxed">{analysis.mediumTerm}</p>
+  1042→                      </div>
+  1043→                    )}
+  1044→                  </div>
+  1045→                </>
+  1046→              )}
+  1047→
+  1048→              {analysis.riskWarning && (
+  1049→                <div className="mt-3 p-2.5 rounded-lg border border-loss/20 bg-loss/5">
+  1050→                  <div className="flex items-start gap-2">
+  1051→                    <AlertCircle className="w-3.5 h-3.5 text-loss mt-0.5 shrink-0" />
+  1052→                    <p className="text-[11px] text-loss/80 leading-relaxed">{analysis.riskWarning}</p>
+  1053→                  </div>
+  1054→                </div>
+  1055→              )}
+  1056→            </Card>
+  1057→          )}
+  1058→
+  1059→          {/* Weekly News Bar Chart */}
+  1060→          {periodFilter === "week" && barChartData.length > 0 && (
+  1061→            <Card className="p-4 sm:p-6">
+  1062→              <div className="flex items-center justify-between mb-4">
+  1063→                <div className="flex items-center gap-2">
+  1064→                  <BarChart3 className="w-4 h-4 text-primary" />
+  1065→                  <h3 className="font-bold text-sm">
+  1066→                    {isFr ? "Actualités de la Semaine" : "Weekly News"}
+  1067→                  </h3>
+  1068→                </div>
+  1069→                <div className="flex items-center gap-2">
+  1070→                  {upcomingCount > 0 && (
+  1071→                    <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 text-amber-500">
+  1072→                      <CalendarClock className="w-3 h-3" />
+  1073→                      {upcomingCount} {isFr ? "à venir" : "upcoming"}
+  1074→                    </Badge>
+  1075→                  )}
+  1076→                  <Badge variant="secondary" className="text-[10px]">
+  1077→                    {newsData.news?.length || 0} {isFr ? "actualités" : "news"}
+  1078→                  </Badge>
+  1079→                </div>
+  1080→              </div>
+  1081→              <div className="flex items-end gap-2 h-[120px]">
+  1082→                {barChartData.map((d, i) => {
+  1083→                  const maxCount = Math.max(...barChartData.map(b => b.count), 1);
+  1084→                  const heightPct = (d.count / maxCount) * 100;
+  1085→                  return (
+  1086→                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+  1087→                      <span className="text-[9px] text-muted-foreground font-medium">{d.count || ""}</span>
+  1088→                      <div className="w-full flex items-end justify-center" style={{ height: "100px" }}>
+  1089→                        <div
+  1090→                          className="w-full max-w-[40px] rounded-t-md bg-primary/70 transition-all duration-500"
+  1091→                          style={{ height: `${Math.max(heightPct, 4)}%` }}
+  1092→                        />
+  1093→                      </div>
+  1094→                      <span className="text-[10px] text-muted-foreground font-medium">{d.day}</span>
+  1095→                    </div>
+  1096→                  );
+  1097→                })}
+  1098→              </div>
+  1099→            </Card>
+  1100→          )}
+  1101→
+  1102→          {/* Upcoming Economic Events */}
+  1103→          {periodFilter === "week" && newsData.upcomingEvents?.length > 0 && (
+  1104→            <Card className="p-4 sm:p-6">
+  1105→              <div className="flex items-center gap-2 mb-4">
+  1106→                <CalendarClock className="w-4 h-4 text-amber-500" />
+  1107→                <h3 className="font-bold text-sm">
+  1108→                  {isFr ? "Événements Économiques à Venir" : "Upcoming Economic Events"}
+  1109→                </h3>
+  1110→              </div>
+  1111→              <div className="space-y-2 max-h-48 overflow-y-auto">
+  1112→                {newsData.upcomingEvents.map((item: any, i: number) => (
+  1113→                  <a
+  1114→                    key={i}
+  1115→                    href={item.url}
+  1116→                    target="_blank"
+  1117→                    rel="noopener noreferrer"
+  1118→                    className="block group"
+  1119→                  >
+  1120→                    <div className="p-2.5 rounded-lg border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 transition-all duration-200">
+  1121→                      <div className="flex items-start justify-between gap-2">
+  1122→                        <div className="flex-1 min-w-0">
+  1123→                          <h4 className="text-xs font-medium group-hover:text-amber-600 transition-colors line-clamp-2">
+  1124→                            {item.title}
+  1125→                          </h4>
+  1126→                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+  1127→                            {item.snippet}
+  1128→                          </p>
+  1129→                        </div>
+  1130→                        <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+  1131→                      </div>
+  1132→                    </div>
+  1133→                  </a>
+  1134→                ))}
+  1135→              </div>
+  1136→            </Card>
+  1137→          )}
+  1138→
+  1139→          {/* News Feed with AI Interpretation Tags */}
+  1140→          <Card className="p-4 sm:p-6">
+  1141→            <div className="flex items-center justify-between mb-4">
+  1142→              <div className="flex items-center gap-2">
+  1143→                <Globe className="w-4 h-4 text-primary" />
+  1144→                <h3 className="font-bold text-sm">
+  1145→                  {periodFilter === "today"
+  1146→                    ? (isFr ? "Actualités du Jour" : "Today's News")
+  1147→                    : (isFr ? "Actualités de la Semaine" : "This Week's News")} — {activeAsset}
+  1148→                </h3>
+  1149→                {newsData.news?.length > 0 && (
+  1150→                  <Badge variant="secondary" className="text-[10px]">{newsData.news.length}</Badge>
+  1151→                )}
+  1152→              </div>
+  1153→              {newsData.updatedAt && (
+  1154→                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+  1155→                  <Clock className="w-3 h-3" />
+  1156→                  {new Date(newsData.updatedAt).toLocaleTimeString(
+  1157→                    isFr ? "fr-FR" : "en-US",
+  1158→                    { hour: "2-digit", minute: "2-digit" }
+  1159→                  )}
+  1160→                </div>
+  1161→              )}
+  1162→            </div>
+  1163→
+  1164→            {newsData.news?.length > 0 ? (
+  1165→              <div className="space-y-3 max-h-[500px] overflow-y-auto">
+  1166→                {newsData.news.map((item: any, i: number) => (
+  1167→                  <a
+  1168→                    key={i}
+  1169→                    href={item.url}
+  1170→                    target="_blank"
+  1171→                    rel="noopener noreferrer"
+  1172→                    className="block group"
+  1173→                  >
+  1174→                    <div className="p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200">
+  1175→                      <div className="flex items-start justify-between gap-2">
+  1176→                        <div className="flex-1 min-w-0">
+  1177→                          <div className="flex items-center gap-2 mb-1">
+  1178→                            {item.aiDirection && <DirectionIcon direction={item.aiDirection} size="sm" />}
+  1179→                            <h4 className="text-sm font-medium group-hover:text-primary transition-colors line-clamp-2">
+  1180→                              {item.title}
+  1181→                            </h4>
+  1182→                          </div>
+  1183→                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.snippet}</p>
+  1184→                          {item.aiReason && (
+  1185→                            <div className="mt-1.5 flex items-start gap-1.5">
+  1186→                              <Brain className="w-3 h-3 text-purple-500 mt-0.5 shrink-0" />
+  1187→                              <p className="text-[10px] text-purple-500/80 leading-relaxed line-clamp-2">
+  1188→                                {item.aiReason}
+  1189→                              </p>
+  1190→                            </div>
+  1191→                          )}
+  1192→                        </div>
+  1193→                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+  1194→                      </div>
+  1195→                      <div className="flex items-center gap-2 mt-2">
+  1196→                        {item.source && (
+  1197→                          <Badge variant="outline" className="text-[9px] px-1.5 py-0">{item.source}</Badge>
+  1198→                        )}
+  1199→                        {item.date && (
+  1200→                          <span className="text-[9px] text-muted-foreground">
+  1201→                            {new Date(item.date).toLocaleDateString(
+  1202→                              isFr ? "fr-FR" : "en-US",
+  1203→                              { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
+  1204→                            )}
+  1205→                          </span>
+  1206→                        )}
+  1207→                        {item.aiDirection && (
+  1208→                          <Badge className={cn(
+  1209→                            "text-[8px] px-1.5 py-0 border-0",
+  1210→                            item.aiDirection === "HAUSSIER" && "bg-profit/15 text-profit",
+  1211→                            item.aiDirection === "BAISSIER" && "bg-loss/15 text-loss",
+  1212→                            item.aiDirection === "NEUTRE" && "bg-amber-500/15 text-amber-500",
+  1213→                          )}>
+  1214→                            {item.aiDirection}
+  1215→                          </Badge>
+  1216→                        )}
+  1217→                      </div>
+  1218→                    </div>
+  1219→                  </a>
+  1220→                ))}
+  1221→              </div>
+  1222→            ) : (
+  1223→              <p className="text-sm text-muted-foreground text-center py-8">
+  1224→                {isFr ? "Aucune actualité disponible" : "No news available"}
+  1225→              </p>
+  1226→            )}
+  1227→          </Card>
+  1228→
+  1229→          {/* Disclaimer */}
+  1230→          <p className="text-[10px] text-muted-foreground/60 text-center px-4">
+  1231→            {isFr
+  1232→              ? "⚠️ DONCIEL-AI™ est fourni à titre informatif uniquement et ne constitue pas un conseil financier. L'IA analyse les données en temps réel mais les marchés restent imprévisibles. Effectuez toujours vos propres recherches avant de trader."
+  1233→              : "⚠️ DONCIEL-AI™ is for informational purposes only and does not constitute financial advice. AI analyzes real-time data but markets remain unpredictable. Always do your own research before trading."}
+  1234→          </p>
+  1235→        </div>
+  1236→      )}
+  1237→    </div>
+  1238→  );
+  1239→}
+  1240→
+  1241→// ──────────────────────────────────────────────────────
+  1242→// Sub-tab: Sentiment (📡)
+  1243→// ──────────────────────────────────────────────────────
+  1244→
+  1245→function SentimentSubTab({ language }: { language: string }) {
+  1246→  const isFr = language === "fr";
+  1247→  const [sentimentData, setSentimentData] = useState<any>(null);
+  1248→  const [loading, setLoading] = useState(true);
+  1249→  const [error, setError] = useState<string | null>(null);
+  1250→  const [period, setPeriod] = useState<PeriodFilter>("today");
+  1251→  const [activeAsset, setActiveAsset] = useState<string | null>(null);
+  1252→  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  1253→
+  1254→  const fetchSentiment = useCallback(async () => {
+  1255→    try {
+  1256→      const assetParam = activeAsset ? `&asset=${activeAsset}` : '';
+  1257→      const res = await fetch(`/api/market/sentiment?lang=${language}&period=${period}${assetParam}`);
+  1258→      if (!res.ok) throw new Error("Fetch failed");
+  1259→      const data = await res.json();
+  1260→      setSentimentData(data);
+  1261→      setError(null);
+  1262→    } catch {
+  1263→      setError(isFr ? "Erreur lors du chargement du sentiment" : "Error loading sentiment");
+  1264→    } finally {
+  1265→      setLoading(false);
+  1266→    }
+  1267→  }, [language, isFr, period, activeAsset]);
+  1268→
+  1269→  // Reset loading when period or asset changes
+  1270→  useEffect(() => {
+  1271→    setLoading(true);
+  1272→  }, [period, activeAsset]);
+  1273→
+  1274→  useEffect(() => {
+  1275→    fetchSentiment();
+  1276→    intervalRef.current = setInterval(fetchSentiment, 5 * 60 * 1000);
+  1277→    return () => {
+  1278→      if (intervalRef.current) clearInterval(intervalRef.current);
+  1279→    };
+  1280→  }, [fetchSentiment]);
+  1281→
+  1282→  if (loading) {
+  1283→    return (
+  1284→      <div className="space-y-4">
+  1285→        <Card className="p-6">
+  1286→          <Skeleton className="h-6 w-40 mb-4" />
+  1287→          <Skeleton className="h-3 w-full mb-2" />
+  1288→          <Skeleton className="h-8 w-full mb-4" />
+  1289→          <div className="grid grid-cols-2 gap-4">
+  1290→            <Skeleton className="h-20 w-full" />
+  1291→            <Skeleton className="h-20 w-full" />
+  1292→          </div>
+  1293→        </Card>
+  1294→      </div>
+  1295→    );
+  1296→  }
+  1297→
+  1298→  if (error) {
+  1299→    return (
+  1300→      <Card className="p-12 text-center">
+  1301→        <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+  1302→        <p className="text-muted-foreground">{error}</p>
+  1303→        <Button onClick={fetchSentiment} variant="outline" className="mt-4 gap-2">
+  1304→          <RefreshCw className="w-4 h-4" />
+  1305→          {isFr ? "Réessayer" : "Retry"}
+  1306→        </Button>
+  1307→      </Card>
+  1308→    );
+  1309→  }
+  1310→
+  1311→  // API returns: fearGreed, vix, smartMoney, retail, contrarianSignal, overallSentiment, interpretation
+  1312→  const fearGreed = sentimentData?.fearGreed ?? { value: 50, label: "Neutral", trend: "stable" };
+  1313→  const vix = sentimentData?.vix ?? null;
+  1314→  const smartMoney = sentimentData?.smartMoney ?? null;
+  1315→  const retail = sentimentData?.retail ?? null;
+  1316→  const contrarianSignal = sentimentData?.contrarianSignal ?? null;
+  1317→  const overallSentiment = sentimentData?.overallSentiment ?? "NEUTRAL";
+  1318→  const interpretation = sentimentData?.interpretation ?? null;
+  1319→
+  1320→  const isRiskOn = overallSentiment === "RISK-ON";
+  1321→  const isRiskOff = overallSentiment === "RISK-OFF";
+  1322→
+  1323→  // Derive strength from confidence for smartMoney/retail bars
+  1324→  const confidenceToStrength = (conf: string) => {
+  1325→    const c = conf?.toLowerCase() || "low";
+  1326→    if (c.includes("high") || c.includes("élev")) return 85;
+  1327→    if (c.includes("medium") || c.includes("moyen") || c.includes("modéré")) return 55;
+  1328→    return 30;
+  1329→  };
+  1330→
+  1331→  return (
+  1332→    <div className="space-y-4">
+  1333→      {/* Period Filter */}
+  1334→      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+  1335→
+  1336→      {/* Asset Selector */}
+  1337→      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+  1338→        <button
+  1339→          onClick={() => setActiveAsset(null)}
+  1340→          className={cn(
+  1341→            "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+  1342→            !activeAsset
+  1343→              ? "border-primary bg-primary/10 shadow-sm"
+  1344→              : "border-border hover:border-primary/30 bg-card"
+  1345→          )}
+  1346→        >
+  1347→          <div className="text-sm sm:text-lg">🌍</div>
+  1348→          <div className="text-[8px] sm:text-[10px] font-bold">{isFr ? "Tous" : "All"}</div>
+  1349→        </button>
+  1350→        {ASSETS.map((asset) => {
+  1351→          const isActive = activeAsset === asset.id;
+  1352→          return (
+  1353→            <button
+  1354→              key={asset.id}
+  1355→              onClick={() => setActiveAsset(isActive ? null : asset.id)}
+  1356→              className={cn(
+  1357→                "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+  1358→                isActive
+  1359→                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-sm"
+  1360→                  : "border-border hover:border-primary/30 bg-card"
+  1361→              )}
+  1362→            >
+  1363→              <div className="text-sm sm:text-lg">{asset.emoji}</div>
+  1364→              <div className="text-[7px] sm:text-[10px] font-bold">{asset.id}</div>
+  1365→            </button>
+  1366→          );
+  1367→        })}
+  1368→      </div>
+  1369→
+  1370→      {/* Asset-specific sentiment */}
+  1371→      {activeAsset && sentimentData?.assetSentiment && (
+  1372→        <Card className="p-4 sm:p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+  1373→          <div className="flex items-center gap-2 mb-3">
+  1374→            <Sparkles className="w-4 h-4 text-primary" />
+  1375→            <h3 className="font-bold text-sm">
+  1376→              {isFr ? "Sentiment" : "Sentiment"} {activeAsset}
+  1377→            </h3>
+  1378→            <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+  1379→              <Brain className="w-3 h-3" />
+  1380→              AI
+  1381→            </Badge>
+  1382→          </div>
+  1383→          <div className="space-y-3">
+  1384→            <div className="flex items-center justify-between">
+  1385→              <span className="text-xs text-muted-foreground">{isFr ? "Direction probable" : "Likely direction"}</span>
+  1386→              <Badge className={cn(
+  1387→                "text-xs font-bold gap-1",
+  1388→                sentimentData.assetSentiment.direction?.includes("HAUSS") && "bg-profit/15 text-profit border-profit/30",
+  1389→                sentimentData.assetSentiment.direction?.includes("BAISS") && "bg-loss/15 text-loss border-loss/30",
+  1390→                !sentimentData.assetSentiment.direction?.includes("HAUSS") && !sentimentData.assetSentiment.direction?.includes("BAISS") && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+  1391→              )}>
+  1392→                {sentimentData.assetSentiment.direction?.includes("HAUSS") && <TrendingUp className="w-3 h-3" />}
+  1393→                {sentimentData.assetSentiment.direction?.includes("BAISS") && <TrendingDown className="w-3 h-3" />}
+  1394→                {sentimentData.assetSentiment.direction || "NEUTRE"}
+  1395→              </Badge>
+  1396→            </div>
+  1397→            <div className="flex items-center justify-between">
+  1398→              <span className="text-xs text-muted-foreground">{isFr ? "Confiance" : "Confidence"}</span>
+  1399→              <Badge variant="outline" className="text-xs">{sentimentData.assetSentiment.confidence || (isFr ? "faible" : "low")}</Badge>
+  1400→            </div>
+  1401→            {sentimentData.assetSentiment.interpretation && (
+  1402→              <p className="text-xs text-muted-foreground leading-relaxed">{sentimentData.assetSentiment.interpretation}</p>
+  1403→            )}
+  1404→          </div>
+  1405→        </Card>
+  1406→      )}
+  1407→
+  1408→      {/* Fear & Greed Gauge + Market Regime */}
+  1409→      <Card className="p-4 sm:p-6">
+  1410→        <FearGreedGauge value={fearGreed.value} label={fearGreed.label} language={language} />
+  1411→
+  1412→        <Separator className="my-4" />
+  1413→
+  1414→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1415→          {/* Market Regime */}
+  1416→          <div className="p-3 rounded-lg border border-border">
+  1417→            <div className="flex items-center justify-between">
+  1418→              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1419→                {isFr ? "Régime de Marché" : "Market Regime"}
+  1420→              </span>
+  1421→              <Badge className={cn(
+  1422→                "text-xs font-bold gap-1",
+  1423→                isRiskOn && "bg-profit/15 text-profit border-profit/30",
+  1424→                isRiskOff && "bg-loss/15 text-loss border-loss/30",
+  1425→                !isRiskOn && !isRiskOff && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+  1426→              )}>
+  1427→                {isRiskOn && <TrendingUp className="w-3.5 h-3.5" />}
+  1428→                {isRiskOff && <TrendingDown className="w-3.5 h-3.5" />}
+  1429→                {!isRiskOn && !isRiskOff && <Minus className="w-3.5 h-3.5" />}
+  1430→                {overallSentiment}
+  1431→              </Badge>
+  1432→            </div>
+  1433→          </div>
+  1434→
+  1435→          {/* VIX */}
+  1436→          {vix && (
+  1437→            <div className="p-3 rounded-lg border border-border">
+  1438→              <div className="flex items-center justify-between">
+  1439→                <div className="flex items-center gap-1.5">
+  1440→                  <Activity className="w-3.5 h-3.5 text-amber-500" />
+  1441→                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1442→                    VIX
+  1443→                  </span>
+  1444→                </div>
+  1445→                <div className="flex items-center gap-2">
+  1446→                  <span className="text-lg font-bold">{vix.value}</span>
+  1447→                  {vix.trend === "rising" && <TrendingUp className="w-4 h-4 text-loss" />}
+  1448→                  {vix.trend === "declining" && <TrendingDown className="w-4 h-4 text-profit" />}
+  1449→                  {vix.trend === "stable" && <Minus className="w-4 h-4 text-muted-foreground" />}
+  1450→                </div>
+  1451→              </div>
+  1452→              {vix.interpretation && (
+  1453→                <p className="text-[10px] text-muted-foreground mt-1">{vix.interpretation}</p>
+  1454→              )}
+  1455→            </div>
+  1456→          )}
+  1457→        </div>
+  1458→      </Card>
+  1459→
+  1460→      {/* Smart Money vs Retail */}
+  1461→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1462→        {/* Smart Money */}
+  1463→        {smartMoney && (
+  1464→          <Card className="p-4 sm:p-6">
+  1465→            <div className="flex items-center gap-2 mb-3">
+  1466→              <Eye className="w-4 h-4 text-primary" />
+  1467→              <h3 className="font-bold text-sm">{isFr ? "Smart Money" : "Smart Money"}</h3>
+  1468→            </div>
+  1469→            <div className="space-y-3">
+  1470→              <div className="flex items-center justify-between">
+  1471→                <span className="text-xs text-muted-foreground">{isFr ? "Position" : "Position"}</span>
+  1472→                <Badge className={cn(
+  1473→                  "text-xs gap-1",
+  1474→                  smartMoney.direction?.includes("LONG") && "bg-profit/15 text-profit",
+  1475→                  smartMoney.direction?.includes("SHORT") && "bg-loss/15 text-loss",
+  1476→                  !smartMoney.direction?.includes("LONG") && !smartMoney.direction?.includes("SHORT") && "bg-amber-500/15 text-amber-500"
+  1477→                )}>
+  1478→                  {smartMoney.direction?.includes("LONG") && <TrendingUp className="w-3 h-3" />}
+  1479→                  {smartMoney.direction?.includes("SHORT") && <TrendingDown className="w-3 h-3" />}
+  1480→                  {smartMoney.direction || "NEUTRAL"}
+  1481→                </Badge>
+  1482→              </div>
+  1483→              <div>
+  1484→                <div className="flex items-center justify-between mb-1">
+  1485→                  <span className="text-[10px] text-muted-foreground">{isFr ? "Confiance" : "Confidence"}</span>
+  1486→                  <span className="text-[10px] font-bold">{smartMoney.confidence || "low"}</span>
+  1487→                </div>
+  1488→                <ProbabilityBar
+  1489→                  value={confidenceToStrength(smartMoney.confidence)}
+  1490→                  color={smartMoney.direction?.includes("LONG") ? "bg-profit" : smartMoney.direction?.includes("SHORT") ? "bg-loss" : "bg-amber-500"}
+  1491→                />
+  1492→              </div>
+  1493→            </div>
+  1494→          </Card>
+  1495→        )}
+  1496→
+  1497→        {/* Retail */}
+  1498→        {retail && (
+  1499→          <Card className="p-4 sm:p-6">
+  1500→            <div className="flex items-center gap-2 mb-3">
+  1501→              <Users className="w-4 h-4 text-amber-500" />
+  1502→              <h3 className="font-bold text-sm">{isFr ? "Traders Particuliers" : "Retail Traders"}</h3>
+  1503→            </div>
+  1504→            <div className="space-y-3">
+  1505→              <div className="flex items-center justify-between">
+  1506→                <span className="text-xs text-muted-foreground">{isFr ? "Position" : "Position"}</span>
+  1507→                <Badge className={cn(
+  1508→                  "text-xs gap-1",
+  1509→                  retail.direction?.includes("LONG") && "bg-profit/15 text-profit",
+  1510→                  retail.direction?.includes("SHORT") && "bg-loss/15 text-loss",
+  1511→                  !retail.direction?.includes("LONG") && !retail.direction?.includes("SHORT") && "bg-amber-500/15 text-amber-500"
+  1512→                )}>
+  1513→                  {retail.direction?.includes("LONG") && <TrendingUp className="w-3 h-3" />}
+  1514→                  {retail.direction?.includes("SHORT") && <TrendingDown className="w-3 h-3" />}
+  1515→                  {retail.direction || "NEUTRAL"}
+  1516→                </Badge>
+  1517→              </div>
+  1518→              <div>
+  1519→                <div className="flex items-center justify-between mb-1">
+  1520→                  <span className="text-[10px] text-muted-foreground">{isFr ? "Confiance" : "Confidence"}</span>
+  1521→                  <span className="text-[10px] font-bold">{retail.confidence || "low"}</span>
+  1522→                </div>
+  1523→                <ProbabilityBar
+  1524→                  value={confidenceToStrength(retail.confidence)}
+  1525→                  color={retail.direction?.includes("LONG") ? "bg-profit" : retail.direction?.includes("SHORT") ? "bg-loss" : "bg-amber-500"}
+  1526→                />
+  1527→              </div>
+  1528→            </div>
+  1529→          </Card>
+  1530→        )}
+  1531→      </div>
+  1532→
+  1533→      {/* Contrarian Signal */}
+  1534→      {contrarianSignal && (
+  1535→        <Card className={cn(
+  1536→          "p-4 sm:p-6 border-2",
+  1537→          contrarianSignal.toLowerCase().includes("buy") || contrarianSignal.toLowerCase().includes("acheter") || contrarianSignal.toLowerCase().includes("long")
+  1538→            ? "border-profit/30 bg-gradient-to-r from-profit/5 to-transparent"
+  1539→            : contrarianSignal.toLowerCase().includes("sell") || contrarianSignal.toLowerCase().includes("vendre") || contrarianSignal.toLowerCase().includes("short")
+  1540→            ? "border-loss/30 bg-gradient-to-r from-loss/5 to-transparent"
+  1541→            : "border-amber-500/20"
+  1542→        )}>
+  1543→          <div className="flex items-center gap-2 mb-2">
+  1544→            <ShieldAlert className="w-4 h-4 text-purple-500" />
+  1545→            <h3 className="font-bold text-sm">{isFr ? "Signal Contrarien" : "Contrarian Signal"}</h3>
+  1546→          </div>
+  1547→          <p className="text-xs text-muted-foreground leading-relaxed">{contrarianSignal}</p>
+  1548→        </Card>
+  1549→      )}
+  1550→
+  1551→      {/* AI Interpretation */}
+  1552→      {interpretation && (
+  1553→        <Card className="p-4 sm:p-6">
+  1554→          <div className="flex items-center gap-2 mb-3">
+  1555→            <Brain className="w-4 h-4 text-purple-500" />
+  1556→            <h3 className="font-bold text-sm">
+  1557→              {isFr ? "Interprétation DONCIEL-AI™" : "DONCIEL-AI™ Interpretation"}
+  1558→            </h3>
+  1559→            <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+  1560→              <Sparkles className="w-3 h-3" />
+  1561→              AI
+  1562→            </Badge>
+  1563→          </div>
+  1564→          <p className="text-xs text-muted-foreground leading-relaxed">{interpretation}</p>
+  1565→        </Card>
+  1566→      )}
+  1567→
+  1568→      {/* Disclaimer */}
+  1569→      <p className="text-[10px] text-muted-foreground/60 text-center px-4">
+  1570→        {isFr
+  1571→          ? "⚠️ Les données de sentiment sont agrégées à partir de multiples sources et sont fournies à titre indicatif. Elles ne constituent pas un conseil en investissement."
+  1572→          : "⚠️ Sentiment data is aggregated from multiple sources and provided for informational purposes only. This does not constitute investment advice."}
+  1573→      </p>
+  1574→    </div>
+  1575→  );
+  1576→}
+  1577→
+  1578→// ──────────────────────────────────────────────────────
+  1579→// Sub-tab: Alertes (⏰)
+  1580→// ──────────────────────────────────────────────────────
+  1581→
+  1582→function AlertsSubTab({ language }: { language: string }) {
+  1583→  const isFr = language === "fr";
+  1584→  const [briefingData, setBriefingData] = useState<any>(null);
+  1585→  const [calendarData, setCalendarData] = useState<any>(null);
+  1586→  const [loading, setLoading] = useState(true);
+  1587→  const [error, setError] = useState<string | null>(null);
+  1588→  const [period, setPeriod] = useState<PeriodFilter>("today");
+  1589→  const [activeAsset, setActiveAsset] = useState<string | null>(null);
+  1590→
+  1591→  const fetchData = useCallback(async () => {
+  1592→    try {
+  1593→      const assetParam = activeAsset ? `&asset=${activeAsset}` : '';
+  1594→      const [briefingRes, calendarRes] = await Promise.all([
+  1595→        fetch(`/api/market/briefing?lang=${language}&period=${period}${assetParam}`),
+  1596→        fetch(`/api/market/calendar?lang=${language}&period=${period}${assetParam}`),
+  1597→      ]);
+  1598→
+  1599→      if (briefingRes.ok) {
+  1600→        const briefing = await briefingRes.json();
+  1601→        setBriefingData(briefing);
+  1602→      }
+  1603→      if (calendarRes.ok) {
+  1604→        const calendar = await calendarRes.json();
+  1605→        setCalendarData(calendar);
+  1606→      }
+  1607→      setError(null);
+  1608→    } catch {
+  1609→      setError(isFr ? "Erreur lors du chargement des alertes" : "Error loading alerts");
+  1610→    } finally {
+  1611→      setLoading(false);
+  1612→    }
+  1613→  }, [language, isFr, period, activeAsset]);
+  1614→
+  1615→  // Reset loading when period or asset changes
+  1616→  useEffect(() => {
+  1617→    setLoading(true);
+  1618→  }, [period, activeAsset]);
+  1619→
+  1620→  useEffect(() => {
+  1621→    fetchData();
+  1622→  }, [fetchData]);
+  1623→
+  1624→  // API returns: summary, asia, today, keyLevels (string[]), scenarios ({ name, probability, description }[]), riskEvents (string[])
+  1625→  const summary = briefingData?.summary ?? null;
+  1626→  const asia = briefingData?.asia ?? null;
+  1627→  const today = briefingData?.today ?? null;
+  1628→  const keyLevels: string[] = briefingData?.keyLevels ?? [];
+  1629→  const scenarios: { name: string; probability: number; description: string }[] = briefingData?.scenarios ?? [];
+  1630→  const riskEvents: string[] = briefingData?.riskEvents ?? [];
+  1631→
+  1632→  // Normalize calendar events for countdown (must be before early returns for hooks rules)
+  1633→  const normalizedCalendarEvents = useMemo(() => {
+  1634→    const rawEvents: any[] = calendarData?.events || [];
+  1635→    return rawEvents
+  1636→      .filter((e: any) => (e.impact || "").toLowerCase() === "high")
+  1637→      .map((evt: any) => {
+  1638→        const todayDate = new Date();
+  1639→        let eventDate: Date;
+  1640→        if (evt.date) {
+  1641→          eventDate = new Date(evt.date);
+  1642→        } else if (evt.time) {
+  1643→          const [h, m] = evt.time.split(":").map(Number);
+  1644→          eventDate = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate(), h || 0, m || 0);
+  1645→        } else {
+  1646→          eventDate = todayDate;
+  1647→        }
+  1648→        return {
+  1649→          title: evt.event || evt.title || "",
+  1650→          date: eventDate.toISOString(),
+  1651→          currency: (evt.currency || "").toUpperCase(),
+  1652→          countryFlag: evt.country || "🌍",
+  1653→        };
+  1654→      })
+  1655→      .filter((e: any) => new Date(e.date) > new Date())
+  1656→      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  1657→  }, [calendarData]);
+  1658→
+  1659→  // Determine scenario type from name
+  1660→  const getScenarioType = useCallback((name: string): "BULLISH" | "BEARISH" | "NEUTRAL" => {
+  1661→    const n = name.toLowerCase();
+  1662→    if (n.includes("bull") || n.includes("hauss") || n.includes("optimist")) return "BULLISH";
+  1663→    if (n.includes("bear") || n.includes("baiss") || n.includes("pessimist")) return "BEARISH";
+  1664→    return "NEUTRAL";
+  1665→  }, []);
+  1666→
+  1667→  if (loading) {
+  1668→    return (
+  1669→      <div className="space-y-4">
+  1670→        <Card className="p-6">
+  1671→          <Skeleton className="h-6 w-48 mb-4" />
+  1672→          <div className="space-y-3">
+  1673→            <Skeleton className="h-4 w-full" />
+  1674→            <Skeleton className="h-4 w-3/4" />
+  1675→          </div>
+  1676→        </Card>
+  1677→        <div className="grid grid-cols-3 gap-3">
+  1678→          <Skeleton className="h-24 w-full" />
+  1679→          <Skeleton className="h-24 w-full" />
+  1680→          <Skeleton className="h-24 w-full" />
+  1681→        </div>
+  1682→      </div>
+  1683→    );
+  1684→  }
+  1685→
+  1686→  if (error) {
+  1687→    return (
+  1688→      <Card className="p-12 text-center">
+  1689→        <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+  1690→        <p className="text-muted-foreground">{error}</p>
+  1691→        <Button onClick={fetchData} variant="outline" className="mt-4 gap-2">
+  1692→          <RefreshCw className="w-4 h-4" />
+  1693→          {isFr ? "Réessayer" : "Retry"}
+  1694→        </Button>
+  1695→      </Card>
+  1696→    );
+  1697→  }
+  1698→
+  1699→  return (
+  1700→    <div className="space-y-4">
+  1701→      {/* Period Filter */}
+  1702→      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+  1703→
+  1704→      {/* Asset Selector */}
+  1705→      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+  1706→        <button
+  1707→          onClick={() => setActiveAsset(null)}
+  1708→          className={cn(
+  1709→            "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+  1710→            !activeAsset
+  1711→              ? "border-primary bg-primary/10 shadow-sm"
+  1712→              : "border-border hover:border-primary/30 bg-card"
+  1713→          )}
+  1714→        >
+  1715→          <div className="text-sm sm:text-lg">🌍</div>
+  1716→          <div className="text-[8px] sm:text-[10px] font-bold">{isFr ? "Tous" : "All"}</div>
+  1717→        </button>
+  1718→        {ASSETS.map((asset) => {
+  1719→          const isActive = activeAsset === asset.id;
+  1720→          return (
+  1721→            <button
+  1722→              key={asset.id}
+  1723→              onClick={() => setActiveAsset(isActive ? null : asset.id)}
+  1724→              className={cn(
+  1725→                "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+  1726→                isActive
+  1727→                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-sm"
+  1728→                  : "border-border hover:border-primary/30 bg-card"
+  1729→              )}
+  1730→            >
+  1731→              <div className="text-sm sm:text-lg">{asset.emoji}</div>
+  1732→              <div className="text-[7px] sm:text-[10px] font-bold">{asset.id}</div>
+  1733→            </button>
+  1734→          );
+  1735→        })}
+  1736→      </div>
+  1737→
+  1738→      {/* Asset-specific briefing */}
+  1739→      {activeAsset && briefingData?.assetBriefing && (
+  1740→        <Card className="p-4 sm:p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+  1741→          <div className="flex items-center gap-2 mb-3">
+  1742→            <Sparkles className="w-4 h-4 text-primary" />
+  1743→            <h3 className="font-bold text-sm">
+  1744→              {isFr ? "Briefing" : "Briefing"} {activeAsset}
+  1745→            </h3>
+  1746→            <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+  1747→              <Brain className="w-3 h-3" />
+  1748→              AI
+  1749→            </Badge>
+  1750→          </div>
+  1751→          <div className="space-y-3">
+  1752→            {briefingData.assetBriefing.keyLevels?.length > 0 && (
+  1753→              <div>
+  1754→                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{isFr ? "Niveaux clés" : "Key Levels"}</span>
+  1755→                <div className="space-y-1 mt-1">
+  1756→                  {briefingData.assetBriefing.keyLevels.map((level: string, i: number) => (
+  1757→                    <div key={i} className="flex items-center gap-2 p-1.5 rounded border border-border">
+  1758→                      <CircleDot className="w-3 h-3 text-primary shrink-0" />
+  1759→                      <span className="text-xs">{level}</span>
+  1760→                    </div>
+  1761→                  ))}
+  1762→                </div>
+  1763→              </div>
+  1764→            )}
+  1765→            {briefingData.assetBriefing.scenarioAdjustment && (
+  1766→              <p className="text-xs text-muted-foreground leading-relaxed">{briefingData.assetBriefing.scenarioAdjustment}</p>
+  1767→            )}
+  1768→          </div>
+  1769→        </Card>
+  1770→      )}
+  1771→
+  1772→      {/* Morning/Weekly Briefing */}
+  1773→      {summary && (
+  1774→        <Card className="p-4 sm:p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+  1775→          <div className="flex items-center gap-2 mb-3">
+  1776→            <Sunrise className="w-5 h-5 text-primary" />
+  1777→            <h3 className="font-bold text-sm">
+  1778→              {period === "week"
+  1779→                ? (isFr ? "Briefing Hebdomadaire" : "Weekly Briefing")
+  1780→                : (isFr ? "Briefing du Jour" : "Morning Briefing")}
+  1781→            </h3>
+  1782→            <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+  1783→              <Sparkles className="w-3 h-3" />
+  1784→              DONCIEL-AI™
+  1785→            </Badge>
+  1786→          </div>
+  1787→
+  1788→          {/* Summary */}
+  1789→          <p className="text-sm text-muted-foreground leading-relaxed mb-3">{summary}</p>
+  1790→
+  1791→          {/* Asia session */}
+  1792→          {asia && (
+  1793→            <div className="p-2.5 rounded-lg border border-border bg-card/50 mb-2">
+  1794→              <div className="flex items-center gap-1.5 mb-1">
+  1795→                <Globe className="w-3 h-3 text-amber-500" />
+  1796→                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1797→                  {isFr ? "Session Asiatique" : "Asian Session"}
+  1798→                </span>
+  1799→              </div>
+  1800→              <p className="text-xs leading-relaxed">{asia}</p>
+  1801→            </div>
+  1802→          )}
+  1803→
+  1804→          {/* Today */}
+  1805→          {today && (
+  1806→            <div className="p-2.5 rounded-lg border border-border bg-card/50">
+  1807→              <div className="flex items-center gap-1.5 mb-1">
+  1808→                <Calendar className="w-3 h-3 text-primary" />
+  1809→                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1810→                  {period === "week"
+  1811→                    ? (isFr ? "Cette Semaine" : "This Week")
+  1812→                    : (isFr ? "Aujourd'hui" : "Today")}
+  1813→                </span>
+  1814→              </div>
+  1815→              <p className="text-xs leading-relaxed">{today}</p>
+  1816→            </div>
+  1817→          )}
+  1818→        </Card>
+  1819→      )}
+  1820→
+  1821→      {/* 3 Scenario Cards */}
+  1822→      {scenarios.length > 0 && (
+  1823→        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+  1824→          {scenarios.map((scenario, i) => {
+  1825→            const scenarioType = getScenarioType(scenario.name);
+  1826→            const isBull = scenarioType === "BULLISH";
+  1827→            const isBear = scenarioType === "BEARISH";
+  1828→            return (
+  1829→              <Card key={i} className={cn(
+  1830→                "p-4 border-2",
+  1831→                isBull && "border-profit/20 bg-gradient-to-br from-profit/5 to-transparent",
+  1832→                isBear && "border-loss/20 bg-gradient-to-br from-loss/5 to-transparent",
+  1833→                !isBull && !isBear && "border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent"
+  1834→              )}>
+  1835→                <div className="flex items-center gap-2 mb-2">
+  1836→                  {isBull && <TrendingUp className="w-4 h-4 text-profit" />}
+  1837→                  {isBear && <TrendingDown className="w-4 h-4 text-loss" />}
+  1838→                  {!isBull && !isBear && <Minus className="w-4 h-4 text-amber-500" />}
+  1839→                  <span className={cn(
+  1840→                    "text-xs font-bold",
+  1841→                    isBull && "text-profit",
+  1842→                    isBear && "text-loss",
+  1843→                    !isBull && !isBear && "text-amber-500"
+  1844→                  )}>
+  1845→                    {isBull ? (isFr ? "🟢 Haussier" : "🟢 Bullish")
+  1846→                      : isBear ? (isFr ? "🔴 Baissier" : "🔴 Bearish")
+  1847→                      : (isFr ? "🟡 Neutre" : "🟡 Neutral")}
+  1848→                  </span>
+  1849→                </div>
+  1850→                <div className="mb-2">
+  1851→                  <div className="flex items-center justify-between mb-1">
+  1852→                    <span className="text-[10px] text-muted-foreground">{isFr ? "Probabilité" : "Probability"}</span>
+  1853→                    <span className="text-[10px] font-bold">{scenario.probability}%</span>
+  1854→                  </div>
+  1855→                  <ProbabilityBar
+  1856→                    value={scenario.probability}
+  1857→                    color={isBull ? "bg-profit" : isBear ? "bg-loss" : "bg-amber-500"}
+  1858→                  />
+  1859→                </div>
+  1860→                {scenario.description && (
+  1861→                  <p className="text-[10px] text-muted-foreground leading-relaxed mt-2">{scenario.description}</p>
+  1862→                )}
+  1863→              </Card>
+  1864→            );
+  1865→          })}
+  1866→        </div>
+  1867→      )}
+  1868→
+  1869→      {/* Key Levels Watchlist */}
+  1870→      {keyLevels.length > 0 && (
+  1871→        <Card className="p-4 sm:p-6">
+  1872→          <div className="flex items-center gap-2 mb-4">
+  1873→            <Target className="w-4 h-4 text-primary" />
+  1874→            <h3 className="font-bold text-sm">{isFr ? "Niveaux Clés à Surveiller" : "Key Levels to Watch"}</h3>
+  1875→          </div>
+  1876→          <div className="space-y-2">
+  1877→            {keyLevels.map((level, i) => (
+  1878→              <div key={i} className="flex items-center gap-2 p-2.5 rounded-lg border border-border">
+  1879→                <CircleDot className="w-3 h-3 text-primary shrink-0" />
+  1880→                <span className="text-xs leading-relaxed">{level}</span>
+  1881→              </div>
+  1882→            ))}
+  1883→          </div>
+  1884→        </Card>
+  1885→      )}
+  1886→
+  1887→      {/* Risk Events Timeline */}
+  1888→      {riskEvents.length > 0 && (
+  1889→        <Card className="p-4 sm:p-6">
+  1890→          <div className="flex items-center gap-2 mb-4">
+  1891→            <Flame className="w-4 h-4 text-loss" />
+  1892→            <h3 className="font-bold text-sm">{isFr ? "Événements à Risque" : "Risk Events"}</h3>
+  1893→          </div>
+  1894→          <div className="space-y-2">
+  1895→            {riskEvents.map((evt, i) => (
+  1896→              <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg border border-loss/20 bg-loss/5">
+  1897→                <AlertTriangle className="w-3.5 h-3.5 text-loss shrink-0" />
+  1898→                <span className="text-xs">{evt}</span>
+  1899→              </div>
+  1900→            ))}
+  1901→          </div>
+  1902→        </Card>
+  1903→      )}
+  1904→
+  1905→      {/* Upcoming High-Impact Events with Countdown */}
+  1906→      {normalizedCalendarEvents.length > 0 && (
+  1907→        <Card className="p-4 sm:p-6">
+  1908→          <div className="flex items-center gap-2 mb-4">
+  1909→            <Timer className="w-4 h-4 text-amber-500" />
+  1910→            <h3 className="font-bold text-sm">{isFr ? "Prochains Événements à Fort Impact" : "Upcoming High-Impact Events"}</h3>
+  1911→          </div>
+  1912→          <div className="space-y-2 max-h-64 overflow-y-auto">
+  1913→            {normalizedCalendarEvents.slice(0, 8).map((evt: any, i: number) => (
+  1914→              <div key={i} className="flex items-center justify-between p-2.5 rounded-lg border border-border hover:border-loss/20 transition-colors">
+  1915→                <div className="flex items-center gap-3">
+  1916→                  <span className="text-xs">🔴</span>
+  1917→                  <div>
+  1918→                    <h4 className="text-xs font-medium">{evt.title}</h4>
+  1919→                    <div className="flex items-center gap-1 mt-0.5">
+  1920→                      <span className="text-[9px] text-muted-foreground">{evt.currency}</span>
+  1921→                      <span className="text-xs">{evt.countryFlag}</span>
+  1922→                    </div>
+  1923→                  </div>
+  1924→                </div>
+  1925→                <CountdownTimer targetDate={evt.date} language={language} />
+  1926→              </div>
+  1927→            ))}
+  1928→          </div>
+  1929→        </Card>
+  1930→      )}
+  1931→
+  1932→      {/* No data fallback */}
+  1933→      {!summary && scenarios.length === 0 && keyLevels.length === 0 && riskEvents.length === 0 && normalizedCalendarEvents.length === 0 && (
+  1934→        <Card className="p-8 text-center">
+  1935→          <Clock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+  1936→          <p className="text-sm text-muted-foreground">
+  1937→            {isFr ? "Aucune alerte pour le moment" : "No alerts at this time"}
+  1938→          </p>
+  1939→        </Card>
+  1940→      )}
+  1941→    </div>
+  1942→  );
+  1943→}
+  1944→
+  1945→// ──────────────────────────────────────────────────────
+  1946→// Sub-tab: Statistiques (📊)
+  1947→// ──────────────────────────────────────────────────────
+  1948→
+  1949→function StatisticsSubTab({ language }: { language: string }) {
+  1950→  const isFr = language === "fr";
+  1951→  const [period, setPeriod] = useState<PeriodFilter>("today");
+  1952→  const [calendarData, setCalendarData] = useState<any>(null);
+  1953→  const [sentimentData, setSentimentData] = useState<any>(null);
+  1954→  const [briefingData, setBriefingData] = useState<any>(null);
+  1955→  const [loading, setLoading] = useState(true);
+  1956→  const [error, setError] = useState<string | null>(null);
+  1957→
+  1958→  const fetchAllData = useCallback(async () => {
+  1959→    try {
+  1960→      const [calendarRes, sentimentRes, briefingRes] = await Promise.all([
+  1961→        fetch(`/api/market/calendar?lang=${language}&period=${period}`),
+  1962→        fetch(`/api/market/sentiment?lang=${language}&period=${period}`),
+  1963→        fetch(`/api/market/briefing?lang=${language}&period=${period}`),
+  1964→      ]);
+  1965→
+  1966→      if (calendarRes.ok) setCalendarData(await calendarRes.json());
+  1967→      if (sentimentRes.ok) setSentimentData(await sentimentRes.json());
+  1968→      if (briefingRes.ok) setBriefingData(await briefingRes.json());
+  1969→      setError(null);
+  1970→    } catch {
+  1971→      setError(isFr ? "Erreur lors du chargement des statistiques" : "Error loading statistics");
+  1972→    } finally {
+  1973→      setLoading(false);
+  1974→    }
+  1975→  }, [language, isFr, period]);
+  1976→
+  1977→  // Reset loading when period changes
+  1978→  useEffect(() => {
+  1979→    setLoading(true);
+  1980→  }, [period]);
+  1981→
+  1982→  useEffect(() => {
+  1983→    fetchAllData();
+  1984→  }, [fetchAllData]);
+  1985→
+  1986→  // Derived data
+  1987→  const totalEvents = calendarData?.events?.length || 0;
+  1988→  const highImpactEvents = (calendarData?.events || []).filter((e: any) => (e.impact || "").toLowerCase() === "high");
+  1989→  const mediumImpactEvents = (calendarData?.events || []).filter((e: any) => (e.impact || "").toLowerCase() === "medium");
+  1990→  const lowImpactEvents = (calendarData?.events || []).filter((e: any) => (e.impact || "").toLowerCase() === "low");
+  1991→
+  1992→  const fearGreed = sentimentData?.fearGreed ?? { value: 50, label: "Neutral", trend: "stable" };
+  1993→  const vix = sentimentData?.vix ?? null;
+  1994→  const smartMoney = sentimentData?.smartMoney ?? null;
+  1995→  const retail = sentimentData?.retail ?? null;
+  1996→  const overallSentiment = sentimentData?.overallSentiment ?? "NEUTRAL";
+  1997→
+  1998→  const scenarios: { name: string; probability: number; description: string }[] = briefingData?.scenarios ?? [];
+  1999→  const riskEvents: string[] = briefingData?.riskEvents ?? [];
+  2000→
+
+[showing lines 1-2000 of 2455; use offset=2001 with limit to continue reading]

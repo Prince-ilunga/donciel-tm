@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/stores/app-store";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -43,6 +44,11 @@ import {
   CircleDot,
   PieChart,
   Layers,
+  Wifi,
+  WifiOff,
+  Circle,
+  History,
+  FastForward,
 } from "lucide-react";
 
 // ──────────────────────────────────────────────────────
@@ -62,6 +68,180 @@ const DAYS_FR: Record<string, string> = { Mon: "Lun", Tue: "Mar", Wed: "Mer", Th
 
 type SubTab = "calendar" | "analysis" | "sentiment" | "alerts" | "statistics";
 type PeriodFilter = "today" | "week";
+
+// ──────────────────────────────────────────────────────
+// Live Components
+// ──────────────────────────────────────────────────────
+
+/** Pulsing live dot indicator */
+function LivePulseDot({ size = "sm", color = "red" }: { size?: "sm" | "md" | "lg"; color?: "red" | "green" | "amber" }) {
+  const sizeClass = size === "sm" ? "w-2 h-2" : size === "md" ? "w-2.5 h-2.5" : "w-3 h-3";
+  const colorClass = color === "red" ? "bg-red-500" : color === "green" ? "bg-emerald-500" : "bg-amber-500";
+  const shadowClass = color === "red" ? "shadow-red-500/50" : color === "green" ? "shadow-emerald-500/50" : "shadow-amber-500/50";
+
+  return (
+    <span className="relative flex">
+      <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", colorClass)} />
+      <span className={cn("relative inline-flex rounded-full", sizeClass, colorClass, `shadow-lg ${shadowClass}`)} />
+    </span>
+  );
+}
+
+/** Live status badge for events */
+function LiveEventStatusBadge({ status, language }: { status: "UPCOMING" | "IN_PROGRESS" | "COMPLETED"; language: string }) {
+  const isFr = language === "fr";
+
+  if (status === "IN_PROGRESS") {
+    return (
+      <Badge className="bg-red-500/15 text-red-500 border-red-500/30 gap-1 text-[9px] px-2 py-0.5 animate-pulse">
+        <LivePulseDot size="sm" color="red" />
+        {isFr ? "EN DIRECT" : "LIVE"}
+      </Badge>
+    );
+  }
+  if (status === "UPCOMING") {
+    return (
+      <Badge className="bg-emerald-500/15 text-emerald-500 border-emerald-500/30 gap-1 text-[9px] px-2 py-0.5">
+        <FastForward className="w-2.5 h-2.5" />
+        {isFr ? "À VENIR" : "UPCOMING"}
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="secondary" className="text-[9px] px-2 py-0.5 gap-1">
+      <History className="w-2.5 h-2.5" />
+      {isFr ? "TERMINÉ" : "COMPLETED"}
+    </Badge>
+  );
+}
+
+/** Live ticker banner at the top of Marché tab */
+function LiveTickerBanner({ language }: { language: string }) {
+  const isFr = language === "fr";
+  const [liveData, setLiveData] = useState<any>(null);
+  const [now, setNow] = useState(new Date());
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Fetch live data every 30 seconds
+  useEffect(() => {
+    const fetchLive = async () => {
+      try {
+        const res = await fetch("/api/market/live?lang=" + language);
+        if (res.ok) {
+          const data = await res.json();
+          setLiveData(data);
+        }
+      } catch {
+        // Silently fail
+      }
+    };
+    fetchLive();
+    const interval = setInterval(fetchLive, 30 * 1000);
+    return () => clearInterval(interval);
+  }, [language]);
+
+  const marketStatus = liveData?.marketStatus || (isFr ? "CHARGEMENT..." : "LOADING...");
+  const nextEvent = liveData?.nextHighImpact || null;
+  const inProgressEvents = liveData?.inProgressEvents || [];
+  const liveAlert = liveData?.liveAlert;
+
+  // Format current time
+  const timeStr = now.toLocaleTimeString(isFr ? "fr-FR" : "en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  // Market mood
+  const mood = liveData?.marketMood || "NEUTRE";
+  const isBull = mood.includes("HAUSS") || mood.includes("BULL");
+  const isBear = mood.includes("BAISS") || mood.includes("BEAR");
+
+  return (
+    <Card className="border-2 border-red-500/20 bg-gradient-to-r from-red-500/5 via-card to-red-500/5 overflow-hidden">
+      <div className="p-3 sm:p-4 space-y-2">
+        {/* Main live bar */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <LivePulseDot size="md" color="red" />
+            <span className="text-xs font-bold text-red-500 uppercase tracking-wider">
+              LIVE
+            </span>
+            <Separator orientation="vertical" className="h-4" />
+            <span className="text-[10px] font-mono text-muted-foreground">{timeStr} UTC+1</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Market status */}
+            <Badge variant="outline" className="text-[9px] gap-1 border-primary/30 text-primary">
+              <Globe className="w-2.5 h-2.5" />
+              {marketStatus}
+            </Badge>
+            {/* Market mood */}
+            <Badge className={cn(
+              "text-[9px] gap-1",
+              isBull && "bg-profit/15 text-profit border-profit/30",
+              isBear && "bg-loss/15 text-loss border-loss/30",
+              !isBull && !isBear && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+            )}>
+              {isBull && <TrendingUp className="w-2.5 h-2.5" />}
+              {isBear && <TrendingDown className="w-2.5 h-2.5" />}
+              {!isBull && !isBear && <Minus className="w-2.5 h-2.5" />}
+              {mood}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Scrolling ticker: next event + in-progress events */}
+        {(nextEvent || inProgressEvents.length > 0) && (
+          <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-hide">
+            {inProgressEvents.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 shrink-0">
+                <LivePulseDot size="sm" color="red" />
+                <span className="text-[10px] font-bold text-red-500">
+                  {isFr ? "EN COURS" : "LIVE"}:
+                </span>
+                <span className="text-[10px] font-medium truncate max-w-[200px]">
+                  {inProgressEvents[0].title}
+                </span>
+                <span className="text-[9px]">{inProgressEvents[0].country}</span>
+              </div>
+            )}
+            {nextEvent && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 shrink-0">
+                <Timer className="w-3 h-3 text-emerald-500" />
+                <span className="text-[10px] font-bold text-emerald-500">
+                  ⏳ {isFr ? "PROCHAIN" : "NEXT"}:
+                </span>
+                <span className="text-[10px] font-medium truncate max-w-[200px]">
+                  {nextEvent.title}
+                </span>
+                <CountdownTimer targetDate={nextEvent.time} language={language} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Live alert */}
+        {liveAlert && (
+          <motion.div
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20"
+          >
+            <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />
+            <span className="text-[10px] font-medium text-amber-600 line-clamp-1">{liveAlert}</span>
+          </motion.div>
+        )}
+      </div>
+    </Card>
+  );
+}
 
 // ──────────────────────────────────────────────────────
 // Period Filter Component
@@ -256,8 +436,9 @@ function ProbabilityBar({ value, color }: { value: number; color: string }) {
 }
 
 /** Countdown timer display */
-function CountdownTimer({ targetDate, language }: { targetDate: string; language: string }) {
+function CountdownTimer({ targetDate, language, size = "sm" }: { targetDate: string; language: string; size?: "sm" | "md" | "lg" }) {
   const [timeLeft, setTimeLeft] = useState("");
+  const [isUrgent, setIsUrgent] = useState(false);
   const isFr = language === "fr";
 
   useEffect(() => {
@@ -268,8 +449,12 @@ function CountdownTimer({ targetDate, language }: { targetDate: string; language
 
       if (diff <= 0) {
         setTimeLeft(isFr ? "En cours" : "Live");
+        setIsUrgent(false);
         return;
       }
+
+      // Mark as urgent if less than 5 minutes
+      setIsUrgent(diff < 5 * 60 * 1000);
 
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -280,8 +465,10 @@ function CountdownTimer({ targetDate, language }: { targetDate: string; language
         setTimeLeft(`${days}d ${hours % 24}h`);
       } else if (hours > 0) {
         setTimeLeft(`${hours}h ${minutes}m`);
-      } else {
+      } else if (minutes > 0) {
         setTimeLeft(`${minutes}m ${seconds}s`);
+      } else {
+        setTimeLeft(`${seconds}s`);
       }
     };
 
@@ -290,7 +477,17 @@ function CountdownTimer({ targetDate, language }: { targetDate: string; language
     return () => clearInterval(interval);
   }, [targetDate, isFr]);
 
-  return <span className="text-[10px] font-mono font-bold text-primary">{timeLeft}</span>;
+  const sizeClass = size === "sm" ? "text-[10px]" : size === "md" ? "text-xs" : "text-sm";
+
+  return (
+    <span className={cn(
+      "font-mono font-bold",
+      sizeClass,
+      isUrgent ? "text-red-500 animate-pulse" : "text-emerald-500"
+    )}>
+      ⏳ {timeLeft}
+    </span>
+  );
 }
 
 // ──────────────────────────────────────────────────────
@@ -300,11 +497,20 @@ function CountdownTimer({ targetDate, language }: { targetDate: string; language
 function CalendarSubTab({ language }: { language: string }) {
   const isFr = language === "fr";
   const [calendarData, setCalendarData] = useState<any>(null);
+  const [liveData, setLiveData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodFilter>("today");
   const [activeAsset, setActiveAsset] = useState<string | null>(null);
+  const [now, setNow] = useState(new Date());
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const liveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Update clock every second for countdowns
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchCalendar = useCallback(async () => {
     try {
@@ -321,6 +527,20 @@ function CalendarSubTab({ language }: { language: string }) {
     }
   }, [language, isFr, period, activeAsset]);
 
+  // Fetch live data for countdown and status
+  const fetchLiveData = useCallback(async () => {
+    try {
+      const assetParam = activeAsset ? `&asset=${activeAsset}` : '';
+      const res = await fetch(`/api/market/live?lang=${language}&period=${period}${assetParam}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLiveData(data);
+      }
+    } catch {
+      // Silently fail for live data
+    }
+  }, [language, period, activeAsset]);
+
   // Reset loading when period or asset changes
   useEffect(() => {
     setLoading(true);
@@ -328,15 +548,22 @@ function CalendarSubTab({ language }: { language: string }) {
 
   useEffect(() => {
     fetchCalendar();
-    intervalRef.current = setInterval(fetchCalendar, 5 * 60 * 1000);
+    fetchLiveData();
+    // Refresh calendar every 60 seconds for live feel
+    intervalRef.current = setInterval(fetchCalendar, 60 * 1000);
+    // Refresh live data every 30 seconds
+    liveIntervalRef.current = setInterval(fetchLiveData, 30 * 1000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (liveIntervalRef.current) clearInterval(liveIntervalRef.current);
     };
-  }, [fetchCalendar]);
+  }, [fetchCalendar, fetchLiveData]);
 
-  // Normalize events from API format to component format
+  // Normalize events from API format to component format — with live status
   const normalizedEvents = useMemo(() => {
     const rawEvents: any[] = calendarData?.events || [];
+    const nowMs = now.getTime();
+
     return rawEvents.map((evt: any) => {
       // Build a date from today + time
       const today = new Date();
@@ -348,6 +575,17 @@ function CalendarSubTab({ language }: { language: string }) {
         eventDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), h || 0, m || 0);
       } else {
         eventDate = today;
+      }
+
+      // Determine live status
+      const diffMs = eventDate.getTime() - nowMs;
+      let liveStatus: "UPCOMING" | "IN_PROGRESS" | "COMPLETED";
+      if (diffMs > 30 * 60 * 1000) {
+        liveStatus = "UPCOMING"; // More than 30 min in future
+      } else if (diffMs >= -30 * 60 * 1000) {
+        liveStatus = "IN_PROGRESS"; // Within ±30 min window
+      } else {
+        liveStatus = "COMPLETED"; // More than 30 min ago
       }
 
       return {
@@ -363,9 +601,11 @@ function CalendarSubTab({ language }: { language: string }) {
         interpretation: evt.interpretation || null,
         direction: evt.direction || null,
         impactedPairs: evt.impactedPairs || [],
+        liveStatus,
+        countdownMs: diffMs,
       };
     });
-  }, [calendarData]);
+  }, [calendarData, now]);
 
   // Find next high-impact event
   const nextHighImpact = useMemo(() => {
@@ -537,6 +777,94 @@ function CalendarSubTab({ language }: { language: string }) {
         </Card>
       </div>
 
+      {/* ─── LIVE: Events In Progress ─── */}
+      {(() => {
+        const inProgressEvts = normalizedEvents.filter((e: any) => e.liveStatus === "IN_PROGRESS");
+        if (inProgressEvts.length === 0) return null;
+        return (
+          <Card className="p-4 border-2 border-red-500/30 bg-gradient-to-r from-red-500/5 via-red-500/2 to-transparent">
+            <div className="flex items-center gap-2 mb-3">
+              <LivePulseDot size="md" color="red" />
+              <span className="text-xs font-bold text-red-500 uppercase tracking-wider">
+                {isFr ? "ÉVÉNEMENTS EN DIRECT" : "LIVE EVENTS"}
+              </span>
+              <Badge className="bg-red-500/15 text-red-500 border-red-500/30 text-[9px]">
+                {inProgressEvts.length}
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              {inProgressEvts.map((evt: any, i: number) => (
+                <CalendarEventRow key={`live-${i}`} event={evt} language={language} isHighlighted={true} />
+              ))}
+            </div>
+          </Card>
+        );
+      })()}
+
+      {/* ─── LIVE: Upcoming Events with Countdown ─── */}
+      {(() => {
+        const upcomingEvts = normalizedEvents
+          .filter((e: any) => e.liveStatus === "UPCOMING")
+          .sort((a: any, b: any) => a.countdownMs - b.countdownMs)
+          .slice(0, 6);
+        if (upcomingEvts.length === 0) return null;
+        return (
+          <Card className="p-4 border-2 border-emerald-500/20 bg-gradient-to-r from-emerald-500/5 via-emerald-500/2 to-transparent">
+            <div className="flex items-center gap-2 mb-3">
+              <Timer className="w-4 h-4 text-emerald-500" />
+              <span className="text-xs font-bold text-emerald-500 uppercase tracking-wider">
+                ⏳ {isFr ? "PROCHAINS ÉVÉNEMENTS" : "UPCOMING EVENTS"}
+              </span>
+              <Badge variant="outline" className="text-[9px] border-emerald-500/30 text-emerald-500">
+                {upcomingEvts.length}
+              </Badge>
+            </div>
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {upcomingEvts.map((evt: any, i: number) => (
+                <div key={`upcoming-${i}`} className="flex items-center justify-between gap-2 p-2 rounded-lg border border-emerald-500/10 hover:border-emerald-500/20 transition-colors">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs">{evt.countryFlag}</span>
+                    <span className="text-[10px] font-bold text-center w-10 shrink-0">{evt.currency}</span>
+                    <span className="text-xs font-medium line-clamp-1">{evt.title}</span>
+                    {evt.impact === "HIGH" && <Zap className="w-3 h-3 text-loss shrink-0" />}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <CountdownTimer targetDate={evt.date} language={language} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        );
+      })()}
+
+      {/* ─── LIVE: Recent Events ─── */}
+      {(() => {
+        const recentEvts = normalizedEvents
+          .filter((e: any) => e.liveStatus === "COMPLETED")
+          .sort((a: any, b: any) => b.countdownMs - a.countdownMs) // Most recent first
+          .slice(0, 4);
+        if (recentEvts.length === 0) return null;
+        return (
+          <Card className="p-4 border border-amber-500/20 bg-gradient-to-r from-amber-500/5 via-transparent to-transparent">
+            <div className="flex items-center gap-2 mb-3">
+              <History className="w-4 h-4 text-amber-500" />
+              <span className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                {isFr ? "ÉVÉNEMENTS RÉCENTS" : "RECENT EVENTS"}
+              </span>
+              <Badge variant="outline" className="text-[9px] border-amber-500/30 text-amber-500">
+                {recentEvts.length}
+              </Badge>
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {recentEvts.map((evt: any, i: number) => (
+                <CalendarEventRow key={`recent-${i}`} event={evt} language={language} isHighlighted={false} />
+              ))}
+            </div>
+          </Card>
+        );
+      })()}
+
       {/* Next high-impact event highlight */}
       {nextHighImpact && (
         <Card className="p-4 border-2 border-loss/30 bg-gradient-to-r from-loss/5 to-transparent">
@@ -545,6 +873,7 @@ function CalendarSubTab({ language }: { language: string }) {
             <span className="text-xs font-bold text-loss">
               {isFr ? "Prochain événement à fort impact" : "Next High-Impact Event"}
             </span>
+            <LiveEventStatusBadge status={nextHighImpact.liveStatus || "UPCOMING"} language={language} />
           </div>
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
@@ -564,7 +893,12 @@ function CalendarSubTab({ language }: { language: string }) {
                 )}
               </div>
             </div>
-            <CountdownTimer targetDate={nextHighImpact.date} language={language} />
+            <div className="flex flex-col items-end gap-1">
+              <CountdownTimer targetDate={nextHighImpact.date} language={language} />
+              <span className="text-[9px] text-muted-foreground font-mono">
+                {new Date(nextHighImpact.date).toLocaleTimeString(isFr ? "fr-FR" : "en-US", { hour: "2-digit", minute: "2-digit" })}
+              </span>
+            </div>
           </div>
         </Card>
       )}
@@ -652,6 +986,11 @@ function CalendarEventRow({ event, language, isHighlighted, showDate = false }: 
   const impactDot = event.impact === "HIGH" ? "🔴" : event.impact === "MEDIUM" ? "🟡" : "🟢";
   const impactLevel = (event.impact || "").toUpperCase();
 
+  // Live status
+  const liveStatus: "UPCOMING" | "IN_PROGRESS" | "COMPLETED" = event.liveStatus || "UPCOMING";
+  const isLive = liveStatus === "IN_PROGRESS";
+  const isCompleted = liveStatus === "COMPLETED";
+
   const timeStr = event.time
     || (event.date
       ? new Date(event.date).toLocaleTimeString(
@@ -671,8 +1010,12 @@ function CalendarEventRow({ event, language, isHighlighted, showDate = false }: 
   return (
     <div className={cn(
       "rounded-lg border transition-all",
-      isHighlighted
+      isLive
+        ? "border-red-500/30 bg-red-500/5"
+        : isHighlighted
         ? "border-loss/30 bg-loss/5"
+        : isCompleted
+        ? "border-border/50 opacity-60"
         : "border-border hover:border-primary/20 hover:bg-primary/5"
     )}>
       {/* Main row - always visible */}
@@ -682,8 +1025,10 @@ function CalendarEventRow({ event, language, isHighlighted, showDate = false }: 
         <span className="text-[10px] font-bold w-10 shrink-0 text-center">{event.currency || ""}</span>
         <span className="text-xs">{impactDot}</span>
         <div className="flex-1 min-w-0">
-          <h4 className="text-xs font-medium line-clamp-1">{event.title}</h4>
+          <h4 className={cn("text-xs font-medium line-clamp-1", isCompleted && "line-through")}>{event.title}</h4>
         </div>
+        {/* Live status badge */}
+        <LiveEventStatusBadge status={liveStatus} language={language} />
         {direction && (
           <span className={cn(
             "text-[10px] font-bold shrink-0",
@@ -692,6 +1037,15 @@ function CalendarEventRow({ event, language, isHighlighted, showDate = false }: 
             !isUp && !isDown && "text-amber-500"
           )}>
             {isUp ? "▲" : isDown ? "▼" : "●"} {direction}
+          </span>
+        )}
+        {/* Countdown for upcoming events */}
+        {liveStatus === "UPCOMING" && event.date && (
+          <CountdownTimer targetDate={event.date} language={language} />
+        )}
+        {isLive && (
+          <span className="text-[10px] font-mono font-bold text-red-500 animate-pulse">
+            {isFr ? "EN COURS" : "LIVE"}
           </span>
         )}
         <div className="hidden sm:flex items-center gap-1.5 shrink-0">
@@ -1245,11 +1599,20 @@ function AnalysisSubTab({ language }: { language: string }) {
 function SentimentSubTab({ language }: { language: string }) {
   const isFr = language === "fr";
   const [sentimentData, setSentimentData] = useState<any>(null);
+  const [liveData, setLiveData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodFilter>("today");
   const [activeAsset, setActiveAsset] = useState<string | null>(null);
+  const [now, setNow] = useState(new Date());
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const liveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchSentiment = useCallback(async () => {
     try {
@@ -1266,6 +1629,20 @@ function SentimentSubTab({ language }: { language: string }) {
     }
   }, [language, isFr, period, activeAsset]);
 
+  // Fetch live data
+  const fetchLiveData = useCallback(async () => {
+    try {
+      const assetParam = activeAsset ? `&asset=${activeAsset}` : '';
+      const res = await fetch(`/api/market/live?lang=${language}&period=${period}${assetParam}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLiveData(data);
+      }
+    } catch {
+      // Silently fail
+    }
+  }, [language, period, activeAsset]);
+
   // Reset loading when period or asset changes
   useEffect(() => {
     setLoading(true);
@@ -1273,11 +1650,16 @@ function SentimentSubTab({ language }: { language: string }) {
 
   useEffect(() => {
     fetchSentiment();
-    intervalRef.current = setInterval(fetchSentiment, 5 * 60 * 1000);
+    fetchLiveData();
+    // Refresh sentiment every 60 seconds for live feel
+    intervalRef.current = setInterval(fetchSentiment, 60 * 1000);
+    // Refresh live data every 30 seconds
+    liveIntervalRef.current = setInterval(fetchLiveData, 30 * 1000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (liveIntervalRef.current) clearInterval(liveIntervalRef.current);
     };
-  }, [fetchSentiment]);
+  }, [fetchSentiment, fetchLiveData]);
 
   if (loading) {
     return (
@@ -1332,6 +1714,28 @@ function SentimentSubTab({ language }: { language: string }) {
     <div className="space-y-4">
       {/* Period Filter */}
       <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+
+      {/* Live Sentiment Indicator */}
+      {liveData && (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-red-500/20 bg-red-500/5">
+          <LivePulseDot size="sm" color="red" />
+          <span className="text-[10px] font-bold text-red-500 uppercase">{isFr ? "Sentiment en direct" : "Live Sentiment"}</span>
+          <Separator orientation="vertical" className="h-3" />
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {now.toLocaleTimeString(isFr ? "fr-FR" : "en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+          {liveData.marketMood && (
+            <Badge className={cn(
+              "text-[9px] gap-0.5 ml-auto",
+              (liveData.marketMood.includes("HAUSS") || liveData.marketMood.includes("BULL")) && "bg-profit/15 text-profit border-profit/30",
+              (liveData.marketMood.includes("BAISS") || liveData.marketMood.includes("BEAR")) && "bg-loss/15 text-loss border-loss/30",
+              !liveData.marketMood.includes("HAUSS") && !liveData.marketMood.includes("BULL") && !liveData.marketMood.includes("BAISS") && !liveData.marketMood.includes("BEAR") && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+            )}>
+              {liveData.marketMood}
+            </Badge>
+          )}
+        </div>
+      )}
 
       {/* Asset Selector */}
       <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
@@ -1583,10 +1987,19 @@ function AlertsSubTab({ language }: { language: string }) {
   const isFr = language === "fr";
   const [briefingData, setBriefingData] = useState<any>(null);
   const [calendarData, setCalendarData] = useState<any>(null);
+  const [liveData, setLiveData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<PeriodFilter>("today");
   const [activeAsset, setActiveAsset] = useState<string | null>(null);
+  const [now, setNow] = useState(new Date());
+  const liveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1617,9 +2030,32 @@ function AlertsSubTab({ language }: { language: string }) {
     setLoading(true);
   }, [period, activeAsset]);
 
+  // Fetch live data
+  const fetchLiveData = useCallback(async () => {
+    try {
+      const assetParam = activeAsset ? `&asset=${activeAsset}` : '';
+      const res = await fetch(`/api/market/live?lang=${language}&period=${period}${assetParam}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLiveData(data);
+      }
+    } catch {
+      // Silently fail
+    }
+  }, [language, period, activeAsset]);
+
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+    fetchLiveData();
+    // Refresh data every 60 seconds for live feel
+    const dataInterval = setInterval(fetchData, 60 * 1000);
+    // Refresh live data every 30 seconds
+    liveIntervalRef.current = setInterval(fetchLiveData, 30 * 1000);
+    return () => {
+      clearInterval(dataInterval);
+      if (liveIntervalRef.current) clearInterval(liveIntervalRef.current);
+    };
+  }, [fetchData, fetchLiveData]);
 
   // API returns: summary, asia, today, keyLevels (string[]), scenarios ({ name, probability, description }[]), riskEvents (string[])
   const summary = briefingData?.summary ?? null;
@@ -1700,6 +2136,25 @@ function AlertsSubTab({ language }: { language: string }) {
     <div className="space-y-4">
       {/* Period Filter */}
       <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+
+      {/* Live Alert Indicator */}
+      {liveData && (
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg border border-red-500/20 bg-red-500/5">
+          <LivePulseDot size="sm" color="red" />
+          <span className="text-[10px] font-bold text-red-500 uppercase">{isFr ? "Alertes en direct" : "Live Alerts"}</span>
+          <Separator orientation="vertical" className="h-3" />
+          <span className="text-[10px] font-mono text-muted-foreground">
+            {now.toLocaleTimeString(isFr ? "fr-FR" : "en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+          </span>
+          {liveData.nextHighImpact && (
+            <div className="flex items-center gap-1.5 ml-auto">
+              <Timer className="w-3 h-3 text-emerald-500" />
+              <span className="text-[10px] font-bold text-emerald-500">⏳</span>
+              <CountdownTimer targetDate={liveData.nextHighImpact.time} language={language} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Asset Selector */}
       <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
@@ -1981,6 +2436,9 @@ function StatisticsSubTab({ language }: { language: string }) {
 
   useEffect(() => {
     fetchAllData();
+    // Refresh statistics every 60 seconds for live feel
+    const interval = setInterval(fetchAllData, 60 * 1000);
+    return () => clearInterval(interval);
   }, [fetchAllData]);
 
   // Derived data
@@ -2399,6 +2857,9 @@ export function NewsTab() {
 
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-[1600px] mx-auto overflow-x-hidden">
+      {/* Live Ticker Banner */}
+      <LiveTickerBanner language={language} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
