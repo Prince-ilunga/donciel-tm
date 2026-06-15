@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
+import { XMLParser } from 'fast-xml-parser';
 
 // In-memory cache
 interface CacheEntry { data: any; timestamp: number; }
@@ -7,7 +8,179 @@ const cache = new Map<string, CacheEntry>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes (today)
 const CACHE_DURATION_WEEK = 15 * 60 * 1000; // 15 minutes (week - changes less)
 
-// System prompts for LLM
+const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+
+// ──────────────────────────────────────────────────────
+// RSS fallback (works without ZAI SDK)
+// ──────────────────────────────────────────────────────
+
+const ECONOMIC_CALENDAR_FEEDS = [
+  { id: 1, name: 'Top News', keywords: ['rate', 'fed', 'cpi', 'nfp', 'gdp', 'pmi', 'employment', 'inflation', 'interest', 'fomc', 'ecb', 'boe', 'jobless', 'retail sales', 'consumer', 'housing', 'ppi', 'manufacturing', 'decision', 'speech', 'taux', 'emploi', 'inflation', 'chômage'] },
+  { id: 14, name: 'Forex & Economy', keywords: ['rate', 'fed', 'ecb', 'boe', 'cpi', 'gdp', 'nfp', 'pmi', 'employment', 'inflation', 'interest', 'jobless', 'retail', 'consumer', 'housing', 'ppi', 'manufacturing'] },
+  { id: 11, name: 'Commodities & Fed', keywords: ['fed', 'rate', 'cpi', 'inflation', 'gold', 'oil', 'nfp', 'gdp', 'interest', 'pmi', 'employment'] },
+];
+
+// Impact classification keywords
+const HIGH_IMPACT_KEYWORDS = ['nfp', 'non-farm', 'nonfarm', 'cpi', 'consumer price', 'fomc', 'rate decision', 'gdp', 'gross domestic', 'retail sales', 'pmi manufacturing', 'employment change', 'ipc', 'décision de taux', 'chômage', 'emploi'];
+const MEDIUM_IMPACT_KEYWORDS = ['jobless claims', 'ppi', 'producer price', 'consumer confidence', 'housing starts', 'building permits', 'ism', 'industrial production', 'trade balance', 'current account', 'revendications', 'confiance', 'logement', 'production industrielle'];
+const CURRENCY_MAP: Record<string, { currency: string; flag: string }> = {
+  'us': { currency: 'USD', flag: '🇺🇸' },
+  'united states': { currency: 'USD', flag: '🇺🇸' },
+  'euro': { currency: 'EUR', flag: '🇪🇺' },
+  'eurozone': { currency: 'EUR', flag: '🇪🇺' },
+  'germany': { currency: 'EUR', flag: '🇩🇪' },
+  'france': { currency: 'EUR', flag: '🇫🇷' },
+  'uk': { currency: 'GBP', flag: '🇬🇧' },
+  'britain': { currency: 'GBP', flag: '🇬🇧' },
+  'japan': { currency: 'JPY', flag: '🇯🇵' },
+  'china': { currency: 'CNY', flag: '🇨🇳' },
+  'canada': { currency: 'CAD', flag: '🇨🇦' },
+  'australia': { currency: 'AUD', flag: '🇦🇺' },
+  'switzerland': { currency: 'CHF', flag: '🇨🇭' },
+  'new zealand': { currency: 'NZD', flag: '🇳🇿' },
+};
+
+function classifyImpact(title: string): string {
+  const t = title.toLowerCase();
+  for (const kw of HIGH_IMPACT_KEYWORDS) {
+    if (t.includes(kw)) return 'high';
+  }
+  for (const kw of MEDIUM_IMPACT_KEYWORDS) {
+    if (t.includes(kw)) return 'medium';
+  }
+  return 'low';
+}
+
+function detectCurrency(title: string): { currency: string; flag: string } {
+  const t = title.toLowerCase();
+  for (const [key, val] of Object.entries(CURRENCY_MAP)) {
+    if (t.includes(key)) return val;
+  }
+  // Check for currency codes directly
+  if (t.includes('usd') || t.includes('dollar') || t.includes('fed')) return { currency: 'USD', flag: '🇺🇸' };
+  if (t.includes('eur') || t.includes('euro') || t.includes('ecb')) return { currency: 'EUR', flag: '🇪🇺' };
+  if (t.includes('gbp') || t.includes('pound') || t.includes('boe')) return { currency: 'GBP', flag: '🇬🇧' };
+  if (t.includes('jpy') || t.includes('yen') || t.includes('boj')) return { currency: 'JPY', flag: '🇯🇵' };
+  return { currency: 'USD', flag: '🇺🇸' };
+}
+
+function isEconomicEvent(title: string): boolean {
+  const t = title.toLowerCase();
+  const eventKeywords = ['rate', 'fed', 'cpi', 'nfp', 'gdp', 'pmi', 'employment', 'inflation', 'interest', 'fomc', 'ecb', 'boe', 'jobless', 'retail', 'consumer', 'housing', 'ppi', 'manufacturing', 'decision', 'speech', 'claim', 'index', 'balance', 'production', 'confidence', 'permits', 'starts', 'sales', 'report', 'data', 'release', 'taux', 'emploi', 'inflation', 'chômage', 'indice', 'confiance', 'production'];
+  return eventKeywords.some(kw => t.includes(kw));
+}
+
+async function fetchCalendarRSS(): Promise<any[]> {
+  const results: any[] = [];
+
+  const feedResults = await Promise.allSettled(
+    ECONOMIC_CALENDAR_FEEDS.map(feed =>
+      fetch(`https://www.investing.com/rss/news_${feed.id}.rss`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DONCIEL-TM/1.0)' },
+        signal: AbortSignal.timeout(10000),
+      }).then(res => {
+        if (!res.ok) return [];
+        return res.text().then(xml => {
+          const parsed = parser.parse(xml);
+          const items = parsed?.rss?.channel?.item;
+          const list = Array.isArray(items) ? items : items ? [items] : [];
+          return list.filter((item: any) => {
+            const title = (item.title || '').toLowerCase();
+            return feed.keywords.some(kw => title.includes(kw)) && isEconomicEvent(title);
+          }).map((item: any) => ({ item, feed }));
+        });
+      }).catch(() => [])
+    )
+  );
+
+  for (const result of feedResults) {
+    if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+      results.push(...result.value);
+    }
+  }
+
+  return results;
+}
+
+function parseCalendarFromRSS(rssItems: any[], lang: string, period: string): {
+  events: any[];
+  highImpactCount: number;
+  nextHighImpact: any | null;
+  updatedAt: string;
+} {
+  const isFr = lang === 'fr';
+  const now = new Date();
+  const isWeek = period === 'week';
+
+  const events = rssItems
+    .map(({ item }: any) => {
+      const title = item.title || '';
+      const pubDate = item.pubDate || '';
+      const impact = classifyImpact(title);
+      const { currency, flag } = detectCurrency(title);
+
+      // Try to extract date from pubDate
+      let eventDate: Date | null = null;
+      if (pubDate) {
+        try {
+          const d = new Date(pubDate);
+          if (!isNaN(d.getTime())) eventDate = d;
+        } catch {}
+      }
+      if (!eventDate) eventDate = now;
+
+      return {
+        date: eventDate.toISOString().split('T')[0],
+        time: eventDate.toISOString().split('T')[1]?.substring(0, 5) || '',
+        currency,
+        impact,
+        event: title,
+        actual: null,
+        forecast: null,
+        previous: null,
+        country: flag,
+      };
+    })
+    .filter((evt: any) => {
+      // Filter by period
+      if (!isWeek) {
+        return evt.date === now.toISOString().split('T')[0];
+      }
+      // Week: include events from Monday to Friday
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + mondayOffset);
+      const friday = new Date(monday);
+      friday.setDate(monday.getDate() + 4);
+      const evtDate = new Date(evt.date);
+      return evtDate >= monday && evtDate <= friday;
+    });
+
+  // Deduplicate by title
+  const seen = new Set<string>();
+  const uniqueEvents = events.filter((evt: any) => {
+    const key = evt.event.toLowerCase().substring(0, 50);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const highImpactEvents = uniqueEvents.filter((e: any) => e.impact === 'high');
+  const nextHighImpact = highImpactEvents.find((e: any) => new Date(e.date) > now) || null;
+
+  return {
+    events: uniqueEvents,
+    highImpactCount: highImpactEvents.length,
+    nextHighImpact,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// ──────────────────────────────────────────────────────
+// ZAI SDK-powered fetch (primary)
+// ──────────────────────────────────────────────────────
+
 const CALENDAR_SYSTEM_PROMPT_FR = `Tu es DONCIEL-AI™, un analyste de calendrier économique spécialisé. Tu extrais et structures les événements économiques à partir de données brutes du web.
 
 RÈGLES STRICTES :
@@ -38,13 +211,13 @@ STRICT RULES:
 
 You ALWAYS respond in the requested JSON format, with no additional text.`;
 
-async function fetchCalendarData(lang: string, period: string = 'today'): Promise<{
+async function fetchCalendarWithZAI(lang: string, period: string): Promise<{
   events: any[];
   highImpactCount: number;
   nextHighImpact: any | null;
   updatedAt: string;
   error?: string;
-}> {
+} | null> {
   const isFr = lang === 'fr';
   const emptyResult = {
     events: [],
@@ -60,9 +233,8 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
     const isWeek = period === 'week';
     const recencyDays = isWeek ? 7 : 2;
 
-    // Compute date range for the week
     const now = new Date();
-    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+    const dayOfWeek = now.getDay();
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     const monday = new Date(now);
     monday.setDate(now.getDate() + mondayOffset);
@@ -72,10 +244,8 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
     const formatDate = (d: Date) => d.toISOString().split('T')[0];
     const weekRangeStr = `${formatDate(monday)} to ${formatDate(friday)}`;
 
-    // Build search queries based on period
     const searchQueries: { query: string; num: number; recency_days: number }[] = [];
 
-    // Search 1: Main economic calendar search
     searchQueries.push({
       query: isFr
         ? isWeek
@@ -88,7 +258,6 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
       recency_days: recencyDays,
     });
 
-    // Search 2 & 3: Additional weekly coverage
     if (isWeek) {
       searchQueries.push({
         query: isFr
@@ -109,7 +278,6 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
       });
     }
 
-    // Run all web searches IN PARALLEL
     const searchResults = await Promise.allSettled(
       searchQueries.map(q =>
         zai.functions.invoke('web_search', {
@@ -123,9 +291,8 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
       )
     );
 
-    // Collect search data
     const searchDataList: string[] = [];
-    searchResults.forEach((result, i) => {
+    searchResults.forEach((result) => {
       if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
         const data = result.value
           .map((r: any) => `Title: ${r.title || r.name || ''}\nSnippet: ${r.snippet || r.description || ''}\nURL: ${r.url || r.link || ''}`)
@@ -139,13 +306,12 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
       : '';
 
     if (!allRawData) {
-      return { ...emptyResult, error: isFr ? 'Aucune donnée disponible' : 'No data available' };
+      return null; // Trigger fallback
     }
 
     const systemPrompt = isFr ? CALENDAR_SYSTEM_PROMPT_FR : CALENDAR_SYSTEM_PROMPT_EN;
     const today = formatDate(now);
 
-    // Single LLM call with all parallel-searched data
     const completion = await zai.chat.completions.create({
       messages: [
         { role: 'assistant', content: systemPrompt },
@@ -154,10 +320,10 @@ async function fetchCalendarData(lang: string, period: string = 'today'): Promis
           content: isFr
             ? `Date d'aujourd'hui: ${today}
 Semaine en cours: ${weekRangeStr}
-${isWeek ? `Période demandée: CETTE SEMAINE (${weekRangeStr}). Extrait TOUS les événements économiques du lundi ${formatDate(monday)} au vendredi ${formatDate(friday)}, Y COMPRIS les événements déjà passés cette semaine. Même si c'est le week-end, il y a eu des événements cette semaine.` : "Période demandée: AUJOURD'HUI (extrait uniquement les événements du jour)"}
+${isWeek ? `Période demandée: CETTE SEMAINE (${weekRangeStr}). Extrait TOUS les événements économiques du lundi ${formatDate(monday)} au vendredi ${formatDate(friday)}, Y COMPRIS les événements déjà passés cette semaine.` : "Période demandée: AUJOURD'HUI (extrait uniquement les événements du jour)"}
 
 Extrait les événements économiques${isWeek ? ' de la semaine du lundi au vendredi' : ' du jour'} à partir des données ci-dessous. Structure-les au format JSON.
-${isWeek ? '\nIMPORTANT: Inclus la date (champ "date") pour CHAQUE événement au format YYYY-MM-DD. Les dates doivent être entre ' + formatDate(monday) + ' et ' + formatDate(friday) + '. Ne laisse AUCUN événement sans date.' : ''}
+${isWeek ? '\nIMPORTANT: Inclus la date (champ "date") pour CHAQUE événement au format YYYY-MM-DD.' : ''}
 
 DONNÉES BRUTES:
 ${allRawData}
@@ -182,10 +348,10 @@ Réponds au format JSON suivant:
 }`
             : `Today's date: ${today}
 Current week: ${weekRangeStr}
-${isWeek ? `Requested period: THIS WEEK (${weekRangeStr}). Extract ALL economic events from Monday ${formatDate(monday)} to Friday ${formatDate(friday)}, INCLUDING past events that already occurred this week. Even though it may be the weekend, there were events this week.` : 'Requested period: TODAY (extract only today\'s events)'}
+${isWeek ? `Requested period: THIS WEEK (${weekRangeStr}). Extract ALL economic events from Monday ${formatDate(monday)} to Friday ${formatDate(friday)}.` : 'Requested period: TODAY (extract only today\'s events)'}
 
 Extract ${isWeek ? 'this week\'s' : 'today\'s'} economic events from the data below. Structure them in JSON format.
-${isWeek ? '\nIMPORTANT: Include the date (field "date") for EVERY event in YYYY-MM-DD format. Dates must be between ' + formatDate(monday) + ' and ' + formatDate(friday) + '. Do NOT leave any event without a date.' : ''}
+${isWeek ? '\nIMPORTANT: Include the date (field "date") for EVERY event in YYYY-MM-DD format.' : ''}
 
 RAW DATA:
 ${allRawData}
@@ -223,7 +389,6 @@ Respond in the following JSON format:
       }
     } catch {}
 
-    // Compute derived fields
     const highImpactEvents = events.filter((e: any) => (e.impact || '').toLowerCase() === 'high');
     const highImpactCount = highImpactEvents.length;
     const nextHighImpact = highImpactEvents.find((e: any) => {
@@ -238,9 +403,49 @@ Respond in the following JSON format:
       updatedAt: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('Calendar API error:', error instanceof Error ? error.message : 'Unknown error');
-    return { ...emptyResult, error: isFr ? 'Service temporairement indisponible' : 'Service temporarily unavailable' };
+    console.error('Calendar ZAI error:', error instanceof Error ? error.message : 'Unknown error');
+    return null; // Trigger fallback
   }
+}
+
+// ──────────────────────────────────────────────────────
+// Main fetch with fallback chain: ZAI SDK → RSS
+// ──────────────────────────────────────────────────────
+
+async function fetchCalendarData(lang: string, period: string = 'today'): Promise<{
+  events: any[];
+  highImpactCount: number;
+  nextHighImpact: any | null;
+  updatedAt: string;
+  error?: string;
+}> {
+  const isFr = lang === 'fr';
+
+  // 1. Try ZAI SDK first
+  const zaiResult = await fetchCalendarWithZAI(lang, period);
+  if (zaiResult && zaiResult.events.length > 0) {
+    return zaiResult;
+  }
+
+  // 2. Fallback: RSS feeds from investing.com
+  console.log('Calendar: ZAI SDK unavailable or no results, falling back to RSS');
+  try {
+    const rssItems = await fetchCalendarRSS();
+    if (rssItems.length > 0) {
+      return parseCalendarFromRSS(rssItems, lang, period);
+    }
+  } catch (error) {
+    console.error('Calendar RSS fallback error:', error instanceof Error ? error.message : 'Unknown error');
+  }
+
+  // 3. Both failed
+  return {
+    events: [],
+    highImpactCount: 0,
+    nextHighImpact: null,
+    updatedAt: new Date().toISOString(),
+    error: isFr ? 'Aucune donnée disponible' : 'No data available',
+  };
 }
 
 export async function GET(request: NextRequest) {
