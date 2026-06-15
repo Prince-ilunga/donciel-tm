@@ -1,0 +1,2002 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
+     4→     4→import { useAppStore } from "@/stores/app-store";
+     5→     5→import { cn } from "@/lib/utils";
+     6→     6→import { Card } from "@/components/ui/card";
+     7→     7→import { Button } from "@/components/ui/button";
+     8→     8→import { Badge } from "@/components/ui/badge";
+     9→     9→import { Skeleton } from "@/components/ui/skeleton";
+    10→    10→import { Separator } from "@/components/ui/separator";
+    11→    11→import {
+    12→    12→  Brain,
+    13→    13→  RefreshCw,
+    14→    14→  TrendingUp,
+    15→    15→  TrendingDown,
+    16→    16→  Minus,
+    17→    17→  ExternalLink,
+    18→    18→  Clock,
+    19→    19→  AlertTriangle,
+    20→    20→  Shield,
+    21→    21→  Zap,
+    22→    22→  Loader2,
+    23→    23→  Globe,
+    24→    24→  Calendar,
+    25→    25→  CalendarDays,
+    26→    26→  BarChart3,
+    27→    27→  CalendarClock,
+    28→    28→  Activity,
+    29→    29→  Target,
+    30→    30→  AlertCircle,
+    31→    31→  Sparkles,
+    32→    32→  ArrowUpRight,
+    33→    33→  ArrowDownRight,
+    34→    34→  MinusCircle,
+    35→    35→  Radio,
+    36→    36→  Timer,
+    37→    37→  Gauge,
+    38→    38→  Eye,
+    39→    39→  Users,
+    40→    40→  Sunrise,
+    41→    41→  Flame,
+    42→    42→  ShieldAlert,
+    43→    43→  CircleDot,
+    44→    44→  PieChart,
+    45→    45→  Layers,
+    46→    46→} from "lucide-react";
+    47→    47→
+    48→    48→// ──────────────────────────────────────────────────────
+    49→    49→// Constants
+    50→    50→// ──────────────────────────────────────────────────────
+    51→    51→
+    52→    52→const ASSETS = [
+    53→    53→  { id: "XAUUSD", emoji: "🥇", label_fr: "Or / Dollar", label_en: "Gold / Dollar", color: "from-amber-500/10 to-yellow-500/10" },
+    54→    54→  { id: "EURUSD", emoji: "🇪🇺", label_fr: "Euro / Dollar", label_en: "Euro / Dollar", color: "from-blue-500/10 to-indigo-500/10" },
+    55→    55→  { id: "GBPUSD", emoji: "🇬🇧", label_fr: "Livre / Dollar", label_en: "Pound / Dollar", color: "from-red-500/10 to-rose-500/10" },
+    56→    56→  { id: "US30", emoji: "🏭", label_fr: "Dow Jones 30", label_en: "Dow Jones 30", color: "from-emerald-500/10 to-green-500/10" },
+    57→    57→  { id: "US100", emoji: "💻", label_fr: "Nasdaq 100", label_en: "Nasdaq 100", color: "from-purple-500/10 to-violet-500/10" },
+    58→    58→] as const;
+    59→    59→
+    60→    60→const DAYS_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    61→    61→const DAYS_FR: Record<string, string> = { Mon: "Lun", Tue: "Mar", Wed: "Mer", Thu: "Jeu", Fri: "Ven", Sat: "Sam", Sun: "Dim" };
+    62→    62→
+    63→    63→type SubTab = "calendar" | "analysis" | "sentiment" | "alerts" | "statistics";
+    64→    64→type PeriodFilter = "today" | "week";
+    65→    65→
+    66→    66→// ──────────────────────────────────────────────────────
+    67→    67→// Period Filter Component
+    68→    68→// ──────────────────────────────────────────────────────
+    69→    69→
+    70→    70→function PeriodFilterButtons({ period, setPeriod, language }: { period: PeriodFilter; setPeriod: (p: PeriodFilter) => void; language: string }) {
+    71→    71→  const isFr = language === "fr";
+    72→    72→  return (
+    73→    73→    <div className="flex items-center gap-2">
+    74→    74→      <Button
+    75→    75→        variant={period === "today" ? "default" : "outline"}
+    76→    76→        size="sm"
+    77→    77→        className={cn("gap-1.5", period === "today" && "shadow-sm")}
+    78→    78→        onClick={() => setPeriod("today")}
+    79→    79→      >
+    80→    80→        <Calendar className="w-3.5 h-3.5" />
+    81→    81→        <span className="text-xs">{isFr ? "Aujourd'hui" : "Today"}</span>
+    82→    82→      </Button>
+    83→    83→      <Button
+    84→    84→        variant={period === "week" ? "default" : "outline"}
+    85→    85→        size="sm"
+    86→    86→        className={cn("gap-1.5", period === "week" && "shadow-sm")}
+    87→    87→        onClick={() => setPeriod("week")}
+    88→    88→      >
+    89→    89→        <CalendarDays className="w-3.5 h-3.5" />
+    90→    90→        <span className="text-xs">{isFr ? "Cette Semaine" : "This Week"}</span>
+    91→    91→      </Button>
+    92→    92→    </div>
+    93→    93→  );
+    94→    94→}
+    95→    95→
+    96→    96→// ──────────────────────────────────────────────────────
+    97→    97→// Shared Sub-components
+    98→    98→// ──────────────────────────────────────────────────────
+    99→    99→
+   100→   100→function DirectionIcon({ direction, size = "sm" }: { direction: string; size?: "sm" | "md" | "lg" }) {
+   101→   101→  const s = size === "sm" ? "w-3.5 h-3.5" : size === "md" ? "w-4 h-4" : "w-5 h-5";
+   102→   102→  const isUp = direction?.toUpperCase().includes("HAUSS") || direction?.toUpperCase().includes("BULL");
+   103→   103→  const isDown = direction?.toUpperCase().includes("BAISS") || direction?.toUpperCase().includes("BEAR");
+   104→   104→
+   105→   105→  if (isUp) return <ArrowUpRight className={cn(s, "text-profit")} />;
+   106→   106→  if (isDown) return <ArrowDownRight className={cn(s, "text-loss")} />;
+   107→   107→  return <MinusCircle className={cn(s, "text-amber-500")} />;
+   108→   108→}
+   109→   109→
+   110→   110→function DirectionBadge({ direction, confidence }: { direction: string; confidence: string }) {
+   111→   111→  const isUp = direction?.toUpperCase().includes("HAUSS") || direction?.toUpperCase().includes("BULL");
+   112→   112→  const isDown = direction?.toUpperCase().includes("BAISS") || direction?.toUpperCase().includes("BEAR");
+   113→   113→  const isNeutral = !isUp && !isDown;
+   114→   114→
+   115→   115→  const confLevel = confidence?.toLowerCase() || "moyen";
+   116→   116→  const confColor = confLevel.includes("élev") || confLevel.includes("high")
+   117→   117→    ? "text-profit" : confLevel.includes("fai") || confLevel.includes("low")
+   118→   118→    ? "text-muted-foreground" : "text-amber-500";
+   119→   119→
+   120→   120→  return (
+   121→   121→    <div className="flex items-center gap-2">
+   122→   122→      <Badge
+   123→   123→        className={cn(
+   124→   124→          "text-xs font-bold gap-1 px-3 py-1",
+   125→   125→          isUp && "bg-profit/15 text-profit border-profit/30",
+   126→   126→          isDown && "bg-loss/15 text-loss border-loss/30",
+   127→   127→          isNeutral && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+   128→   128→        )}
+   129→   129→      >
+   130→   130→        {isUp && <TrendingUp className="w-3.5 h-3.5" />}
+   131→   131→        {isDown && <TrendingDown className="w-3.5 h-3.5" />}
+   132→   132→        {isNeutral && <Minus className="w-3.5 h-3.5" />}
+   133→   133→        {direction || "N/A"}
+   134→   134→      </Badge>
+   135→   135→      <span className={cn("text-[10px] font-medium", confColor)}>
+   136→   136→        {confidence || ""}
+   137→   137→      </span>
+   138→   138→    </div>
+   139→   139→  );
+   140→   140→}
+   141→   141→
+   142→   142→function ImpactBadge({ impact }: { impact: string }) {
+   143→   143→  const isHigh = impact?.toUpperCase().includes("ÉLEV") || impact?.toUpperCase().includes("HIGH");
+   144→   144→  const isLow = impact?.toUpperCase().includes("FAI") || impact?.toUpperCase().includes("LOW");
+   145→   145→
+   146→   146→  return (
+   147→   147→    <Badge
+   148→   148→      variant="outline"
+   149→   149→      className={cn(
+   150→   150→        "text-[10px] gap-1",
+   151→   151→        isHigh && "border-loss/40 text-loss",
+   152→   152→        isLow && "border-muted-foreground/40 text-muted-foreground",
+   153→   153→        !isHigh && !isLow && "border-amber-500/40 text-amber-500"
+   154→   154→      )}
+   155→   155→    >
+   156→   156→      {isHigh && <Zap className="w-3 h-3" />}
+   157→   157→      {!isHigh && !isLow && <Shield className="w-3 h-3" />}
+   158→   158→      {!isHigh && isLow && <AlertTriangle className="w-3 h-3" />}
+   159→   159→      {impact || "N/A"}
+   160→   160→    </Badge>
+   161→   161→  );
+   162→   162→}
+   163→   163→
+   164→   164→function SentimentGauge({ sentiment, language }: { sentiment: string; language: string }) {
+   165→   165→  const s = sentiment?.toLowerCase() || "neutre";
+   166→   166→  const isFr = language === "fr";
+   167→   167→  const isVeryBull = s.includes("très haus") || s.includes("very bull") || s.includes("strongly bull");
+   168→   168→  const isBull = s.includes("haus") || s.includes("bull") || s.includes("acheteur");
+   169→   169→  const isVeryBear = s.includes("très bai") || s.includes("very bear") || s.includes("strongly bear");
+   170→   170→  const isBear = s.includes("bai") || s.includes("bear") || s.includes("vendeur");
+   171→   171→
+   172→   172→  const value = isVeryBull ? 90 : isBull ? 70 : isVeryBear ? 10 : isBear ? 30 : 50;
+   173→   173→  const label = isVeryBull ? (isFr ? "Très Haussier" : "Very Bullish")
+   174→   174→    : isBull ? (isFr ? "Haussier" : "Bullish")
+   175→   175→    : isVeryBear ? (isFr ? "Très Baissier" : "Very Bearish")
+   176→   176→    : isBear ? (isFr ? "Baissier" : "Bearish")
+   177→   177→    : (isFr ? "Neutre" : "Neutral");
+   178→   178→
+   179→   179→  const color = value >= 70 ? "bg-profit" : value >= 55 ? "bg-profit/60" : value <= 30 ? "bg-loss" : value <= 45 ? "bg-loss/60" : "bg-amber-500";
+   180→   180→
+   181→   181→  return (
+   182→   182→    <div className="space-y-1.5">
+   183→   183→      <div className="flex items-center justify-between">
+   184→   184→        <span className="text-[10px] font-medium text-muted-foreground">{isFr ? "Sentiment" : "Sentiment"}</span>
+   185→   185→        <span className={cn("text-[10px] font-bold",
+   186→   186→          value >= 55 ? "text-profit" : value <= 45 ? "text-loss" : "text-amber-500"
+   187→   187→        )}>{label}</span>
+   188→   188→      </div>
+   189→   189→      <div className="h-2 rounded-full bg-muted overflow-hidden">
+   190→   190→        <div
+   191→   191→          className={cn("h-full rounded-full transition-all duration-700", color)}
+   192→   192→          style={{ width: `${value}%` }}
+   193→   193→        />
+   194→   194→      </div>
+   195→   195→    </div>
+   196→   196→  );
+   197→   197→}
+   198→   198→
+   199→   199→/** Horizontal Fear & Greed gauge */
+   200→   200→function FearGreedGauge({ value, label, language }: { value: number; label: string; language: string }) {
+   201→   201→  const isFr = language === "fr";
+   202→   202→  const color = value >= 75 ? "bg-profit" : value >= 55 ? "bg-profit/60" : value <= 25 ? "bg-loss" : value <= 45 ? "bg-loss/60" : "bg-amber-500";
+   203→   203→  const textColor = value >= 55 ? "text-profit" : value <= 45 ? "text-loss" : "text-amber-500";
+   204→   204→  const displayLabel = label || (value >= 80 ? (isFr ? "Extrême Avidité" : "Extreme Greed")
+   205→   205→    : value >= 60 ? (isFr ? "Avidité" : "Greed")
+   206→   206→    : value >= 40 ? (isFr ? "Neutre" : "Neutral")
+   207→   207→    : value >= 20 ? (isFr ? "Peur" : "Fear")
+   208→   208→    : (isFr ? "Extrême Peur" : "Extreme Fear"));
+   209→   209→
+   210→   210→  return (
+   211→   211→    <div className="space-y-3">
+   212→   212→      <div className="flex items-center justify-between">
+   213→   213→        <div className="flex items-center gap-2">
+   214→   214→          <Gauge className="w-5 h-5 text-primary" />
+   215→   215→          <span className="text-sm font-bold">{isFr ? "Indice Peur & Avidité" : "Fear & Greed Index"}</span>
+   216→   216→        </div>
+   217→   217→        <div className="text-right">
+   218→   218→          <div className={cn("text-3xl font-bold", textColor)}>{value}</div>
+   219→   219→          <div className="text-[10px] text-muted-foreground font-medium">{displayLabel}</div>
+   220→   220→        </div>
+   221→   221→      </div>
+   222→   222→      <div className="relative h-4 rounded-full bg-muted overflow-hidden">
+   223→   223→        {/* Color gradient background */}
+   224→   224→        <div className="absolute inset-0 flex">
+   225→   225→          <div className="flex-1 bg-loss/30" />
+   226→   226→          <div className="flex-1 bg-loss/15" />
+   227→   227→          <div className="flex-1 bg-amber-500/15" />
+   228→   228→          <div className="flex-1 bg-profit/15" />
+   229→   229→          <div className="flex-1 bg-profit/30" />
+   230→   230→        </div>
+   231→   231→        {/* Indicator */}
+   232→   232→        <div
+   233→   233→          className="absolute top-0 h-full w-1 bg-foreground rounded-full transition-all duration-700 shadow-lg"
+   234→   234→          style={{ left: `${Math.min(99, Math.max(1, value))}%` }}
+   235→   235→        />
+   236→   236→      </div>
+   237→   237→      <div className="flex justify-between text-[9px] text-muted-foreground">
+   238→   238→        <span>{isFr ? "Peur Extrême" : "Extreme Fear"}</span>
+   239→   239→        <span>{isFr ? "Neutre" : "Neutral"}</span>
+   240→   240→        <span>{isFr ? "Avidité Extrême" : "Extreme Greed"}</span>
+   241→   241→      </div>
+   242→   242→    </div>
+   243→   243→  );
+   244→   244→}
+   245→   245→
+   246→   246→/** Probability bar for scenario cards */
+   247→   247→function ProbabilityBar({ value, color }: { value: number; color: string }) {
+   248→   248→  return (
+   249→   249→    <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+   250→   250→      <div
+   251→   251→        className={cn("h-full rounded-full transition-all duration-700", color)}
+   252→   252→        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+   253→   253→      />
+   254→   254→    </div>
+   255→   255→  );
+   256→   256→}
+   257→   257→
+   258→   258→/** Countdown timer display */
+   259→   259→function CountdownTimer({ targetDate, language }: { targetDate: string; language: string }) {
+   260→   260→  const [timeLeft, setTimeLeft] = useState("");
+   261→   261→  const isFr = language === "fr";
+   262→   262→
+   263→   263→  useEffect(() => {
+   264→   264→    const update = () => {
+   265→   265→      const now = new Date().getTime();
+   266→   266→      const target = new Date(targetDate).getTime();
+   267→   267→      const diff = target - now;
+   268→   268→
+   269→   269→      if (diff <= 0) {
+   270→   270→        setTimeLeft(isFr ? "En cours" : "Live");
+   271→   271→        return;
+   272→   272→      }
+   273→   273→
+   274→   274→      const hours = Math.floor(diff / (1000 * 60 * 60));
+   275→   275→      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+   276→   276→      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+   277→   277→
+   278→   278→      if (hours > 24) {
+   279→   279→        const days = Math.floor(hours / 24);
+   280→   280→        setTimeLeft(`${days}d ${hours % 24}h`);
+   281→   281→      } else if (hours > 0) {
+   282→   282→        setTimeLeft(`${hours}h ${minutes}m`);
+   283→   283→      } else {
+   284→   284→        setTimeLeft(`${minutes}m ${seconds}s`);
+   285→   285→      }
+   286→   286→    };
+   287→   287→
+   288→   288→    update();
+   289→   289→    const interval = setInterval(update, 1000);
+   290→   290→    return () => clearInterval(interval);
+   291→   291→  }, [targetDate, isFr]);
+   292→   292→
+   293→   293→  return <span className="text-[10px] font-mono font-bold text-primary">{timeLeft}</span>;
+   294→   294→}
+   295→   295→
+   296→   296→// ──────────────────────────────────────────────────────
+   297→   297→// Sub-tab: Calendar (📅)
+   298→   298→// ──────────────────────────────────────────────────────
+   299→   299→
+   300→   300→function CalendarSubTab({ language }: { language: string }) {
+   301→   301→  const isFr = language === "fr";
+   302→   302→  const [calendarData, setCalendarData] = useState<any>(null);
+   303→   303→  const [loading, setLoading] = useState(true);
+   304→   304→  const [error, setError] = useState<string | null>(null);
+   305→   305→  const [period, setPeriod] = useState<PeriodFilter>("today");
+   306→   306→  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+   307→   307→
+   308→   308→  const fetchCalendar = useCallback(async () => {
+   309→   309→    try {
+   310→   310→      const res = await fetch(`/api/market/calendar?lang=${language}&period=${period}`);
+   311→   311→      if (!res.ok) throw new Error("Fetch failed");
+   312→   312→      const data = await res.json();
+   313→   313→      setCalendarData(data);
+   314→   314→      setError(null);
+   315→   315→    } catch {
+   316→   316→      setError(isFr ? "Erreur lors du chargement du calendrier" : "Error loading calendar");
+   317→   317→    } finally {
+   318→   318→      setLoading(false);
+   319→   319→    }
+   320→   320→  }, [language, isFr, period]);
+   321→   321→
+   322→   322→  // Reset loading when period changes
+   323→   323→  useEffect(() => {
+   324→   324→    setLoading(true);
+   325→   325→  }, [period]);
+   326→   326→
+   327→   327→  useEffect(() => {
+   328→   328→    fetchCalendar();
+   329→   329→    intervalRef.current = setInterval(fetchCalendar, 5 * 60 * 1000);
+   330→   330→    return () => {
+   331→   331→      if (intervalRef.current) clearInterval(intervalRef.current);
+   332→   332→    };
+   333→   333→  }, [fetchCalendar]);
+   334→   334→
+   335→   335→  // Normalize events from API format to component format
+   336→   336→  const normalizedEvents = useMemo(() => {
+   337→   337→    const rawEvents: any[] = calendarData?.events || [];
+   338→   338→    return rawEvents.map((evt: any) => {
+   339→   339→      // Build a date from today + time
+   340→   340→      const today = new Date();
+   341→   341→      let eventDate: Date;
+   342→   342→      if (evt.date) {
+   343→   343→        eventDate = new Date(evt.date);
+   344→   344→      } else if (evt.time) {
+   345→   345→        const [h, m] = evt.time.split(":").map(Number);
+   346→   346→        eventDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), h || 0, m || 0);
+   347→   347→      } else {
+   348→   348→        eventDate = today;
+   349→   349→      }
+   350→   350→
+   351→   351→      return {
+   352→   352→        title: evt.event || evt.title || "",
+   353→   353→        date: eventDate.toISOString(),
+   354→   354→        time: evt.time || "",
+   355→   355→        currency: (evt.currency || "").toUpperCase(),
+   356→   356→        impact: (evt.impact || "low").toUpperCase(),
+   357→   357→        countryFlag: evt.country || "🌍",
+   358→   358→        forecast: evt.forecast || null,
+   359→   359→        previous: evt.previous || null,
+   360→   360→        actual: evt.actual || null,
+   361→   361→      };
+   362→   362→    });
+   363→   363→  }, [calendarData]);
+   364→   364→
+   365→   365→  // Find next high-impact event
+   366→   366→  const nextHighImpact = useMemo(() => {
+   367→   367→    const now = new Date();
+   368→   368→    return normalizedEvents.find(e => e.impact === "HIGH" && new Date(e.date) > now) || null;
+   369→   369→  }, [normalizedEvents]);
+   370→   370→
+   371→   371→  // Week events: use normalizedEvents directly when period=week (API already returns correct period)
+   372→   372→  // For period=today fallback, filter by date range
+   373→   373→  const weekEvents = useMemo(() => {
+   374→   374→    if (period === "week") {
+   375→   375→      // API already returns the correct events for the week - just sort them
+   376→   376→      return [...normalizedEvents].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+   377→   377→    }
+   378→   378→    // Fallback: filter by local date range (used when period=today but showing week view)
+   379→   379→    const now = new Date();
+   380→   380→    const dayOfWeek = now.getDay();
+   381→   381→    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+   382→   382→    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+   383→   383→    const friday = new Date(monday);
+   384→   384→    friday.setDate(monday.getDate() + 5);
+   385→   385→
+   386→   386→    return normalizedEvents.filter((e: any) => {
+   387→   387→      const d = new Date(e.date);
+   388→   388→      return d >= monday && d < friday;
+   389→   389→    }).sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+   390→   390→  }, [normalizedEvents, period]);
+   391→   391→
+   392→   392→  // Today's events
+   393→   393→  const todayEvents = useMemo(() => {
+   394→   394→    const now = new Date();
+   395→   395→    return normalizedEvents.filter((e: any) => {
+   396→   396→      const d = new Date(e.date);
+   397→   397→      return d.toDateString() === now.toDateString();
+   398→   398→    });
+   399→   399→  }, [normalizedEvents]);
+   400→   400→
+   401→   401→  if (loading) {
+   402→   402→    return (
+   403→   403→      <div className="space-y-4">
+   404→   404→        <div className="grid grid-cols-3 gap-3">
+   405→   405→          <Card className="p-3 sm:p-4"><Skeleton className="h-8 w-12 mx-auto mb-1" /><Skeleton className="h-3 w-16 mx-auto" /></Card>
+   406→   406→          <Card className="p-3 sm:p-4"><Skeleton className="h-8 w-12 mx-auto mb-1" /><Skeleton className="h-3 w-16 mx-auto" /></Card>
+   407→   407→          <Card className="p-3 sm:p-4"><Skeleton className="h-8 w-12 mx-auto mb-1" /><Skeleton className="h-3 w-16 mx-auto" /></Card>
+   408→   408→        </div>
+   409→   409→        <Card className="p-4 sm:p-6">
+   410→   410→          <Skeleton className="h-6 w-48 mb-4" />
+   411→   411→          <div className="space-y-3">
+   412→   412→            {Array.from({ length: 6 }).map((_, i) => (
+   413→   413→              <div key={i} className="flex items-center gap-3">
+   414→   414→                <Skeleton className="h-4 w-14" />
+   415→   415→                <Skeleton className="h-4 w-6" />
+   416→   416→                <Skeleton className="h-4 w-10" />
+   417→   417→                <Skeleton className="h-4 flex-1" />
+   418→   418→              </div>
+   419→   419→            ))}
+   420→   420→          </div>
+   421→   421→        </Card>
+   422→   422→      </div>
+   423→   423→    );
+   424→   424→  }
+   425→   425→
+   426→   426→  if (error) {
+   427→   427→    return (
+   428→   428→      <Card className="p-12 text-center">
+   429→   429→        <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+   430→   430→        <p className="text-muted-foreground">{error}</p>
+   431→   431→        <Button onClick={fetchCalendar} variant="outline" className="mt-4 gap-2">
+   432→   432→          <RefreshCw className="w-4 h-4" />
+   433→   433→          {isFr ? "Réessayer" : "Retry"}
+   434→   434→        </Button>
+   435→   435→      </Card>
+   436→   436→    );
+   437→   437→  }
+   438→   438→
+   439→   439→  const highCount = normalizedEvents.filter((e: any) => e.impact === "HIGH").length;
+   440→   440→  const mediumCount = normalizedEvents.filter((e: any) => e.impact === "MEDIUM").length;
+   441→   441→
+   442→   442→  return (
+   443→   443→    <div className="space-y-4">
+   444→   444→      {/* Period Filter */}
+   445→   445→      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+   446→   446→
+   447→   447→      {/* Stats row */}
+   448→   448→      <div className="grid grid-cols-3 gap-3">
+   449→   449→        <Card className="p-3 sm:p-4 text-center">
+   450→   450→          <div className="text-2xl font-bold text-loss">{highCount}</div>
+   451→   451→          <div className="text-[10px] text-muted-foreground">{isFr ? "Impact Élevé" : "High Impact"}</div>
+   452→   452→        </Card>
+   453→   453→        <Card className="p-3 sm:p-4 text-center">
+   454→   454→          <div className="text-2xl font-bold text-amber-500">{mediumCount}</div>
+   455→   455→          <div className="text-[10px] text-muted-foreground">{isFr ? "Impact Modéré" : "Medium Impact"}</div>
+   456→   456→        </Card>
+   457→   457→        <Card className="p-3 sm:p-4 text-center">
+   458→   458→          <div className="text-2xl font-bold text-muted-foreground">{normalizedEvents.length}</div>
+   459→   459→          <div className="text-[10px] text-muted-foreground">{isFr ? "Total" : "Total"}</div>
+   460→   460→        </Card>
+   461→   461→      </div>
+   462→   462→
+   463→   463→      {/* Next high-impact event highlight */}
+   464→   464→      {nextHighImpact && (
+   465→   465→        <Card className="p-4 border-2 border-loss/30 bg-gradient-to-r from-loss/5 to-transparent">
+   466→   466→          <div className="flex items-center gap-2 mb-2">
+   467→   467→            <Zap className="w-4 h-4 text-loss" />
+   468→   468→            <span className="text-xs font-bold text-loss">
+   469→   469→              {isFr ? "Prochain événement à fort impact" : "Next High-Impact Event"}
+   470→   470→            </span>
+   471→   471→          </div>
+   472→   472→          <div className="flex items-center justify-between gap-2">
+   473→   473→            <div className="min-w-0">
+   474→   474→              <h4 className="text-sm font-bold">{nextHighImpact.title}</h4>
+   475→   475→              <div className="flex items-center gap-2 mt-1 flex-wrap">
+   476→   476→                <span className="text-xs">{nextHighImpact.countryFlag}</span>
+   477→   477→                <span className="text-xs text-muted-foreground">{nextHighImpact.currency}</span>
+   478→   478→                {nextHighImpact.forecast && (
+   479→   479→                  <span className="text-[10px] text-muted-foreground">
+   480→   480→                    {isFr ? "Prévision" : "Forecast"}: {nextHighImpact.forecast}
+   481→   481→                  </span>
+   482→   482→                )}
+   483→   483→                {nextHighImpact.previous && (
+   484→   484→                  <span className="text-[10px] text-muted-foreground">
+   485→   485→                    {isFr ? "Précédent" : "Previous"}: {nextHighImpact.previous}
+   486→   486→                  </span>
+   487→   487→                )}
+   488→   488→              </div>
+   489→   489→            </div>
+   490→   490→            <CountdownTimer targetDate={nextHighImpact.date} language={language} />
+   491→   491→          </div>
+   492→   492→        </Card>
+   493→   493→      )}
+   494→   494→
+   495→   495→      {/* Today's events (shown when period is today) */}
+   496→   496→      {period === "today" && todayEvents.length > 0 && (
+   497→   497→        <Card className="p-4 sm:p-6">
+   498→   498→          <div className="flex items-center gap-2 mb-4">
+   499→   499→            <Calendar className="w-4 h-4 text-primary" />
+   500→   500→            <h3 className="font-bold text-sm">{isFr ? "Aujourd'hui" : "Today"}</h3>
+   501→   501→            <Badge variant="secondary" className="text-[10px]">{todayEvents.length}</Badge>
+   502→   502→          </div>
+   503→   503→          <div className="space-y-2 max-h-96 overflow-y-auto">
+   504→   504→            {todayEvents.map((evt: any, i: number) => (
+   505→   505→              <CalendarEventRow key={i} event={evt} language={language} isHighlighted={nextHighImpact?.title === evt.title} />
+   506→   506→            ))}
+   507→   507→          </div>
+   508→   508→        </Card>
+   509→   509→      )}
+   510→   510→
+   511→   511→      {/* This week's events (shown when period is week) - grouped by day */}
+   512→   512→      {period === "week" && weekEvents.length > 0 && (() => {
+   513→   513→        // Group events by day
+   514→   514→        const dayNamesFr = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+   515→   515→        const dayNamesEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+   516→   516→        const grouped: Record<string, any[]> = {};
+   517→   517→        weekEvents.forEach((evt: any) => {
+   518→   518→          const d = new Date(evt.date);
+   519→   519→          const key = d.toDateString();
+   520→   520→          if (!grouped[key]) grouped[key] = [];
+   521→   521→          grouped[key].push(evt);
+   522→   522→        });
+   523→   523→        const sortedDays = Object.keys(grouped).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+   524→   524→        const todayStr = new Date().toDateString();
+   525→   525→
+   526→   526→        return sortedDays.map(dayStr => {
+   527→   527→          const dayDate = new Date(dayStr);
+   528→   528→          const dayName = isFr ? dayNamesFr[dayDate.getDay()] : dayNamesEn[dayDate.getDay()];
+   529→   529→          const dayEvents = grouped[dayStr];
+   530→   530→          const isToday = dayStr === todayStr;
+   531→   531→          const isPast = dayDate < new Date(new Date().toDateString());
+   532→   532→          return (
+   533→   533→            <Card key={dayStr} className={cn(
+   534→   534→              "p-4 sm:p-6",
+   535→   535→              isToday && "border-2 border-primary/20"
+   536→   536→            )}>
+   537→   537→              <div className="flex items-center gap-2 mb-3">
+   538→   538→                <CalendarDays className={cn("w-4 h-4", isToday ? "text-primary" : isPast ? "text-muted-foreground" : "text-amber-500")} />
+   539→   539→                <h3 className={cn("font-bold text-sm", isPast && "text-muted-foreground")}>
+   540→   540→                  {dayName} {dayDate.getDate()}
+   541→   541→                </h3>
+   542→   542→                {isToday && <Badge className="text-[9px] gap-0.5 bg-primary/10 text-primary border-primary/20">{isFr ? "Aujourd'hui" : "Today"}</Badge>}
+   543→   543→                {isPast && <Badge variant="secondary" className="text-[9px]">{isFr ? "Passé" : "Past"}</Badge>}
+   544→   544→                <Badge variant="secondary" className="text-[10px]">{dayEvents.length}</Badge>
+   545→   545→              </div>
+   546→   546→              <div className="space-y-2">
+   547→   547→                {dayEvents.map((evt: any, i: number) => (
+   548→   548→                  <CalendarEventRow key={i} event={evt} language={language} isHighlighted={nextHighImpact?.title === evt.title} showDate={false} />
+   549→   549→                ))}
+   550→   550→              </div>
+   551→   551→            </Card>
+   552→   552→          );
+   553→   553→        });
+   554→   554→      })()}
+   555→   555→
+   556→   556→      {period === "today" && todayEvents.length === 0 && (
+   557→   557→        <Card className="p-8 text-center">
+   558→   558→          <CalendarClock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+   559→   559→          <p className="text-sm text-muted-foreground">{isFr ? "Aucun événement économique prévu aujourd'hui" : "No economic events scheduled today"}</p>
+   560→   560→        </Card>
+   561→   561→      )}
+   562→   562→      {period === "week" && weekEvents.length === 0 && (
+   563→   563→        <Card className="p-8 text-center">
+   564→   564→          <CalendarClock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+   565→   565→          <p className="text-sm text-muted-foreground">{isFr ? "Aucun événement économique cette semaine" : "No economic events this week"}</p>
+   566→   566→        </Card>
+   567→   567→      )}
+   568→   568→    </div>
+   569→   569→  );
+   570→   570→}
+   571→   571→
+   572→   572→function CalendarEventRow({ event, language, isHighlighted, showDate = false }: { event: any; language: string; isHighlighted: boolean; showDate?: boolean }) {
+   573→   573→  const isFr = language === "fr";
+   574→   574→  const impactDot = event.impact === "HIGH" ? "🔴" : event.impact === "MEDIUM" ? "🟡" : "🟢";
+   575→   575→
+   576→   576→  const timeStr = event.time
+   577→   577→    || (event.date
+   578→   578→      ? new Date(event.date).toLocaleTimeString(
+   579→   579→          isFr ? "fr-FR" : "en-US",
+   580→   580→          { hour: "2-digit", minute: "2-digit" }
+   581→   581→        )
+   582→   582→      : "--:--");
+   583→   583→
+   584→   584→  return (
+   585→   585→    <div className={cn(
+   586→   586→      "flex items-center gap-3 p-2.5 rounded-lg border transition-all",
+   587→   587→      isHighlighted
+   588→   588→        ? "border-loss/30 bg-loss/5"
+   589→   589→        : "border-border hover:border-primary/20 hover:bg-primary/5"
+   590→   590→    )}>
+   591→   591→      <span className="text-[10px] font-mono text-muted-foreground w-12 shrink-0">{timeStr}</span>
+   592→   592→      <span className="text-xs">{event.countryFlag || "🌍"}</span>
+   593→   593→      <span className="text-[10px] font-bold w-10 shrink-0 text-center">{event.currency || ""}</span>
+   594→   594→      <span className="text-xs">{impactDot}</span>
+   595→   595→      <div className="flex-1 min-w-0">
+   596→   596→        <h4 className="text-xs font-medium line-clamp-1">{event.title}</h4>
+   597→   597→      </div>
+   598→   598→      <div className="hidden sm:flex items-center gap-2 shrink-0">
+   599→   599→        {event.actual && (
+   600→   600→          <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-profit/30 text-profit">
+   601→   601→            {isFr ? "Act." : "Act"} {event.actual}
+   602→   602→          </Badge>
+   603→   603→        )}
+   604→   604→        {event.forecast && (
+   605→   605→          <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+   606→   606→            {isFr ? "Prév." : "Fcst"} {event.forecast}
+   607→   607→          </Badge>
+   608→   608→        )}
+   609→   609→        {event.previous && (
+   610→   610→          <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+   611→   611→            {isFr ? "Préc." : "Prev"} {event.previous}
+   612→   612→          </Badge>
+   613→   613→        )}
+   614→   614→      </div>
+   615→   615→    </div>
+   616→   616→  );
+   617→   617→}
+   618→   618→
+   619→   619→// ──────────────────────────────────────────────────────
+   620→   620→// Sub-tab: Analyse IA (🧠) — existing news analysis
+   621→   621→// ──────────────────────────────────────────────────────
+   622→   622→
+   623→   623→function AnalysisSubTab({ language }: { language: string }) {
+   624→   624→  const isFr = language === "fr";
+   625→   625→  const [activeAsset, setActiveAsset] = useState<string>("XAUUSD");
+   626→   626→  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("week");
+   627→   627→  const [newsData, setNewsData] = useState<any>(null);
+   628→   628→  const [loading, setLoading] = useState(false);
+   629→   629→  const [error, setError] = useState<string | null>(null);
+   630→   630→
+   631→   631→  const fetchNews = useCallback(async (asset: string, period: PeriodFilter) => {
+   632→   632→    setLoading(true);
+   633→   633→    setError(null);
+   634→   634→    try {
+   635→   635→      const res = await fetch(`/api/news?asset=${asset}&lang=${language}&period=${period}`);
+   636→   636→      if (!res.ok) throw new Error("Erreur lors du chargement");
+   637→   637→      const data = await res.json();
+   638→   638→      setNewsData(data);
+   639→   639→    } catch {
+   640→   640→      setError(isFr ? "Erreur lors du chargement des news" : "Error loading news");
+   641→   641→    }
+   642→   642→    setLoading(false);
+   643→   643→  }, [language, isFr]);
+   644→   644→
+   645→   645→  useEffect(() => {
+   646→   646→    fetchNews(activeAsset, periodFilter);
+   647→   647→  }, [activeAsset, periodFilter, fetchNews]);
+   648→   648→
+   649→   649→  const handleRefresh = () => fetchNews(activeAsset, periodFilter);
+   650→   650→
+   651→   651→  const currentAsset = ASSETS.find(a => a.id === activeAsset);
+   652→   652→  const analysis = newsData?.analysis;
+   653→   653→  const aiPowered = newsData?.aiPowered;
+   654→   654→
+   655→   655→  const barChartData = useMemo(() => {
+   656→   656→    if (!newsData?.dailyCounts) return [];
+   657→   657→    const countMap: Record<string, number> = {};
+   658→   658→    newsData.dailyCounts.forEach((d: any) => {
+   659→   659→      countMap[d.day] = d.count;
+   660→   660→    });
+   661→   661→    return DAYS_ORDER.map(day => ({
+   662→   662→      day: language === "fr" ? DAYS_FR[day] : day,
+   663→   663→      count: countMap[day] || 0,
+   664→   664→    }));
+   665→   665→  }, [newsData, language]);
+   666→   666→
+   667→   667→  const upcomingCount = newsData?.upcomingEvents?.length || 0;
+   668→   668→
+   669→   669→  return (
+   670→   670→    <div className="space-y-4">
+   671→   671→      {/* Asset Selector */}
+   672→   672→      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+   673→   673→        {ASSETS.map((asset) => {
+   674→   674→          const isActive = activeAsset === asset.id;
+   675→   675→          return (
+   676→   676→            <button
+   677→   677→              key={asset.id}
+   678→   678→              onClick={() => setActiveAsset(asset.id)}
+   679→   679→              className={cn(
+   680→   680→                "p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 text-center",
+   681→   681→                isActive
+   682→   682→                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-lg shadow-primary/10"
+   683→   683→                  : "border-border hover:border-primary/30 bg-card"
+   684→   684→              )}
+   685→   685→            >
+   686→   686→              <div className="text-lg sm:text-2xl mb-1">{asset.emoji}</div>
+   687→   687→              <div className="text-[10px] sm:text-sm font-bold">{asset.id}</div>
+   688→   688→              <div className="text-[8px] sm:text-xs text-muted-foreground hidden sm:block">
+   689→   689→                {language === "fr" ? asset.label_fr : asset.label_en}
+   690→   690→              </div>
+   691→   691→            </button>
+   692→   692→          );
+   693→   693→        })}
+   694→   694→      </div>
+   695→   695→
+   696→   696→      {/* Period Filter */}
+   697→   697→      <div className="flex items-center gap-2">
+   698→   698→        <Button
+   699→   699→          variant={periodFilter === "today" ? "default" : "outline"}
+   700→   700→          size="sm"
+   701→   701→          className={cn("gap-1.5", periodFilter === "today" && "shadow-sm")}
+   702→   702→          onClick={() => setPeriodFilter("today")}
+   703→   703→        >
+   704→   704→          <Calendar className="w-3.5 h-3.5" />
+   705→   705→          {isFr ? "Aujourd'hui" : "Today"}
+   706→   706→        </Button>
+   707→   707→        <Button
+   708→   708→          variant={periodFilter === "week" ? "default" : "outline"}
+   709→   709→          size="sm"
+   710→   710→          className={cn("gap-1.5", periodFilter === "week" && "shadow-sm")}
+   711→   711→          onClick={() => setPeriodFilter("week")}
+   712→   712→        >
+   713→   713→          <CalendarDays className="w-3.5 h-3.5" />
+   714→   714→          {isFr ? "Cette Semaine" : "This Week"}
+   715→   715→        </Button>
+   716→   716→      </div>
+   717→   717→
+   718→   718→      {/* Loading State */}
+   719→   719→      {loading && (
+   720→   720→        <div className="space-y-4">
+   721→   721→          <Card className="p-6">
+   722→   722→            <Skeleton className="h-6 w-48 mb-4" />
+   723→   723→            <div className="space-y-3">
+   724→   724→              <Skeleton className="h-4 w-full" />
+   725→   725→              <Skeleton className="h-4 w-3/4" />
+   726→   726→              <Skeleton className="h-4 w-1/2" />
+   727→   727→            </div>
+   728→   728→          </Card>
+   729→   729→          <Card className="p-6">
+   730→   730→            <Skeleton className="h-6 w-32 mb-4" />
+   731→   731→            <div className="space-y-3">
+   732→   732→              {Array.from({ length: 3 }).map((_, i) => (
+   733→   733→                <Skeleton key={i} className="h-16 w-full" />
+   734→   734→              ))}
+   735→   735→            </div>
+   736→   736→          </Card>
+   737→   737→        </div>
+   738→   738→      )}
+   739→   739→
+   740→   740→      {/* Error State */}
+   741→   741→      {error && !loading && (
+   742→   742→        <Card className="p-12 text-center">
+   743→   743→          <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+   744→   744→          <p className="text-muted-foreground">{error}</p>
+   745→   745→          <Button onClick={handleRefresh} variant="outline" className="mt-4 gap-2">
+   746→   746→            <RefreshCw className="w-4 h-4" />
+   747→   747→            {isFr ? "Réessayer" : "Retry"}
+   748→   748→          </Button>
+   749→   749→        </Card>
+   750→   750→      )}
+   751→   751→
+   752→   752→      {/* Content */}
+   753→   753→      {newsData && !loading && !error && (
+   754→   754→        <div className="space-y-4">
+   755→   755→          {/* DONCIEL-AI™ Finance Analysis Card */}
+   756→   756→          {analysis && (
+   757→   757→            <Card className={cn(
+   758→   758→              "p-4 sm:p-6 border-2 overflow-hidden",
+   759→   759→              analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
+   760→   760→                ? "border-profit/20 bg-gradient-to-br from-profit/5 to-transparent"
+   761→   761→                : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
+   762→   762→                ? "border-loss/20 bg-gradient-to-br from-loss/5 to-transparent"
+   763→   763→                : "border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent"
+   764→   764→            )}>
+   765→   765→              <div className="flex items-start justify-between gap-3 mb-4">
+   766→   766→                <div className="flex items-center gap-2 min-w-0">
+   767→   767→                  <div className={cn(
+   768→   768→                    "w-11 h-11 rounded-xl flex items-center justify-center shrink-0",
+   769→   769→                    analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
+   770→   770→                      ? "bg-profit/10" : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
+   771→   771→                      ? "bg-loss/10" : "bg-amber-500/10"
+   772→   772→                  )}>
+   773→   773→                    <Brain className={cn(
+   774→   774→                      "w-6 h-6",
+   775→   775→                      analysis.direction?.toUpperCase().includes("HAUSS") || analysis.direction?.toUpperCase().includes("BULL")
+   776→   776→                        ? "text-profit" : analysis.direction?.toUpperCase().includes("BAISS") || analysis.direction?.toUpperCase().includes("BEAR")
+   777→   777→                        ? "text-loss" : "text-amber-500"
+   778→   778→                    )} />
+   779→   779→                  </div>
+   780→   780→                  <div className="min-w-0">
+   781→   781→                    <div className="flex items-center gap-2 flex-wrap">
+   782→   782→                      <h3 className="font-bold text-sm">
+   783→   783→                        {aiPowered
+   784→   784→                          ? (isFr ? "IA Financière Spécialisée" : "Finance AI Specialist")
+   785→   785→                          : (isFr ? "Interprétation IA" : "AI Interpretation")} — {activeAsset}
+   786→   786→                      </h3>
+   787→   787→                      {aiPowered && (
+   788→   788→                        <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+   789→   789→                          <Sparkles className="w-3 h-3" />
+   790→   790→                          DONCIEL-AI™
+   791→   791→                        </Badge>
+   792→   792→                      )}
+   793→   793→                    </div>
+   794→   794→                    <p className="text-[10px] text-muted-foreground">
+   795→   795→                      {currentAsset && (isFr ? currentAsset.label_fr : currentAsset.label_en)}
+   796→   796→                      {periodFilter === "today"
+   797→   797→                        ? (isFr ? " · Aujourd'hui" : " · Today")
+   798→   798→                        : (isFr ? " · Cette semaine" : " · This Week")}
+   799→   799→                      {aiPowered && (
+   800→   800→                        <span className="ml-1 text-purple-500">
+   801→   801→                          · {isFr ? "Analyse CFA en temps réel" : "CFA-level real-time analysis"}
+   802→   802→                        </span>
+   803→   803→                      )}
+   804→   804→                    </p>
+   805→   805→                  </div>
+   806→   806→                </div>
+   807→   807→                <DirectionBadge direction={analysis.direction} confidence={analysis.confidence} />
+   808→   808→              </div>
+   809→   809→
+   810→   810→              {analysis.summary && (
+   811→   811→                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{analysis.summary}</p>
+   812→   812→              )}
+   813→   813→
+   814→   814→              <Separator className="mb-4" />
+   815→   815→
+   816→   816→              {analysis.sentiment && (
+   817→   817→                <div className="mb-4">
+   818→   818→                  <SentimentGauge sentiment={analysis.sentiment} language={language} />
+   819→   819→                </div>
+   820→   820→              )}
+   821→   821→
+   822→   822→              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   823→   823→                {analysis.keyFactors && analysis.keyFactors.length > 0 && (
+   824→   824→                  <div className="sm:col-span-2">
+   825→   825→                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+   826→   826→                      {isFr ? "Facteurs Clés" : "Key Factors"}
+   827→   827→                    </h4>
+   828→   828→                    <div className="space-y-1.5">
+   829→   829→                      {analysis.keyFactors.map((factor: string, i: number) => (
+   830→   830→                        <div key={i} className="flex items-start gap-2 text-sm">
+   831→   831→                          <span className="text-primary font-bold text-xs mt-0.5">•</span>
+   832→   832→                          <span>{factor}</span>
+   833→   833→                        </div>
+   834→   834→                      ))}
+   835→   835→                    </div>
+   836→   836→                  </div>
+   837→   837→                )}
+   838→   838→
+   839→   839→                <div className="space-y-3">
+   840→   840→                  <div>
+   841→   841→                    <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+   842→   842→                      {isFr ? "Impact" : "Impact"}
+   843→   843→                    </h4>
+   844→   844→                    {analysis.impact && <ImpactBadge impact={analysis.impact} />}
+   845→   845→                  </div>
+   846→   846→                  {analysis.recommendation && (
+   847→   847→                    <div>
+   848→   848→                      <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+   849→   849→                        {isFr ? "Conseil" : "Advice"}
+   850→   850→                      </h4>
+   851→   851→                      <p className="text-xs bg-primary/5 border border-primary/10 rounded-lg p-2.5">
+   852→   852→                        💡 {analysis.recommendation}
+   853→   853→                      </p>
+   854→   854→                    </div>
+   855→   855→                  )}
+   856→   856→                </div>
+   857→   857→              </div>
+   858→   858→
+   859→   859→              {(analysis.shortTerm || analysis.mediumTerm) && (
+   860→   860→                <>
+   861→   861→                  <Separator className="my-4" />
+   862→   862→                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   863→   863→                    {analysis.shortTerm && (
+   864→   864→                      <div className="p-3 rounded-lg border border-border bg-card/50">
+   865→   865→                        <div className="flex items-center gap-1.5 mb-1.5">
+   866→   866→                          <Activity className="w-3.5 h-3.5 text-amber-500" />
+   867→   867→                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   868→   868→                            {isFr ? "Court Terme (Intraday)" : "Short Term (Intraday)"}
+   869→   869→                          </span>
+   870→   870→                        </div>
+   871→   871→                        <p className="text-xs leading-relaxed">{analysis.shortTerm}</p>
+   872→   872→                      </div>
+   873→   873→                    )}
+   874→   874→                    {analysis.mediumTerm && (
+   875→   875→                      <div className="p-3 rounded-lg border border-border bg-card/50">
+   876→   876→                        <div className="flex items-center gap-1.5 mb-1.5">
+   877→   877→                          <Target className="w-3.5 h-3.5 text-primary" />
+   878→   878→                          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   879→   879→                            {isFr ? "Moyen Terme (Swing)" : "Medium Term (Swing)"}
+   880→   880→                          </span>
+   881→   881→                        </div>
+   882→   882→                        <p className="text-xs leading-relaxed">{analysis.mediumTerm}</p>
+   883→   883→                      </div>
+   884→   884→                    )}
+   885→   885→                  </div>
+   886→   886→                </>
+   887→   887→              )}
+   888→   888→
+   889→   889→              {analysis.riskWarning && (
+   890→   890→                <div className="mt-3 p-2.5 rounded-lg border border-loss/20 bg-loss/5">
+   891→   891→                  <div className="flex items-start gap-2">
+   892→   892→                    <AlertCircle className="w-3.5 h-3.5 text-loss mt-0.5 shrink-0" />
+   893→   893→                    <p className="text-[11px] text-loss/80 leading-relaxed">{analysis.riskWarning}</p>
+   894→   894→                  </div>
+   895→   895→                </div>
+   896→   896→              )}
+   897→   897→            </Card>
+   898→   898→          )}
+   899→   899→
+   900→   900→          {/* Weekly News Bar Chart */}
+   901→   901→          {periodFilter === "week" && barChartData.length > 0 && (
+   902→   902→            <Card className="p-4 sm:p-6">
+   903→   903→              <div className="flex items-center justify-between mb-4">
+   904→   904→                <div className="flex items-center gap-2">
+   905→   905→                  <BarChart3 className="w-4 h-4 text-primary" />
+   906→   906→                  <h3 className="font-bold text-sm">
+   907→   907→                    {isFr ? "Actualités de la Semaine" : "Weekly News"}
+   908→   908→                  </h3>
+   909→   909→                </div>
+   910→   910→                <div className="flex items-center gap-2">
+   911→   911→                  {upcomingCount > 0 && (
+   912→   912→                    <Badge variant="outline" className="text-[10px] gap-1 border-amber-500/40 text-amber-500">
+   913→   913→                      <CalendarClock className="w-3 h-3" />
+   914→   914→                      {upcomingCount} {isFr ? "à venir" : "upcoming"}
+   915→   915→                    </Badge>
+   916→   916→                  )}
+   917→   917→                  <Badge variant="secondary" className="text-[10px]">
+   918→   918→                    {newsData.news?.length || 0} {isFr ? "actualités" : "news"}
+   919→   919→                  </Badge>
+   920→   920→                </div>
+   921→   921→              </div>
+   922→   922→              <div className="flex items-end gap-2 h-[120px]">
+   923→   923→                {barChartData.map((d, i) => {
+   924→   924→                  const maxCount = Math.max(...barChartData.map(b => b.count), 1);
+   925→   925→                  const heightPct = (d.count / maxCount) * 100;
+   926→   926→                  return (
+   927→   927→                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+   928→   928→                      <span className="text-[9px] text-muted-foreground font-medium">{d.count || ""}</span>
+   929→   929→                      <div className="w-full flex items-end justify-center" style={{ height: "100px" }}>
+   930→   930→                        <div
+   931→   931→                          className="w-full max-w-[40px] rounded-t-md bg-primary/70 transition-all duration-500"
+   932→   932→                          style={{ height: `${Math.max(heightPct, 4)}%` }}
+   933→   933→                        />
+   934→   934→                      </div>
+   935→   935→                      <span className="text-[10px] text-muted-foreground font-medium">{d.day}</span>
+   936→   936→                    </div>
+   937→   937→                  );
+   938→   938→                })}
+   939→   939→              </div>
+   940→   940→            </Card>
+   941→   941→          )}
+   942→   942→
+   943→   943→          {/* Upcoming Economic Events */}
+   944→   944→          {periodFilter === "week" && newsData.upcomingEvents?.length > 0 && (
+   945→   945→            <Card className="p-4 sm:p-6">
+   946→   946→              <div className="flex items-center gap-2 mb-4">
+   947→   947→                <CalendarClock className="w-4 h-4 text-amber-500" />
+   948→   948→                <h3 className="font-bold text-sm">
+   949→   949→                  {isFr ? "Événements Économiques à Venir" : "Upcoming Economic Events"}
+   950→   950→                </h3>
+   951→   951→              </div>
+   952→   952→              <div className="space-y-2 max-h-48 overflow-y-auto">
+   953→   953→                {newsData.upcomingEvents.map((item: any, i: number) => (
+   954→   954→                  <a
+   955→   955→                    key={i}
+   956→   956→                    href={item.url}
+   957→   957→                    target="_blank"
+   958→   958→                    rel="noopener noreferrer"
+   959→   959→                    className="block group"
+   960→   960→                  >
+   961→   961→                    <div className="p-2.5 rounded-lg border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 transition-all duration-200">
+   962→   962→                      <div className="flex items-start justify-between gap-2">
+   963→   963→                        <div className="flex-1 min-w-0">
+   964→   964→                          <h4 className="text-xs font-medium group-hover:text-amber-600 transition-colors line-clamp-2">
+   965→   965→                            {item.title}
+   966→   966→                          </h4>
+   967→   967→                          <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">
+   968→   968→                            {item.snippet}
+   969→   969→                          </p>
+   970→   970→                        </div>
+   971→   971→                        <ExternalLink className="w-3 h-3 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+   972→   972→                      </div>
+   973→   973→                    </div>
+   974→   974→                  </a>
+   975→   975→                ))}
+   976→   976→              </div>
+   977→   977→            </Card>
+   978→   978→          )}
+   979→   979→
+   980→   980→          {/* News Feed with AI Interpretation Tags */}
+   981→   981→          <Card className="p-4 sm:p-6">
+   982→   982→            <div className="flex items-center justify-between mb-4">
+   983→   983→              <div className="flex items-center gap-2">
+   984→   984→                <Globe className="w-4 h-4 text-primary" />
+   985→   985→                <h3 className="font-bold text-sm">
+   986→   986→                  {periodFilter === "today"
+   987→   987→                    ? (isFr ? "Actualités du Jour" : "Today's News")
+   988→   988→                    : (isFr ? "Actualités de la Semaine" : "This Week's News")} — {activeAsset}
+   989→   989→                </h3>
+   990→   990→                {newsData.news?.length > 0 && (
+   991→   991→                  <Badge variant="secondary" className="text-[10px]">{newsData.news.length}</Badge>
+   992→   992→                )}
+   993→   993→              </div>
+   994→   994→              {newsData.updatedAt && (
+   995→   995→                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+   996→   996→                  <Clock className="w-3 h-3" />
+   997→   997→                  {new Date(newsData.updatedAt).toLocaleTimeString(
+   998→   998→                    isFr ? "fr-FR" : "en-US",
+   999→   999→                    { hour: "2-digit", minute: "2-digit" }
+  1000→  1000→                  )}
+  1001→  1001→                </div>
+  1002→  1002→              )}
+  1003→  1003→            </div>
+  1004→  1004→
+  1005→  1005→            {newsData.news?.length > 0 ? (
+  1006→  1006→              <div className="space-y-3 max-h-[500px] overflow-y-auto">
+  1007→  1007→                {newsData.news.map((item: any, i: number) => (
+  1008→  1008→                  <a
+  1009→  1009→                    key={i}
+  1010→  1010→                    href={item.url}
+  1011→  1011→                    target="_blank"
+  1012→  1012→                    rel="noopener noreferrer"
+  1013→  1013→                    className="block group"
+  1014→  1014→                  >
+  1015→  1015→                    <div className="p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-all duration-200">
+  1016→  1016→                      <div className="flex items-start justify-between gap-2">
+  1017→  1017→                        <div className="flex-1 min-w-0">
+  1018→  1018→                          <div className="flex items-center gap-2 mb-1">
+  1019→  1019→                            {item.aiDirection && <DirectionIcon direction={item.aiDirection} size="sm" />}
+  1020→  1020→                            <h4 className="text-sm font-medium group-hover:text-primary transition-colors line-clamp-2">
+  1021→  1021→                              {item.title}
+  1022→  1022→                            </h4>
+  1023→  1023→                          </div>
+  1024→  1024→                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.snippet}</p>
+  1025→  1025→                          {item.aiReason && (
+  1026→  1026→                            <div className="mt-1.5 flex items-start gap-1.5">
+  1027→  1027→                              <Brain className="w-3 h-3 text-purple-500 mt-0.5 shrink-0" />
+  1028→  1028→                              <p className="text-[10px] text-purple-500/80 leading-relaxed line-clamp-2">
+  1029→  1029→                                {item.aiReason}
+  1030→  1030→                              </p>
+  1031→  1031→                            </div>
+  1032→  1032→                          )}
+  1033→  1033→                        </div>
+  1034→  1034→                        <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+  1035→  1035→                      </div>
+  1036→  1036→                      <div className="flex items-center gap-2 mt-2">
+  1037→  1037→                        {item.source && (
+  1038→  1038→                          <Badge variant="outline" className="text-[9px] px-1.5 py-0">{item.source}</Badge>
+  1039→  1039→                        )}
+  1040→  1040→                        {item.date && (
+  1041→  1041→                          <span className="text-[9px] text-muted-foreground">
+  1042→  1042→                            {new Date(item.date).toLocaleDateString(
+  1043→  1043→                              isFr ? "fr-FR" : "en-US",
+  1044→  1044→                              { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }
+  1045→  1045→                            )}
+  1046→  1046→                          </span>
+  1047→  1047→                        )}
+  1048→  1048→                        {item.aiDirection && (
+  1049→  1049→                          <Badge className={cn(
+  1050→  1050→                            "text-[8px] px-1.5 py-0 border-0",
+  1051→  1051→                            item.aiDirection === "HAUSSIER" && "bg-profit/15 text-profit",
+  1052→  1052→                            item.aiDirection === "BAISSIER" && "bg-loss/15 text-loss",
+  1053→  1053→                            item.aiDirection === "NEUTRE" && "bg-amber-500/15 text-amber-500",
+  1054→  1054→                          )}>
+  1055→  1055→                            {item.aiDirection}
+  1056→  1056→                          </Badge>
+  1057→  1057→                        )}
+  1058→  1058→                      </div>
+  1059→  1059→                    </div>
+  1060→  1060→                  </a>
+  1061→  1061→                ))}
+  1062→  1062→              </div>
+  1063→  1063→            ) : (
+  1064→  1064→              <p className="text-sm text-muted-foreground text-center py-8">
+  1065→  1065→                {isFr ? "Aucune actualité disponible" : "No news available"}
+  1066→  1066→              </p>
+  1067→  1067→            )}
+  1068→  1068→          </Card>
+  1069→  1069→
+  1070→  1070→          {/* Disclaimer */}
+  1071→  1071→          <p className="text-[10px] text-muted-foreground/60 text-center px-4">
+  1072→  1072→            {isFr
+  1073→  1073→              ? "⚠️ DONCIEL-AI™ est fourni à titre informatif uniquement et ne constitue pas un conseil financier. L'IA analyse les données en temps réel mais les marchés restent imprévisibles. Effectuez toujours vos propres recherches avant de trader."
+  1074→  1074→              : "⚠️ DONCIEL-AI™ is for informational purposes only and does not constitute financial advice. AI analyzes real-time data but markets remain unpredictable. Always do your own research before trading."}
+  1075→  1075→          </p>
+  1076→  1076→        </div>
+  1077→  1077→      )}
+  1078→  1078→    </div>
+  1079→  1079→  );
+  1080→  1080→}
+  1081→  1081→
+  1082→  1082→// ──────────────────────────────────────────────────────
+  1083→  1083→// Sub-tab: Sentiment (📡)
+  1084→  1084→// ──────────────────────────────────────────────────────
+  1085→  1085→
+  1086→  1086→function SentimentSubTab({ language }: { language: string }) {
+  1087→  1087→  const isFr = language === "fr";
+  1088→  1088→  const [sentimentData, setSentimentData] = useState<any>(null);
+  1089→  1089→  const [loading, setLoading] = useState(true);
+  1090→  1090→  const [error, setError] = useState<string | null>(null);
+  1091→  1091→  const [period, setPeriod] = useState<PeriodFilter>("today");
+  1092→  1092→  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  1093→  1093→
+  1094→  1094→  const fetchSentiment = useCallback(async () => {
+  1095→  1095→    try {
+  1096→  1096→      const res = await fetch(`/api/market/sentiment?lang=${language}&period=${period}`);
+  1097→  1097→      if (!res.ok) throw new Error("Fetch failed");
+  1098→  1098→      const data = await res.json();
+  1099→  1099→      setSentimentData(data);
+  1100→  1100→      setError(null);
+  1101→  1101→    } catch {
+  1102→  1102→      setError(isFr ? "Erreur lors du chargement du sentiment" : "Error loading sentiment");
+  1103→  1103→    } finally {
+  1104→  1104→      setLoading(false);
+  1105→  1105→    }
+  1106→  1106→  }, [language, isFr, period]);
+  1107→  1107→
+  1108→  1108→  // Reset loading when period changes
+  1109→  1109→  useEffect(() => {
+  1110→  1110→    setLoading(true);
+  1111→  1111→  }, [period]);
+  1112→  1112→
+  1113→  1113→  useEffect(() => {
+  1114→  1114→    fetchSentiment();
+  1115→  1115→    intervalRef.current = setInterval(fetchSentiment, 5 * 60 * 1000);
+  1116→  1116→    return () => {
+  1117→  1117→      if (intervalRef.current) clearInterval(intervalRef.current);
+  1118→  1118→    };
+  1119→  1119→  }, [fetchSentiment]);
+  1120→  1120→
+  1121→  1121→  if (loading) {
+  1122→  1122→    return (
+  1123→  1123→      <div className="space-y-4">
+  1124→  1124→        <Card className="p-6">
+  1125→  1125→          <Skeleton className="h-6 w-40 mb-4" />
+  1126→  1126→          <Skeleton className="h-3 w-full mb-2" />
+  1127→  1127→          <Skeleton className="h-8 w-full mb-4" />
+  1128→  1128→          <div className="grid grid-cols-2 gap-4">
+  1129→  1129→            <Skeleton className="h-20 w-full" />
+  1130→  1130→            <Skeleton className="h-20 w-full" />
+  1131→  1131→          </div>
+  1132→  1132→        </Card>
+  1133→  1133→      </div>
+  1134→  1134→    );
+  1135→  1135→  }
+  1136→  1136→
+  1137→  1137→  if (error) {
+  1138→  1138→    return (
+  1139→  1139→      <Card className="p-12 text-center">
+  1140→  1140→        <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+  1141→  1141→        <p className="text-muted-foreground">{error}</p>
+  1142→  1142→        <Button onClick={fetchSentiment} variant="outline" className="mt-4 gap-2">
+  1143→  1143→          <RefreshCw className="w-4 h-4" />
+  1144→  1144→          {isFr ? "Réessayer" : "Retry"}
+  1145→  1145→        </Button>
+  1146→  1146→      </Card>
+  1147→  1147→    );
+  1148→  1148→  }
+  1149→  1149→
+  1150→  1150→  // API returns: fearGreed, vix, smartMoney, retail, contrarianSignal, overallSentiment, interpretation
+  1151→  1151→  const fearGreed = sentimentData?.fearGreed ?? { value: 50, label: "Neutral", trend: "stable" };
+  1152→  1152→  const vix = sentimentData?.vix ?? null;
+  1153→  1153→  const smartMoney = sentimentData?.smartMoney ?? null;
+  1154→  1154→  const retail = sentimentData?.retail ?? null;
+  1155→  1155→  const contrarianSignal = sentimentData?.contrarianSignal ?? null;
+  1156→  1156→  const overallSentiment = sentimentData?.overallSentiment ?? "NEUTRAL";
+  1157→  1157→  const interpretation = sentimentData?.interpretation ?? null;
+  1158→  1158→
+  1159→  1159→  const isRiskOn = overallSentiment === "RISK-ON";
+  1160→  1160→  const isRiskOff = overallSentiment === "RISK-OFF";
+  1161→  1161→
+  1162→  1162→  // Derive strength from confidence for smartMoney/retail bars
+  1163→  1163→  const confidenceToStrength = (conf: string) => {
+  1164→  1164→    const c = conf?.toLowerCase() || "low";
+  1165→  1165→    if (c.includes("high") || c.includes("élev")) return 85;
+  1166→  1166→    if (c.includes("medium") || c.includes("moyen") || c.includes("modéré")) return 55;
+  1167→  1167→    return 30;
+  1168→  1168→  };
+  1169→  1169→
+  1170→  1170→  return (
+  1171→  1171→    <div className="space-y-4">
+  1172→  1172→      {/* Period Filter */}
+  1173→  1173→      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+  1174→  1174→
+  1175→  1175→      {/* Fear & Greed Gauge + Market Regime */}
+  1176→  1176→      <Card className="p-4 sm:p-6">
+  1177→  1177→        <FearGreedGauge value={fearGreed.value} label={fearGreed.label} language={language} />
+  1178→  1178→
+  1179→  1179→        <Separator className="my-4" />
+  1180→  1180→
+  1181→  1181→        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1182→  1182→          {/* Market Regime */}
+  1183→  1183→          <div className="p-3 rounded-lg border border-border">
+  1184→  1184→            <div className="flex items-center justify-between">
+  1185→  1185→              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1186→  1186→                {isFr ? "Régime de Marché" : "Market Regime"}
+  1187→  1187→              </span>
+  1188→  1188→              <Badge className={cn(
+  1189→  1189→                "text-xs font-bold gap-1",
+  1190→  1190→                isRiskOn && "bg-profit/15 text-profit border-profit/30",
+  1191→  1191→                isRiskOff && "bg-loss/15 text-loss border-loss/30",
+  1192→  1192→                !isRiskOn && !isRiskOff && "bg-amber-500/15 text-amber-500 border-amber-500/30"
+  1193→  1193→              )}>
+  1194→  1194→                {isRiskOn && <TrendingUp className="w-3.5 h-3.5" />}
+  1195→  1195→                {isRiskOff && <TrendingDown className="w-3.5 h-3.5" />}
+  1196→  1196→                {!isRiskOn && !isRiskOff && <Minus className="w-3.5 h-3.5" />}
+  1197→  1197→                {overallSentiment}
+  1198→  1198→              </Badge>
+  1199→  1199→            </div>
+  1200→  1200→          </div>
+  1201→  1201→
+  1202→  1202→          {/* VIX */}
+  1203→  1203→          {vix && (
+  1204→  1204→            <div className="p-3 rounded-lg border border-border">
+  1205→  1205→              <div className="flex items-center justify-between">
+  1206→  1206→                <div className="flex items-center gap-1.5">
+  1207→  1207→                  <Activity className="w-3.5 h-3.5 text-amber-500" />
+  1208→  1208→                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1209→  1209→                    VIX
+  1210→  1210→                  </span>
+  1211→  1211→                </div>
+  1212→  1212→                <div className="flex items-center gap-2">
+  1213→  1213→                  <span className="text-lg font-bold">{vix.value}</span>
+  1214→  1214→                  {vix.trend === "rising" && <TrendingUp className="w-4 h-4 text-loss" />}
+  1215→  1215→                  {vix.trend === "declining" && <TrendingDown className="w-4 h-4 text-profit" />}
+  1216→  1216→                  {vix.trend === "stable" && <Minus className="w-4 h-4 text-muted-foreground" />}
+  1217→  1217→                </div>
+  1218→  1218→              </div>
+  1219→  1219→              {vix.interpretation && (
+  1220→  1220→                <p className="text-[10px] text-muted-foreground mt-1">{vix.interpretation}</p>
+  1221→  1221→              )}
+  1222→  1222→            </div>
+  1223→  1223→          )}
+  1224→  1224→        </div>
+  1225→  1225→      </Card>
+  1226→  1226→
+  1227→  1227→      {/* Smart Money vs Retail */}
+  1228→  1228→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1229→  1229→        {/* Smart Money */}
+  1230→  1230→        {smartMoney && (
+  1231→  1231→          <Card className="p-4 sm:p-6">
+  1232→  1232→            <div className="flex items-center gap-2 mb-3">
+  1233→  1233→              <Eye className="w-4 h-4 text-primary" />
+  1234→  1234→              <h3 className="font-bold text-sm">{isFr ? "Smart Money" : "Smart Money"}</h3>
+  1235→  1235→            </div>
+  1236→  1236→            <div className="space-y-3">
+  1237→  1237→              <div className="flex items-center justify-between">
+  1238→  1238→                <span className="text-xs text-muted-foreground">{isFr ? "Position" : "Position"}</span>
+  1239→  1239→                <Badge className={cn(
+  1240→  1240→                  "text-xs gap-1",
+  1241→  1241→                  smartMoney.direction?.includes("LONG") && "bg-profit/15 text-profit",
+  1242→  1242→                  smartMoney.direction?.includes("SHORT") && "bg-loss/15 text-loss",
+  1243→  1243→                  !smartMoney.direction?.includes("LONG") && !smartMoney.direction?.includes("SHORT") && "bg-amber-500/15 text-amber-500"
+  1244→  1244→                )}>
+  1245→  1245→                  {smartMoney.direction?.includes("LONG") && <TrendingUp className="w-3 h-3" />}
+  1246→  1246→                  {smartMoney.direction?.includes("SHORT") && <TrendingDown className="w-3 h-3" />}
+  1247→  1247→                  {smartMoney.direction || "NEUTRAL"}
+  1248→  1248→                </Badge>
+  1249→  1249→              </div>
+  1250→  1250→              <div>
+  1251→  1251→                <div className="flex items-center justify-between mb-1">
+  1252→  1252→                  <span className="text-[10px] text-muted-foreground">{isFr ? "Confiance" : "Confidence"}</span>
+  1253→  1253→                  <span className="text-[10px] font-bold">{smartMoney.confidence || "low"}</span>
+  1254→  1254→                </div>
+  1255→  1255→                <ProbabilityBar
+  1256→  1256→                  value={confidenceToStrength(smartMoney.confidence)}
+  1257→  1257→                  color={smartMoney.direction?.includes("LONG") ? "bg-profit" : smartMoney.direction?.includes("SHORT") ? "bg-loss" : "bg-amber-500"}
+  1258→  1258→                />
+  1259→  1259→              </div>
+  1260→  1260→            </div>
+  1261→  1261→          </Card>
+  1262→  1262→        )}
+  1263→  1263→
+  1264→  1264→        {/* Retail */}
+  1265→  1265→        {retail && (
+  1266→  1266→          <Card className="p-4 sm:p-6">
+  1267→  1267→            <div className="flex items-center gap-2 mb-3">
+  1268→  1268→              <Users className="w-4 h-4 text-amber-500" />
+  1269→  1269→              <h3 className="font-bold text-sm">{isFr ? "Traders Particuliers" : "Retail Traders"}</h3>
+  1270→  1270→            </div>
+  1271→  1271→            <div className="space-y-3">
+  1272→  1272→              <div className="flex items-center justify-between">
+  1273→  1273→                <span className="text-xs text-muted-foreground">{isFr ? "Position" : "Position"}</span>
+  1274→  1274→                <Badge className={cn(
+  1275→  1275→                  "text-xs gap-1",
+  1276→  1276→                  retail.direction?.includes("LONG") && "bg-profit/15 text-profit",
+  1277→  1277→                  retail.direction?.includes("SHORT") && "bg-loss/15 text-loss",
+  1278→  1278→                  !retail.direction?.includes("LONG") && !retail.direction?.includes("SHORT") && "bg-amber-500/15 text-amber-500"
+  1279→  1279→                )}>
+  1280→  1280→                  {retail.direction?.includes("LONG") && <TrendingUp className="w-3 h-3" />}
+  1281→  1281→                  {retail.direction?.includes("SHORT") && <TrendingDown className="w-3 h-3" />}
+  1282→  1282→                  {retail.direction || "NEUTRAL"}
+  1283→  1283→                </Badge>
+  1284→  1284→              </div>
+  1285→  1285→              <div>
+  1286→  1286→                <div className="flex items-center justify-between mb-1">
+  1287→  1287→                  <span className="text-[10px] text-muted-foreground">{isFr ? "Confiance" : "Confidence"}</span>
+  1288→  1288→                  <span className="text-[10px] font-bold">{retail.confidence || "low"}</span>
+  1289→  1289→                </div>
+  1290→  1290→                <ProbabilityBar
+  1291→  1291→                  value={confidenceToStrength(retail.confidence)}
+  1292→  1292→                  color={retail.direction?.includes("LONG") ? "bg-profit" : retail.direction?.includes("SHORT") ? "bg-loss" : "bg-amber-500"}
+  1293→  1293→                />
+  1294→  1294→              </div>
+  1295→  1295→            </div>
+  1296→  1296→          </Card>
+  1297→  1297→        )}
+  1298→  1298→      </div>
+  1299→  1299→
+  1300→  1300→      {/* Contrarian Signal */}
+  1301→  1301→      {contrarianSignal && (
+  1302→  1302→        <Card className={cn(
+  1303→  1303→          "p-4 sm:p-6 border-2",
+  1304→  1304→          contrarianSignal.toLowerCase().includes("buy") || contrarianSignal.toLowerCase().includes("acheter") || contrarianSignal.toLowerCase().includes("long")
+  1305→  1305→            ? "border-profit/30 bg-gradient-to-r from-profit/5 to-transparent"
+  1306→  1306→            : contrarianSignal.toLowerCase().includes("sell") || contrarianSignal.toLowerCase().includes("vendre") || contrarianSignal.toLowerCase().includes("short")
+  1307→  1307→            ? "border-loss/30 bg-gradient-to-r from-loss/5 to-transparent"
+  1308→  1308→            : "border-amber-500/20"
+  1309→  1309→        )}>
+  1310→  1310→          <div className="flex items-center gap-2 mb-2">
+  1311→  1311→            <ShieldAlert className="w-4 h-4 text-purple-500" />
+  1312→  1312→            <h3 className="font-bold text-sm">{isFr ? "Signal Contrarien" : "Contrarian Signal"}</h3>
+  1313→  1313→          </div>
+  1314→  1314→          <p className="text-xs text-muted-foreground leading-relaxed">{contrarianSignal}</p>
+  1315→  1315→        </Card>
+  1316→  1316→      )}
+  1317→  1317→
+  1318→  1318→      {/* AI Interpretation */}
+  1319→  1319→      {interpretation && (
+  1320→  1320→        <Card className="p-4 sm:p-6">
+  1321→  1321→          <div className="flex items-center gap-2 mb-3">
+  1322→  1322→            <Brain className="w-4 h-4 text-purple-500" />
+  1323→  1323→            <h3 className="font-bold text-sm">
+  1324→  1324→              {isFr ? "Interprétation DONCIEL-AI™" : "DONCIEL-AI™ Interpretation"}
+  1325→  1325→            </h3>
+  1326→  1326→            <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+  1327→  1327→              <Sparkles className="w-3 h-3" />
+  1328→  1328→              AI
+  1329→  1329→            </Badge>
+  1330→  1330→          </div>
+  1331→  1331→          <p className="text-xs text-muted-foreground leading-relaxed">{interpretation}</p>
+  1332→  1332→        </Card>
+  1333→  1333→      )}
+  1334→  1334→
+  1335→  1335→      {/* Disclaimer */}
+  1336→  1336→      <p className="text-[10px] text-muted-foreground/60 text-center px-4">
+  1337→  1337→        {isFr
+  1338→  1338→          ? "⚠️ Les données de sentiment sont agrégées à partir de multiples sources et sont fournies à titre indicatif. Elles ne constituent pas un conseil en investissement."
+  1339→  1339→          : "⚠️ Sentiment data is aggregated from multiple sources and provided for informational purposes only. This does not constitute investment advice."}
+  1340→  1340→      </p>
+  1341→  1341→    </div>
+  1342→  1342→  );
+  1343→  1343→}
+  1344→  1344→
+  1345→  1345→// ──────────────────────────────────────────────────────
+  1346→  1346→// Sub-tab: Alertes (⏰)
+  1347→  1347→// ──────────────────────────────────────────────────────
+  1348→  1348→
+  1349→  1349→function AlertsSubTab({ language }: { language: string }) {
+  1350→  1350→  const isFr = language === "fr";
+  1351→  1351→  const [briefingData, setBriefingData] = useState<any>(null);
+  1352→  1352→  const [calendarData, setCalendarData] = useState<any>(null);
+  1353→  1353→  const [loading, setLoading] = useState(true);
+  1354→  1354→  const [error, setError] = useState<string | null>(null);
+  1355→  1355→  const [period, setPeriod] = useState<PeriodFilter>("today");
+  1356→  1356→
+  1357→  1357→  const fetchData = useCallback(async () => {
+  1358→  1358→    try {
+  1359→  1359→      const [briefingRes, calendarRes] = await Promise.all([
+  1360→  1360→        fetch(`/api/market/briefing?lang=${language}&period=${period}`),
+  1361→  1361→        fetch(`/api/market/calendar?lang=${language}&period=${period}`),
+  1362→  1362→      ]);
+  1363→  1363→
+  1364→  1364→      if (briefingRes.ok) {
+  1365→  1365→        const briefing = await briefingRes.json();
+  1366→  1366→        setBriefingData(briefing);
+  1367→  1367→      }
+  1368→  1368→      if (calendarRes.ok) {
+  1369→  1369→        const calendar = await calendarRes.json();
+  1370→  1370→        setCalendarData(calendar);
+  1371→  1371→      }
+  1372→  1372→      setError(null);
+  1373→  1373→    } catch {
+  1374→  1374→      setError(isFr ? "Erreur lors du chargement des alertes" : "Error loading alerts");
+  1375→  1375→    } finally {
+  1376→  1376→      setLoading(false);
+  1377→  1377→    }
+  1378→  1378→  }, [language, isFr, period]);
+  1379→  1379→
+  1380→  1380→  // Reset loading when period changes
+  1381→  1381→  useEffect(() => {
+  1382→  1382→    setLoading(true);
+  1383→  1383→  }, [period]);
+  1384→  1384→
+  1385→  1385→  useEffect(() => {
+  1386→  1386→    fetchData();
+  1387→  1387→  }, [fetchData]);
+  1388→  1388→
+  1389→  1389→  // API returns: summary, asia, today, keyLevels (string[]), scenarios ({ name, probability, description }[]), riskEvents (string[])
+  1390→  1390→  const summary = briefingData?.summary ?? null;
+  1391→  1391→  const asia = briefingData?.asia ?? null;
+  1392→  1392→  const today = briefingData?.today ?? null;
+  1393→  1393→  const keyLevels: string[] = briefingData?.keyLevels ?? [];
+  1394→  1394→  const scenarios: { name: string; probability: number; description: string }[] = briefingData?.scenarios ?? [];
+  1395→  1395→  const riskEvents: string[] = briefingData?.riskEvents ?? [];
+  1396→  1396→
+  1397→  1397→  // Normalize calendar events for countdown (must be before early returns for hooks rules)
+  1398→  1398→  const normalizedCalendarEvents = useMemo(() => {
+  1399→  1399→    const rawEvents: any[] = calendarData?.events || [];
+  1400→  1400→    return rawEvents
+  1401→  1401→      .filter((e: any) => (e.impact || "").toLowerCase() === "high")
+  1402→  1402→      .map((evt: any) => {
+  1403→  1403→        const todayDate = new Date();
+  1404→  1404→        let eventDate: Date;
+  1405→  1405→        if (evt.date) {
+  1406→  1406→          eventDate = new Date(evt.date);
+  1407→  1407→        } else if (evt.time) {
+  1408→  1408→          const [h, m] = evt.time.split(":").map(Number);
+  1409→  1409→          eventDate = new Date(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate(), h || 0, m || 0);
+  1410→  1410→        } else {
+  1411→  1411→          eventDate = todayDate;
+  1412→  1412→        }
+  1413→  1413→        return {
+  1414→  1414→          title: evt.event || evt.title || "",
+  1415→  1415→          date: eventDate.toISOString(),
+  1416→  1416→          currency: (evt.currency || "").toUpperCase(),
+  1417→  1417→          countryFlag: evt.country || "🌍",
+  1418→  1418→        };
+  1419→  1419→      })
+  1420→  1420→      .filter((e: any) => new Date(e.date) > new Date())
+  1421→  1421→      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  1422→  1422→  }, [calendarData]);
+  1423→  1423→
+  1424→  1424→  // Determine scenario type from name
+  1425→  1425→  const getScenarioType = useCallback((name: string): "BULLISH" | "BEARISH" | "NEUTRAL" => {
+  1426→  1426→    const n = name.toLowerCase();
+  1427→  1427→    if (n.includes("bull") || n.includes("hauss") || n.includes("optimist")) return "BULLISH";
+  1428→  1428→    if (n.includes("bear") || n.includes("baiss") || n.includes("pessimist")) return "BEARISH";
+  1429→  1429→    return "NEUTRAL";
+  1430→  1430→  }, []);
+  1431→  1431→
+  1432→  1432→  if (loading) {
+  1433→  1433→    return (
+  1434→  1434→      <div className="space-y-4">
+  1435→  1435→        <Card className="p-6">
+  1436→  1436→          <Skeleton className="h-6 w-48 mb-4" />
+  1437→  1437→          <div className="space-y-3">
+  1438→  1438→            <Skeleton className="h-4 w-full" />
+  1439→  1439→            <Skeleton className="h-4 w-3/4" />
+  1440→  1440→          </div>
+  1441→  1441→        </Card>
+  1442→  1442→        <div className="grid grid-cols-3 gap-3">
+  1443→  1443→          <Skeleton className="h-24 w-full" />
+  1444→  1444→          <Skeleton className="h-24 w-full" />
+  1445→  1445→          <Skeleton className="h-24 w-full" />
+  1446→  1446→        </div>
+  1447→  1447→      </div>
+  1448→  1448→    );
+  1449→  1449→  }
+  1450→  1450→
+  1451→  1451→  if (error) {
+  1452→  1452→    return (
+  1453→  1453→      <Card className="p-12 text-center">
+  1454→  1454→        <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+  1455→  1455→        <p className="text-muted-foreground">{error}</p>
+  1456→  1456→        <Button onClick={fetchData} variant="outline" className="mt-4 gap-2">
+  1457→  1457→          <RefreshCw className="w-4 h-4" />
+  1458→  1458→          {isFr ? "Réessayer" : "Retry"}
+  1459→  1459→        </Button>
+  1460→  1460→      </Card>
+  1461→  1461→    );
+  1462→  1462→  }
+  1463→  1463→
+  1464→  1464→  return (
+  1465→  1465→    <div className="space-y-4">
+  1466→  1466→      {/* Period Filter */}
+  1467→  1467→      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+  1468→  1468→
+  1469→  1469→      {/* Morning/Weekly Briefing */}
+  1470→  1470→      {summary && (
+  1471→  1471→        <Card className="p-4 sm:p-6 border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
+  1472→  1472→          <div className="flex items-center gap-2 mb-3">
+  1473→  1473→            <Sunrise className="w-5 h-5 text-primary" />
+  1474→  1474→            <h3 className="font-bold text-sm">
+  1475→  1475→              {period === "week"
+  1476→  1476→                ? (isFr ? "Briefing Hebdomadaire" : "Weekly Briefing")
+  1477→  1477→                : (isFr ? "Briefing du Jour" : "Morning Briefing")}
+  1478→  1478→            </h3>
+  1479→  1479→            <Badge className="bg-gradient-to-r from-violet-600 to-purple-600 text-white border-0 gap-1 text-[9px] px-2 py-0.5 shadow-lg shadow-purple-500/20 shrink-0">
+  1480→  1480→              <Sparkles className="w-3 h-3" />
+  1481→  1481→              DONCIEL-AI™
+  1482→  1482→            </Badge>
+  1483→  1483→          </div>
+  1484→  1484→
+  1485→  1485→          {/* Summary */}
+  1486→  1486→          <p className="text-sm text-muted-foreground leading-relaxed mb-3">{summary}</p>
+  1487→  1487→
+  1488→  1488→          {/* Asia session */}
+  1489→  1489→          {asia && (
+  1490→  1490→            <div className="p-2.5 rounded-lg border border-border bg-card/50 mb-2">
+  1491→  1491→              <div className="flex items-center gap-1.5 mb-1">
+  1492→  1492→                <Globe className="w-3 h-3 text-amber-500" />
+  1493→  1493→                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1494→  1494→                  {isFr ? "Session Asiatique" : "Asian Session"}
+  1495→  1495→                </span>
+  1496→  1496→              </div>
+  1497→  1497→              <p className="text-xs leading-relaxed">{asia}</p>
+  1498→  1498→            </div>
+  1499→  1499→          )}
+  1500→  1500→
+  1501→  1501→          {/* Today */}
+  1502→  1502→          {today && (
+  1503→  1503→            <div className="p-2.5 rounded-lg border border-border bg-card/50">
+  1504→  1504→              <div className="flex items-center gap-1.5 mb-1">
+  1505→  1505→                <Calendar className="w-3 h-3 text-primary" />
+  1506→  1506→                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1507→  1507→                  {period === "week"
+  1508→  1508→                    ? (isFr ? "Cette Semaine" : "This Week")
+  1509→  1509→                    : (isFr ? "Aujourd'hui" : "Today")}
+  1510→  1510→                </span>
+  1511→  1511→              </div>
+  1512→  1512→              <p className="text-xs leading-relaxed">{today}</p>
+  1513→  1513→            </div>
+  1514→  1514→          )}
+  1515→  1515→        </Card>
+  1516→  1516→      )}
+  1517→  1517→
+  1518→  1518→      {/* 3 Scenario Cards */}
+  1519→  1519→      {scenarios.length > 0 && (
+  1520→  1520→        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+  1521→  1521→          {scenarios.map((scenario, i) => {
+  1522→  1522→            const scenarioType = getScenarioType(scenario.name);
+  1523→  1523→            const isBull = scenarioType === "BULLISH";
+  1524→  1524→            const isBear = scenarioType === "BEARISH";
+  1525→  1525→            return (
+  1526→  1526→              <Card key={i} className={cn(
+  1527→  1527→                "p-4 border-2",
+  1528→  1528→                isBull && "border-profit/20 bg-gradient-to-br from-profit/5 to-transparent",
+  1529→  1529→                isBear && "border-loss/20 bg-gradient-to-br from-loss/5 to-transparent",
+  1530→  1530→                !isBull && !isBear && "border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-transparent"
+  1531→  1531→              )}>
+  1532→  1532→                <div className="flex items-center gap-2 mb-2">
+  1533→  1533→                  {isBull && <TrendingUp className="w-4 h-4 text-profit" />}
+  1534→  1534→                  {isBear && <TrendingDown className="w-4 h-4 text-loss" />}
+  1535→  1535→                  {!isBull && !isBear && <Minus className="w-4 h-4 text-amber-500" />}
+  1536→  1536→                  <span className={cn(
+  1537→  1537→                    "text-xs font-bold",
+  1538→  1538→                    isBull && "text-profit",
+  1539→  1539→                    isBear && "text-loss",
+  1540→  1540→                    !isBull && !isBear && "text-amber-500"
+  1541→  1541→                  )}>
+  1542→  1542→                    {isBull ? (isFr ? "🟢 Haussier" : "🟢 Bullish")
+  1543→  1543→                      : isBear ? (isFr ? "🔴 Baissier" : "🔴 Bearish")
+  1544→  1544→                      : (isFr ? "🟡 Neutre" : "🟡 Neutral")}
+  1545→  1545→                  </span>
+  1546→  1546→                </div>
+  1547→  1547→                <div className="mb-2">
+  1548→  1548→                  <div className="flex items-center justify-between mb-1">
+  1549→  1549→                    <span className="text-[10px] text-muted-foreground">{isFr ? "Probabilité" : "Probability"}</span>
+  1550→  1550→                    <span className="text-[10px] font-bold">{scenario.probability}%</span>
+  1551→  1551→                  </div>
+  1552→  1552→                  <ProbabilityBar
+  1553→  1553→                    value={scenario.probability}
+  1554→  1554→                    color={isBull ? "bg-profit" : isBear ? "bg-loss" : "bg-amber-500"}
+  1555→  1555→                  />
+  1556→  1556→                </div>
+  1557→  1557→                {scenario.description && (
+  1558→  1558→                  <p className="text-[10px] text-muted-foreground leading-relaxed mt-2">{scenario.description}</p>
+  1559→  1559→                )}
+  1560→  1560→              </Card>
+  1561→  1561→            );
+  1562→  1562→          })}
+  1563→  1563→        </div>
+  1564→  1564→      )}
+  1565→  1565→
+  1566→  1566→      {/* Key Levels Watchlist */}
+  1567→  1567→      {keyLevels.length > 0 && (
+  1568→  1568→        <Card className="p-4 sm:p-6">
+  1569→  1569→          <div className="flex items-center gap-2 mb-4">
+  1570→  1570→            <Target className="w-4 h-4 text-primary" />
+  1571→  1571→            <h3 className="font-bold text-sm">{isFr ? "Niveaux Clés à Surveiller" : "Key Levels to Watch"}</h3>
+  1572→  1572→          </div>
+  1573→  1573→          <div className="space-y-2">
+  1574→  1574→            {keyLevels.map((level, i) => (
+  1575→  1575→              <div key={i} className="flex items-center gap-2 p-2.5 rounded-lg border border-border">
+  1576→  1576→                <CircleDot className="w-3 h-3 text-primary shrink-0" />
+  1577→  1577→                <span className="text-xs leading-relaxed">{level}</span>
+  1578→  1578→              </div>
+  1579→  1579→            ))}
+  1580→  1580→          </div>
+  1581→  1581→        </Card>
+  1582→  1582→      )}
+  1583→  1583→
+  1584→  1584→      {/* Risk Events Timeline */}
+  1585→  1585→      {riskEvents.length > 0 && (
+  1586→  1586→        <Card className="p-4 sm:p-6">
+  1587→  1587→          <div className="flex items-center gap-2 mb-4">
+  1588→  1588→            <Flame className="w-4 h-4 text-loss" />
+  1589→  1589→            <h3 className="font-bold text-sm">{isFr ? "Événements à Risque" : "Risk Events"}</h3>
+  1590→  1590→          </div>
+  1591→  1591→          <div className="space-y-2">
+  1592→  1592→            {riskEvents.map((evt, i) => (
+  1593→  1593→              <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg border border-loss/20 bg-loss/5">
+  1594→  1594→                <AlertTriangle className="w-3.5 h-3.5 text-loss shrink-0" />
+  1595→  1595→                <span className="text-xs">{evt}</span>
+  1596→  1596→              </div>
+  1597→  1597→            ))}
+  1598→  1598→          </div>
+  1599→  1599→        </Card>
+  1600→  1600→      )}
+  1601→  1601→
+  1602→  1602→      {/* Upcoming High-Impact Events with Countdown */}
+  1603→  1603→      {normalizedCalendarEvents.length > 0 && (
+  1604→  1604→        <Card className="p-4 sm:p-6">
+  1605→  1605→          <div className="flex items-center gap-2 mb-4">
+  1606→  1606→            <Timer className="w-4 h-4 text-amber-500" />
+  1607→  1607→            <h3 className="font-bold text-sm">{isFr ? "Prochains Événements à Fort Impact" : "Upcoming High-Impact Events"}</h3>
+  1608→  1608→          </div>
+  1609→  1609→          <div className="space-y-2 max-h-64 overflow-y-auto">
+  1610→  1610→            {normalizedCalendarEvents.slice(0, 8).map((evt: any, i: number) => (
+  1611→  1611→              <div key={i} className="flex items-center justify-between p-2.5 rounded-lg border border-border hover:border-loss/20 transition-colors">
+  1612→  1612→                <div className="flex items-center gap-3">
+  1613→  1613→                  <span className="text-xs">🔴</span>
+  1614→  1614→                  <div>
+  1615→  1615→                    <h4 className="text-xs font-medium">{evt.title}</h4>
+  1616→  1616→                    <div className="flex items-center gap-1 mt-0.5">
+  1617→  1617→                      <span className="text-[9px] text-muted-foreground">{evt.currency}</span>
+  1618→  1618→                      <span className="text-xs">{evt.countryFlag}</span>
+  1619→  1619→                    </div>
+  1620→  1620→                  </div>
+  1621→  1621→                </div>
+  1622→  1622→                <CountdownTimer targetDate={evt.date} language={language} />
+  1623→  1623→              </div>
+  1624→  1624→            ))}
+  1625→  1625→          </div>
+  1626→  1626→        </Card>
+  1627→  1627→      )}
+  1628→  1628→
+  1629→  1629→      {/* No data fallback */}
+  1630→  1630→      {!summary && scenarios.length === 0 && keyLevels.length === 0 && riskEvents.length === 0 && normalizedCalendarEvents.length === 0 && (
+  1631→  1631→        <Card className="p-8 text-center">
+  1632→  1632→          <Clock className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+  1633→  1633→          <p className="text-sm text-muted-foreground">
+  1634→  1634→            {isFr ? "Aucune alerte pour le moment" : "No alerts at this time"}
+  1635→  1635→          </p>
+  1636→  1636→        </Card>
+  1637→  1637→      )}
+  1638→  1638→    </div>
+  1639→  1639→  );
+  1640→  1640→}
+  1641→  1641→
+  1642→  1642→// ──────────────────────────────────────────────────────
+  1643→  1643→// Sub-tab: Statistiques (📊)
+  1644→  1644→// ──────────────────────────────────────────────────────
+  1645→  1645→
+  1646→  1646→function StatisticsSubTab({ language }: { language: string }) {
+  1647→  1647→  const isFr = language === "fr";
+  1648→  1648→  const [period, setPeriod] = useState<PeriodFilter>("today");
+  1649→  1649→  const [calendarData, setCalendarData] = useState<any>(null);
+  1650→  1650→  const [sentimentData, setSentimentData] = useState<any>(null);
+  1651→  1651→  const [briefingData, setBriefingData] = useState<any>(null);
+  1652→  1652→  const [loading, setLoading] = useState(true);
+  1653→  1653→  const [error, setError] = useState<string | null>(null);
+  1654→  1654→
+  1655→  1655→  const fetchAllData = useCallback(async () => {
+  1656→  1656→    try {
+  1657→  1657→      const [calendarRes, sentimentRes, briefingRes] = await Promise.all([
+  1658→  1658→        fetch(`/api/market/calendar?lang=${language}&period=${period}`),
+  1659→  1659→        fetch(`/api/market/sentiment?lang=${language}&period=${period}`),
+  1660→  1660→        fetch(`/api/market/briefing?lang=${language}&period=${period}`),
+  1661→  1661→      ]);
+  1662→  1662→
+  1663→  1663→      if (calendarRes.ok) setCalendarData(await calendarRes.json());
+  1664→  1664→      if (sentimentRes.ok) setSentimentData(await sentimentRes.json());
+  1665→  1665→      if (briefingRes.ok) setBriefingData(await briefingRes.json());
+  1666→  1666→      setError(null);
+  1667→  1667→    } catch {
+  1668→  1668→      setError(isFr ? "Erreur lors du chargement des statistiques" : "Error loading statistics");
+  1669→  1669→    } finally {
+  1670→  1670→      setLoading(false);
+  1671→  1671→    }
+  1672→  1672→  }, [language, isFr, period]);
+  1673→  1673→
+  1674→  1674→  // Reset loading when period changes
+  1675→  1675→  useEffect(() => {
+  1676→  1676→    setLoading(true);
+  1677→  1677→  }, [period]);
+  1678→  1678→
+  1679→  1679→  useEffect(() => {
+  1680→  1680→    fetchAllData();
+  1681→  1681→  }, [fetchAllData]);
+  1682→  1682→
+  1683→  1683→  // Derived data
+  1684→  1684→  const totalEvents = calendarData?.events?.length || 0;
+  1685→  1685→  const highImpactEvents = (calendarData?.events || []).filter((e: any) => (e.impact || "").toLowerCase() === "high");
+  1686→  1686→  const mediumImpactEvents = (calendarData?.events || []).filter((e: any) => (e.impact || "").toLowerCase() === "medium");
+  1687→  1687→  const lowImpactEvents = (calendarData?.events || []).filter((e: any) => (e.impact || "").toLowerCase() === "low");
+  1688→  1688→
+  1689→  1689→  const fearGreed = sentimentData?.fearGreed ?? { value: 50, label: "Neutral", trend: "stable" };
+  1690→  1690→  const vix = sentimentData?.vix ?? null;
+  1691→  1691→  const smartMoney = sentimentData?.smartMoney ?? null;
+  1692→  1692→  const retail = sentimentData?.retail ?? null;
+  1693→  1693→  const overallSentiment = sentimentData?.overallSentiment ?? "NEUTRAL";
+  1694→  1694→
+  1695→  1695→  const scenarios: { name: string; probability: number; description: string }[] = briefingData?.scenarios ?? [];
+  1696→  1696→  const riskEvents: string[] = briefingData?.riskEvents ?? [];
+  1697→  1697→
+  1698→  1698→  // Determine scenario type
+  1699→  1699→  const getScenarioType = (name: string): "BULLISH" | "BEARISH" | "NEUTRAL" => {
+  1700→  1700→    const n = name.toLowerCase();
+  1701→  1701→    if (n.includes("bull") || n.includes("hauss") || n.includes("optimist")) return "BULLISH";
+  1702→  1702→    if (n.includes("bear") || n.includes("baiss") || n.includes("pessimist")) return "BEARISH";
+  1703→  1703→    return "NEUTRAL";
+  1704→  1704→  };
+  1705→  1705→
+  1706→  1706→  // Max impact count for bar chart sizing
+  1707→  1707→  const maxImpactCount = Math.max(highImpactEvents.length, mediumImpactEvents.length, lowImpactEvents.length, 1);
+  1708→  1708→
+  1709→  1709→  // Confidence to numeric for gauge
+  1710→  1710→  const confidenceToValue = (conf: string) => {
+  1711→  1711→    const c = conf?.toLowerCase() || "low";
+  1712→  1712→    if (c.includes("high") || c.includes("élev")) return 85;
+  1713→  1713→    if (c.includes("medium") || c.includes("moyen") || c.includes("modéré")) return 55;
+  1714→  1714→    return 30;
+  1715→  1715→  };
+  1716→  1716→
+  1717→  1717→  if (loading) {
+  1718→  1718→    return (
+  1719→  1719→      <div className="space-y-4">
+  1720→  1720→        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+  1721→  1721→          {Array.from({ length: 4 }).map((_, i) => (
+  1722→  1722→            <Card key={i} className="p-3 sm:p-4">
+  1723→  1723→              <Skeleton className="h-8 w-12 mx-auto mb-1" />
+  1724→  1724→              <Skeleton className="h-3 w-20 mx-auto" />
+  1725→  1725→            </Card>
+  1726→  1726→          ))}
+  1727→  1727→        </div>
+  1728→  1728→        <Card className="p-6">
+  1729→  1729→          <Skeleton className="h-6 w-40 mb-4" />
+  1730→  1730→          <div className="space-y-3">
+  1731→  1731→            <Skeleton className="h-4 w-full" />
+  1732→  1732→            <Skeleton className="h-4 w-3/4" />
+  1733→  1733→          </div>
+  1734→  1734→        </Card>
+  1735→  1735→        <Card className="p-6">
+  1736→  1736→          <Skeleton className="h-6 w-32 mb-4" />
+  1737→  1737→          <div className="space-y-3">
+  1738→  1738→            <Skeleton className="h-4 w-full" />
+  1739→  1739→            <Skeleton className="h-4 w-2/3" />
+  1740→  1740→          </div>
+  1741→  1741→        </Card>
+  1742→  1742→      </div>
+  1743→  1743→    );
+  1744→  1744→  }
+  1745→  1745→
+  1746→  1746→  if (error) {
+  1747→  1747→    return (
+  1748→  1748→      <Card className="p-12 text-center">
+  1749→  1749→        <AlertTriangle className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+  1750→  1750→        <p className="text-muted-foreground">{error}</p>
+  1751→  1751→        <Button onClick={fetchAllData} variant="outline" className="mt-4 gap-2">
+  1752→  1752→          <RefreshCw className="w-4 h-4" />
+  1753→  1753→          {isFr ? "Réessayer" : "Retry"}
+  1754→  1754→        </Button>
+  1755→  1755→      </Card>
+  1756→  1756→    );
+  1757→  1757→  }
+  1758→  1758→
+  1759→  1759→  return (
+  1760→  1760→    <div className="space-y-4">
+  1761→  1761→      {/* Period Filter */}
+  1762→  1762→      <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
+  1763→  1763→
+  1764→  1764→      {/* A. Summary Metrics Row */}
+  1765→  1765→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+  1766→  1766→        <Card className="p-3 sm:p-4 text-center">
+  1767→  1767→          <div className="flex items-center justify-center gap-1.5 mb-1">
+  1768→  1768→            <CalendarClock className="w-4 h-4 text-primary" />
+  1769→  1769→          </div>
+  1770→  1770→          <div className="text-2xl font-bold">{totalEvents}</div>
+  1771→  1771→          <div className="text-[10px] text-muted-foreground">{isFr ? "Total Événements" : "Total Events"}</div>
+  1772→  1772→        </Card>
+  1773→  1773→        <Card className="p-3 sm:p-4 text-center border-2 border-loss/20">
+  1774→  1774→          <div className="flex items-center justify-center gap-1.5 mb-1">
+  1775→  1775→            <Zap className="w-4 h-4 text-loss" />
+  1776→  1776→          </div>
+  1777→  1777→          <div className="text-2xl font-bold text-loss">{highImpactEvents.length}</div>
+  1778→  1778→          <div className="text-[10px] text-muted-foreground">{isFr ? "Haut Impact" : "High Impact"}</div>
+  1779→  1779→        </Card>
+  1780→  1780→        <Card className="p-3 sm:p-4 text-center">
+  1781→  1781→          <div className="flex items-center justify-center gap-1.5 mb-1">
+  1782→  1782→            <Activity className="w-4 h-4 text-amber-500" />
+  1783→  1783→          </div>
+  1784→  1784→          <div className={cn(
+  1785→  1785→            "text-lg font-bold",
+  1786→  1786→            overallSentiment === "RISK-ON" && "text-profit",
+  1787→  1787→            overallSentiment === "RISK-OFF" && "text-loss",
+  1788→  1788→            overallSentiment === "NEUTRAL" && "text-amber-500"
+  1789→  1789→          )}>
+  1790→  1790→            {overallSentiment}
+  1791→  1791→          </div>
+  1792→  1792→          <div className="text-[10px] text-muted-foreground">{isFr ? "Sentiment Actuel" : "Current Sentiment"}</div>
+  1793→  1793→        </Card>
+  1794→  1794→        <Card className="p-3 sm:p-4 text-center">
+  1795→  1795→          <div className="flex items-center justify-center gap-1.5 mb-1">
+  1796→  1796→            <Gauge className="w-4 h-4 text-primary" />
+  1797→  1797→          </div>
+  1798→  1798→          <div className={cn(
+  1799→  1799→            "text-2xl font-bold",
+  1800→  1800→            fearGreed.value >= 55 ? "text-profit" : fearGreed.value <= 45 ? "text-loss" : "text-amber-500"
+  1801→  1801→          )}>
+  1802→  1802→            {fearGreed.value}
+  1803→  1803→          </div>
+  1804→  1804→          <div className="text-[10px] text-muted-foreground">{isFr ? "Peur & Avidité" : "Fear & Greed"}</div>
+  1805→  1805→        </Card>
+  1806→  1806→      </div>
+  1807→  1807→
+  1808→  1808→      {/* B. Impact Distribution */}
+  1809→  1809→      <Card className="p-4 sm:p-6">
+  1810→  1810→        <div className="flex items-center gap-2 mb-4">
+  1811→  1811→          <Layers className="w-4 h-4 text-primary" />
+  1812→  1812→          <h3 className="font-bold text-sm">{isFr ? "Distribution par Impact" : "Impact Distribution"}</h3>
+  1813→  1813→        </div>
+  1814→  1814→        <div className="space-y-3">
+  1815→  1815→          {/* High Impact */}
+  1816→  1816→          <div className="space-y-1.5">
+  1817→  1817→            <div className="flex items-center justify-between">
+  1818→  1818→              <div className="flex items-center gap-2">
+  1819→  1819→                <div className="w-3 h-3 rounded-full bg-loss" />
+  1820→  1820→                <span className="text-xs font-medium">{isFr ? "Impact Élevé" : "High Impact"}</span>
+  1821→  1821→              </div>
+  1822→  1822→              <span className="text-xs font-bold text-loss">{highImpactEvents.length}</span>
+  1823→  1823→            </div>
+  1824→  1824→            <div className="h-3 rounded-full bg-muted overflow-hidden">
+  1825→  1825→              <div
+  1826→  1826→                className="h-full rounded-full bg-loss transition-all duration-700"
+  1827→  1827→                style={{ width: `${(highImpactEvents.length / maxImpactCount) * 100}%` }}
+  1828→  1828→              />
+  1829→  1829→            </div>
+  1830→  1830→          </div>
+  1831→  1831→          {/* Medium Impact */}
+  1832→  1832→          <div className="space-y-1.5">
+  1833→  1833→            <div className="flex items-center justify-between">
+  1834→  1834→              <div className="flex items-center gap-2">
+  1835→  1835→                <div className="w-3 h-3 rounded-full bg-amber-500" />
+  1836→  1836→                <span className="text-xs font-medium">{isFr ? "Impact Modéré" : "Medium Impact"}</span>
+  1837→  1837→              </div>
+  1838→  1838→              <span className="text-xs font-bold text-amber-500">{mediumImpactEvents.length}</span>
+  1839→  1839→            </div>
+  1840→  1840→            <div className="h-3 rounded-full bg-muted overflow-hidden">
+  1841→  1841→              <div
+  1842→  1842→                className="h-full rounded-full bg-amber-500 transition-all duration-700"
+  1843→  1843→                style={{ width: `${(mediumImpactEvents.length / maxImpactCount) * 100}%` }}
+  1844→  1844→              />
+  1845→  1845→            </div>
+  1846→  1846→          </div>
+  1847→  1847→          {/* Low Impact */}
+  1848→  1848→          <div className="space-y-1.5">
+  1849→  1849→            <div className="flex items-center justify-between">
+  1850→  1850→              <div className="flex items-center gap-2">
+  1851→  1851→                <div className="w-3 h-3 rounded-full bg-muted-foreground" />
+  1852→  1852→                <span className="text-xs font-medium">{isFr ? "Impact Faible" : "Low Impact"}</span>
+  1853→  1853→              </div>
+  1854→  1854→              <span className="text-xs font-bold text-muted-foreground">{lowImpactEvents.length}</span>
+  1855→  1855→            </div>
+  1856→  1856→            <div className="h-3 rounded-full bg-muted overflow-hidden">
+  1857→  1857→              <div
+  1858→  1858→                className="h-full rounded-full bg-muted-foreground transition-all duration-700"
+  1859→  1859→                style={{ width: `${(lowImpactEvents.length / maxImpactCount) * 100}%` }}
+  1860→  1860→              />
+  1861→  1861→            </div>
+  1862→  1862→          </div>
+  1863→  1863→        </div>
+  1864→  1864→      </Card>
+  1865→  1865→
+  1866→  1866→      {/* C. Sentiment Trend (Gauge + VIX + Smart Money vs Retail) */}
+  1867→  1867→      <Card className="p-4 sm:p-6">
+  1868→  1868→        <div className="flex items-center gap-2 mb-4">
+  1869→  1869→          <PieChart className="w-4 h-4 text-primary" />
+  1870→  1870→          <h3 className="font-bold text-sm">{isFr ? "Tendance du Sentiment" : "Sentiment Trend"}</h3>
+  1871→  1871→        </div>
+  1872→  1872→
+  1873→  1873→        <div className="space-y-4">
+  1874→  1874→          {/* Fear & Greed mini gauge */}
+  1875→  1875→          <div className="space-y-2">
+  1876→  1876→            <div className="flex items-center justify-between">
+  1877→  1877→              <span className="text-xs font-medium">{isFr ? "Indice Peur & Avidité" : "Fear & Greed Index"}</span>
+  1878→  1878→              <div className="flex items-center gap-2">
+  1879→  1879→                <span className={cn(
+  1880→  1880→                  "text-xl font-bold",
+  1881→  1881→                  fearGreed.value >= 55 ? "text-profit" : fearGreed.value <= 45 ? "text-loss" : "text-amber-500"
+  1882→  1882→                )}>
+  1883→  1883→                  {fearGreed.value}
+  1884→  1884→                </span>
+  1885→  1885→                <span className="text-[10px] text-muted-foreground">{fearGreed.label}</span>
+  1886→  1886→              </div>
+  1887→  1887→            </div>
+  1888→  1888→            <div className="relative h-3 rounded-full bg-muted overflow-hidden">
+  1889→  1889→              <div className="absolute inset-0 flex">
+  1890→  1890→                <div className="flex-1 bg-loss/30" />
+  1891→  1891→                <div className="flex-1 bg-loss/15" />
+  1892→  1892→                <div className="flex-1 bg-amber-500/15" />
+  1893→  1893→                <div className="flex-1 bg-profit/15" />
+  1894→  1894→                <div className="flex-1 bg-profit/30" />
+  1895→  1895→              </div>
+  1896→  1896→              <div
+  1897→  1897→                className="absolute top-0 h-full w-1.5 bg-foreground rounded-full transition-all duration-700 shadow-lg"
+  1898→  1898→                style={{ left: `${Math.min(98, Math.max(1, fearGreed.value))}%` }}
+  1899→  1899→              />
+  1900→  1900→            </div>
+  1901→  1901→            <div className="flex justify-between text-[8px] text-muted-foreground">
+  1902→  1902→              <span>{isFr ? "Peur" : "Fear"}</span>
+  1903→  1903→              <span>{isFr ? "Neutre" : "Neutral"}</span>
+  1904→  1904→              <span>{isFr ? "Avidité" : "Greed"}</span>
+  1905→  1905→            </div>
+  1906→  1906→          </div>
+  1907→  1907→
+  1908→  1908→          <Separator />
+  1909→  1909→
+  1910→  1910→          {/* VIX Level Indicator */}
+  1911→  1911→          {vix && (
+  1912→  1912→            <div className="flex items-center justify-between p-3 rounded-lg border border-border">
+  1913→  1913→              <div className="flex items-center gap-2">
+  1914→  1914→                <Activity className="w-4 h-4 text-amber-500" />
+  1915→  1915→                <span className="text-xs font-medium">VIX</span>
+  1916→  1916→              </div>
+  1917→  1917→              <div className="flex items-center gap-3">
+  1918→  1918→                <span className="text-xl font-bold">{vix.value}</span>
+  1919→  1919→                <div className="flex flex-col items-end">
+  1920→  1920→                  <Badge className={cn(
+  1921→  1921→                    "text-[9px] gap-0.5",
+  1922→  1922→                    vix.value > 25 ? "bg-loss/15 text-loss border-loss/30" : vix.value > 18 ? "bg-amber-500/15 text-amber-500 border-amber-500/30" : "bg-profit/15 text-profit border-profit/30"
+  1923→  1923→                  )}>
+  1924→  1924→                    {vix.value > 25 ? (isFr ? "Élevée" : "High") : vix.value > 18 ? (isFr ? "Modérée" : "Moderate") : (isFr ? "Basse" : "Low")}
+  1925→  1925→                  </Badge>
+  1926→  1926→                  {vix.trend && (
+  1927→  1927→                    <span className="text-[9px] text-muted-foreground mt-0.5">
+  1928→  1928→                      {vix.trend === "rising" ? "↑" : vix.trend === "declining" ? "↓" : "→"}
+  1929→  1929→                      {" "}{isFr ? (vix.trend === "rising" ? "Hausse" : vix.trend === "declining" ? "Baisse" : "Stable") : vix.trend}
+  1930→  1930→                    </span>
+  1931→  1931→                  )}
+  1932→  1932→                </div>
+  1933→  1933→              </div>
+  1934→  1934→            </div>
+  1935→  1935→          )}
+  1936→  1936→
+  1937→  1937→          <Separator />
+  1938→  1938→
+  1939→  1939→          {/* Smart Money vs Retail Comparison */}
+  1940→  1940→          <div className="grid grid-cols-2 gap-3">
+  1941→  1941→            {/* Smart Money */}
+  1942→  1942→            <div className="p-3 rounded-lg border border-border">
+  1943→  1943→              <div className="flex items-center gap-1.5 mb-2">
+  1944→  1944→                <Eye className="w-3.5 h-3.5 text-primary" />
+  1945→  1945→                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1946→  1946→                  {isFr ? "Smart Money" : "Smart Money"}
+  1947→  1947→                </span>
+  1948→  1948→              </div>
+  1949→  1949→              <div className="flex items-center justify-between mb-1.5">
+  1950→  1950→                <Badge className={cn(
+  1951→  1951→                  "text-[9px] gap-0.5",
+  1952→  1952→                  smartMoney?.direction?.includes("LONG") && "bg-profit/15 text-profit",
+  1953→  1953→                  smartMoney?.direction?.includes("SHORT") && "bg-loss/15 text-loss",
+  1954→  1954→                  !smartMoney?.direction?.includes("LONG") && !smartMoney?.direction?.includes("SHORT") && "bg-amber-500/15 text-amber-500"
+  1955→  1955→                )}>
+  1956→  1956→                  {smartMoney?.direction?.includes("LONG") && <TrendingUp className="w-3 h-3" />}
+  1957→  1957→                  {smartMoney?.direction?.includes("SHORT") && <TrendingDown className="w-3 h-3" />}
+  1958→  1958→                  {smartMoney?.direction || "NEUTRAL"}
+  1959→  1959→                </Badge>
+  1960→  1960→              </div>
+  1961→  1961→              <ProbabilityBar
+  1962→  1962→                value={confidenceToValue(smartMoney?.confidence || "low")}
+  1963→  1963→                color={smartMoney?.direction?.includes("LONG") ? "bg-profit" : smartMoney?.direction?.includes("SHORT") ? "bg-loss" : "bg-amber-500"}
+  1964→  1964→              />
+  1965→  1965→            </div>
+  1966→  1966→
+  1967→  1967→            {/* Retail */}
+  1968→  1968→            <div className="p-3 rounded-lg border border-border">
+  1969→  1969→              <div className="flex items-center gap-1.5 mb-2">
+  1970→  1970→                <Users className="w-3.5 h-3.5 text-amber-500" />
+  1971→  1971→                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1972→  1972→                  {isFr ? "Retail" : "Retail"}
+  1973→  1973→                </span>
+  1974→  1974→              </div>
+  1975→  1975→              <div className="flex items-center justify-between mb-1.5">
+  1976→  1976→                <Badge className={cn(
+  1977→  1977→                  "text-[9px] gap-0.5",
+  1978→  1978→                  retail?.direction?.includes("LONG") && "bg-profit/15 text-profit",
+  1979→  1979→                  retail?.direction?.includes("SHORT") && "bg-loss/15 text-loss",
+  1980→  1980→                  !retail?.direction?.includes("LONG") && !retail?.direction?.includes("SHORT") && "bg-amber-500/15 text-amber-500"
+  1981→  1981→                )}>
+  1982→  1982→                  {retail?.direction?.includes("LONG") && <TrendingUp className="w-3 h-3" />}
+  1983→  1983→                  {retail?.direction?.includes("SHORT") && <TrendingDown className="w-3 h-3" />}
+  1984→  1984→                  {retail?.direction || "NEUTRAL"}
+  1985→  1985→                </Badge>
+  1986→  1986→              </div>
+  1987→  1987→              <ProbabilityBar
+  1988→  1988→                value={confidenceToValue(retail?.confidence || "low")}
+  1989→  1989→                color={retail?.direction?.includes("LONG") ? "bg-profit" : retail?.direction?.includes("SHORT") ? "bg-loss" : "bg-amber-500"}
+  1990→  1990→              />
+  1991→  1991→            </div>
+  1992→  1992→          </div>
+  1993→  1993→        </div>
+  1994→  1994→      </Card>
+  1995→  1995→
+  1996→  1996→      {/* D. Scenario Probabilities */}
+  1997→  1997→      {scenarios.length > 0 && (
+  1998→  1998→        <Card className="p-4 sm:p-6">
+  1999→  1999→          <div className="flex items-center gap-2 mb-4">
+  2000→  2000→            <BarChart3 className="w-4 h-4 text-primary" />
+
+[showing lines 1-2000 of 2002; use offset=2001 with limit to continue reading]

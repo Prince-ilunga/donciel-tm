@@ -1,0 +1,1274 @@
+     1→"use client";
+     2→
+     3→import React, { useState, useMemo, useCallback, useEffect } from "react";
+     4→import { useAppStore } from "@/stores/app-store";
+     5→import { t } from "@/lib/i18n";
+     6→import { useTrades } from "@/lib/hooks";
+     7→import { cn } from "@/lib/utils";
+     8→import { useIsMobile } from "@/hooks/use-mobile";
+     9→
+    10→import { Button } from "@/components/ui/button";
+    11→import { Badge } from "@/components/ui/badge";
+    12→import { Card } from "@/components/ui/card";
+    13→import { ScrollArea } from "@/components/ui/scroll-area";
+    14→import { Skeleton } from "@/components/ui/skeleton";
+    15→import { Separator } from "@/components/ui/separator";
+    16→import {
+    17→  Dialog,
+    18→  DialogContent,
+    19→  DialogHeader,
+    20→  DialogTitle,
+    21→  DialogDescription,
+    22→  DialogFooter,
+    23→} from "@/components/ui/dialog";
+    24→import {
+    25→  Sheet,
+    26→  SheetContent,
+    27→  SheetHeader,
+    28→  SheetTitle,
+    29→} from "@/components/ui/sheet";
+    30→import {
+    31→  Collapsible,
+    32→  CollapsibleContent,
+    33→  CollapsibleTrigger,
+    34→} from "@/components/ui/collapsible";
+    35→
+    36→import {
+    37→  ChevronLeft,
+    38→  ChevronRight,
+    39→  TrendingUp,
+    40→  TrendingDown,
+    41→  ArrowUpRight,
+    42→  ArrowDownRight,
+    43→  Minus,
+    44→  Clock,
+    45→  Target,
+    46→  DollarSign,
+    47→  CalendarIcon,
+    48→  BarChart3,
+    49→  Image as ImageIcon,
+    50→  ChevronDown,
+    51→  Newspaper,
+    52→  AlertTriangle,
+    53→  Lightbulb,
+    54→  Heart,
+    55→  Layers,
+    56→  X,
+    57→  Trash2,
+    58→} from "lucide-react";
+    59→
+    60→import {
+    61→  BarChart,
+    62→  Bar,
+    63→  LineChart,
+    64→  Line,
+    65→  XAxis,
+    66→  YAxis,
+    67→  ResponsiveContainer,
+    68→  Cell,
+    69→  Tooltip as RechartsTooltip,
+    70→} from "recharts";
+    71→
+    72→import {
+    73→  format,
+    74→  startOfMonth,
+    75→  endOfMonth,
+    76→  eachDayOfInterval,
+    77→  getDay,
+    78→  addMonths,
+    79→  subMonths,
+    80→  isSameDay,
+    81→  isSameMonth,
+    82→  isToday,
+    83→  startOfWeek,
+    84→  endOfWeek,
+    85→  parseISO,
+    86→  isValid,
+    87→} from "date-fns";
+    88→import { fr } from "date-fns/locale";
+    89→import { toast } from "sonner";
+    90→
+    91→// ─── Types ───────────────────────────────────────────────────
+    92→interface DayTradeData {
+    93→  date: Date;
+    94→  trades: TradeData[];
+    95→  totalRR: number;
+    96→  totalPnL: number;
+    97→  isProfit: boolean | null; // null = no trades
+    98→}
+    99→
+   100→interface TradeData {
+   101→  id: string;
+   102→  userId: string;
+   103→  date: string;
+   104→  pair: string;
+   105→  direction: string;
+   106→  session: string;
+   107→  marketCondition: string;
+   108→  timeframe: string;
+   109→  setup: string | null;
+   110→  entryPrice: number;
+   111→  stopLoss: number;
+   112→  takeProfit: number;
+   113→  exitPrice: number | null;
+   114→  entryTime: string | null;
+   115→  exitTime: string | null;
+   116→  duration: string | null;
+   117→  lotSize: number | null;
+   118→  rr: number | null;
+   119→  pnl: number | null;
+   120→  result: string | null;
+   121→  newsEnabled: boolean;
+   122→  emotions: string | null;
+   123→  confluence: string | null;
+   124→  mistakes: string | null;
+   125→  lessons: string | null;
+   126→  notes: string | null;
+   127→  createdAt: string;
+   128→  screenshots: { id: string; type: string; url: string }[];
+   129→}
+   130→
+   131→// ─── French Day Names ────────────────────────────────────────
+   132→const FRENCH_DAYS = ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
+   133→
+   134→const FRENCH_MONTHS = [
+   135→  "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+   136→  "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+   137→];
+   138→
+   139→const FRENCH_DAY_NAMES = [
+   140→  "Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi",
+   141→];
+   142→
+   143→// ─── Main Component ──────────────────────────────────────────
+   144→export function JournalTab() {
+   145→  const { user, language, setScreenshotViewerUrl, setSelectedTradeId, setShowTradeDetail } = useAppStore();
+   146→  const { trades, loading, refetch } = useTrades();
+   147→
+   148→  // Fetch on mount
+   149→  React.useEffect(() => { refetch(); }, [refetch]);
+   150→  const isMobile = useIsMobile();
+   151→  const isAdminUser = user?.role === "admin";
+   152→
+   153→  const [currentMonth, setCurrentMonth] = useState(new Date());
+   154→  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+   155→  const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
+   156→  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+   157→
+   158→  // Delete confirmation state
+   159→  const [deleteTarget, setDeleteTarget] = useState<{ id: string; pair: string; direction: string } | null>(null);
+   160→  const [isDeleting, setIsDeleting] = useState(false);
+   161→
+   162→  const handleDeleteTrade = useCallback(async () => {
+   163→    if (!deleteTarget || isDeleting) return;
+   164→    setIsDeleting(true);
+   165→    try {
+   166→      const res = await fetch(`/api/trades/${deleteTarget.id}`, { method: "DELETE" });
+   167→      if (!res.ok) {
+   168→        const data = await res.json();
+   169→        throw new Error(data.error || "Delete failed");
+   170→      }
+   171→      toast.success(language === "fr" ? "Trade supprimé !" : "Trade deleted!");
+   172→      setDeleteTarget(null);
+   173→      refetch();
+   174→    } catch (error: any) {
+   175→      toast.error(error.message || (language === "fr" ? "Erreur lors de la suppression" : "Delete failed"));
+   176→    } finally {
+   177→      setIsDeleting(false);
+   178→    }
+   179→  }, [deleteTarget, isDeleting, language, refetch]);
+   180→
+   181→  // Group trades by date
+   182→  const tradesByDate = useMemo(() => {
+   183→    const map = new Map<string, DayTradeData>();
+   184→
+   185→    for (const trade of trades) {
+   186→      const tradeDate = parseISO(trade.date);
+   187→      if (!isValid(tradeDate)) continue;
+   188→
+   189→      const key = format(tradeDate, "yyyy-MM-dd");
+   190→
+   191→      if (!map.has(key)) {
+   192→        map.set(key, {
+   193→          date: tradeDate,
+   194→          trades: [],
+   195→          totalRR: 0,
+   196→          totalPnL: 0,
+   197→          isProfit: null,
+   198→        });
+   199→      }
+   200→
+   201→      const dayData = map.get(key)!;
+   202→      dayData.trades.push(trade as TradeData);
+   203→      if (trade.rr !== null) dayData.totalRR += trade.rr;
+   204→      if (trade.pnl !== null) dayData.totalPnL += trade.pnl;
+   205→    }
+   206→
+   207→    // Determine profit/loss for each day
+   208→    for (const [, dayData] of map) {
+   209→      if (dayData.trades.length > 0) {
+   210→        dayData.isProfit = dayData.totalPnL >= 0;
+   211→      }
+   212→    }
+   213→
+   214→    return map;
+   215→  }, [trades]);
+   216→
+   217→  // Calendar grid data
+   218→  const calendarDays = useMemo(() => {
+   219→    const monthStart = startOfMonth(currentMonth);
+   220→    const monthEnd = endOfMonth(currentMonth);
+   221→    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday
+   222→    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+   223→
+   224→    return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+   225→  }, [currentMonth]);
+   226→
+   227→  // Selected date trades
+   228→  const selectedDayTrades = useMemo(() => {
+   229→    if (!selectedDate) return null;
+   230→    const key = format(selectedDate, "yyyy-MM-dd");
+   231→    return tradesByDate.get(key) || null;
+   232→  }, [selectedDate, tradesByDate]);
+   233→
+   234→  // Navigate months
+   235→  const goToPreviousMonth = useCallback(() => {
+   236→    setCurrentMonth((prev) => subMonths(prev, 1));
+   237→  }, []);
+   238→
+   239→  const goToNextMonth = useCallback(() => {
+   240→    setCurrentMonth((prev) => addMonths(prev, 1));
+   241→  }, []);
+   242→
+   243→  // Handle date click
+   244→  const handleDateClick = useCallback(
+   245→    (date: Date) => {
+   246→      const key = format(date, "yyyy-MM-dd");
+   247→      const dayData = tradesByDate.get(key);
+   248→      if (dayData && dayData.trades.length > 0) {
+   249→        setSelectedDate(date);
+   250→        setExpandedTradeId(null);
+   251→        if (isMobile) {
+   252→          setMobileDetailOpen(true);
+   253→        }
+   254→      }
+   255→    },
+   256→    [tradesByDate, isMobile]
+   257→  );
+   258→
+   259→  // Format date header in French
+   260→  const formatDateHeader = useCallback(
+   261→    (date: Date) => {
+   262→      const dayName = FRENCH_DAY_NAMES[getDay(date)];
+   263→      const day = format(date, "d");
+   264→      const month = FRENCH_MONTHS[date.getMonth()];
+   265→      const year = date.getFullYear();
+   266→      return `${dayName} ${day} ${month} ${year}`.toUpperCase();
+   267→    },
+   268→    []
+   269→  );
+   270→
+   271→  // Handle trade click for detail view
+   272→  const handleTradeDetailClick = useCallback(
+   273→    (tradeId: string) => {
+   274→      setSelectedTradeId(tradeId);
+   275→      setShowTradeDetail(true);
+   276→    },
+   277→    [setSelectedTradeId, setShowTradeDetail]
+   278→  );
+   279→
+   280→  // Trade detail panel content
+   281→  const tradeDetailContent = useMemo(() => {
+   282→    if (!selectedDate || !selectedDayTrades) {
+   283→      return (
+   284→        <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-center p-6">
+   285→          <CalendarIcon className="w-16 h-16 text-muted-foreground/20 mb-4" />
+   286→          <p className="text-muted-foreground text-sm">
+   287→            {t(language, "clickDate")}
+   288→          </p>
+   289→        </div>
+   290→      );
+   291→    }
+   292→
+   293→    const dayTotalRR = selectedDayTrades.totalRR;
+   294→    const dayTotalPnL = selectedDayTrades.totalPnL;
+   295→
+   296→    return (
+   297→      <div className="space-y-4">
+   298→        {/* Date Header */}
+   299→        <div className="space-y-2">
+   300→          <h3 className="text-sm font-bold tracking-wider text-foreground/80">
+   301→            {formatDateHeader(selectedDate)}
+   302→          </h3>
+   303→          <div className="flex items-center gap-3">
+   304→            <Badge
+   305→              variant="outline"
+   306→              className={cn(
+   307→                "text-xs font-mono gap-1",
+   308→                dayTotalPnL >= 0
+   309→                  ? "text-profit border-profit/30 bg-profit/5"
+   310→                  : "text-loss border-loss/30 bg-loss/5"
+   311→              )}
+   312→            >
+   313→              {dayTotalPnL >= 0 ? (
+   314→                <TrendingUp className="w-3 h-3" />
+   315→              ) : (
+   316→                <TrendingDown className="w-3 h-3" />
+   317→              )}
+   318→              P&L: {dayTotalPnL >= 0 ? "+" : ""}
+   319→              {dayTotalPnL.toFixed(2)}
+   320→            </Badge>
+   321→            <Badge variant="outline" className="text-xs font-mono gap-1">
+   322→              <Target className="w-3 h-3" />
+   323→              RR: {dayTotalRR.toFixed(2)}
+   324→            </Badge>
+   325→            <Badge variant="secondary" className="text-xs">
+   326→              {selectedDayTrades.trades.length}{" "}
+   327→              {selectedDayTrades.trades.length > 1
+   328→                ? language === "fr"
+   329→                  ? "trades"
+   330→                  : "trades"
+   331→                : "trade"}
+   332→            </Badge>
+   333→          </div>
+   334→        </div>
+   335→
+   336→        <Separator />
+   337→
+   338→        {/* Trade Cards */}
+   339→        <div className="space-y-3">
+   340→          {selectedDayTrades.trades.map((trade, index) => (
+   341→            <TradeCard
+   342→              key={trade.id}
+   343→              trade={trade}
+   344→              index={index}
+   345→              language={language}
+   346→              isAdmin={isAdminUser}
+   347→              isExpanded={expandedTradeId === trade.id}
+   348→              onToggleExpand={() =>
+   349→                setExpandedTradeId((prev) =>
+   350→                  prev === trade.id ? null : trade.id
+   351→                )
+   352→              }
+   353→              onScreenshotClick={setScreenshotViewerUrl}
+   354→              onTradeDetailClick={handleTradeDetailClick}
+   355→              onDeleteClick={(id) => setDeleteTarget({ id, pair: trade.pair, direction: trade.direction })}
+   356→            />
+   357→          ))}
+   358→        </div>
+   359→
+   360→        {/* Mini Charts */}
+   361→        {selectedDayTrades.trades.length > 1 && (
+   362→          <>
+   363→            <Separator />
+   364→            <MiniCharts
+   365→              trades={selectedDayTrades.trades}
+   366→              language={language}
+   367→            />
+   368→          </>
+   369→        )}
+   370→      </div>
+   371→    );
+   372→  }, [
+   373→    selectedDate,
+   374→    selectedDayTrades,
+   375→    language,
+   376→    expandedTradeId,
+   377→    formatDateHeader,
+   378→    setScreenshotViewerUrl,
+   379→    handleTradeDetailClick,
+   380→    isAdminUser,
+   381→    deleteTarget,
+   382→    isDeleting,
+   383→    handleDeleteTrade,
+   384→  ]);
+   385→
+   386→  if (loading) {
+   387→    return (
+   388→      <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
+   389→        <div className="flex flex-col lg:flex-row gap-6">
+   390→          <div className="flex-1 lg:flex-[3]">
+   391→            <Card className="p-6">
+   392→              <Skeleton className="h-8 w-48 mb-6" />
+   393→              <div className="grid grid-cols-7 gap-2">
+   394→                {Array.from({ length: 35 }).map((_, i) => (
+   395→                  <Skeleton key={i} className="h-16 w-full rounded-lg" />
+   396→                ))}
+   397→              </div>
+   398→            </Card>
+   399→          </div>
+   400→          <div className="flex-1 lg:flex-[2]">
+   401→            <Card className="p-6 h-80">
+   402→              <Skeleton className="h-full w-full" />
+   403→            </Card>
+   404→          </div>
+   405→        </div>
+   406→      </div>
+   407→    );
+   408→  }
+   409→
+   410→  return (
+   411→    <div className="p-4 md:p-6 max-w-[1600px] mx-auto">
+   412→      <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+   413→        {/* Calendar Section (Left - 60%) */}
+   414→        <div className="flex-1 lg:flex-[3]">
+   415→          <Card className="overflow-hidden">
+   416→            {/* Calendar Header */}
+   417→            <div className="p-4 md:p-6 border-b border-border">
+   418→              <div className="flex items-center justify-between">
+   419→                <h2 className="text-lg font-bold tracking-tight text-foreground">
+   420→                  {FRENCH_MONTHS[currentMonth.getMonth()]}{" "}
+   421→                  {currentMonth.getFullYear()}
+   422→                </h2>
+   423→                <div className="flex items-center gap-1">
+   424→                  <Button
+   425→                    variant="ghost"
+   426→                    size="icon"
+   427→                    onClick={goToPreviousMonth}
+   428→                    className="h-8 w-8"
+   429→                  >
+   430→                    <ChevronLeft className="w-4 h-4" />
+   431→                  </Button>
+   432→                  <Button
+   433→                    variant="ghost"
+   434→                    size="icon"
+   435→                    onClick={goToNextMonth}
+   436→                    className="h-8 w-8"
+   437→                  >
+   438→                    <ChevronRight className="w-4 h-4" />
+   439→                  </Button>
+   440→                </div>
+   441→              </div>
+   442→            </div>
+   443→
+   444→            {/* Calendar Grid */}
+   445→            <div className="p-3 md:p-4">
+   446→              {/* Day Headers */}
+   447→              <div className="grid grid-cols-7 mb-2">
+   448→                {FRENCH_DAYS.map((day) => (
+   449→                  <div
+   450→                    key={day}
+   451→                    className="text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider py-1"
+   452→                  >
+   453→                    {day}
+   454→                  </div>
+   455→                ))}
+   456→              </div>
+   457→
+   458→              {/* Day Cells */}
+   459→              <div className="grid grid-cols-7 gap-1">
+   460→                {calendarDays.map((day, idx) => {
+   461→                  const key = format(day, "yyyy-MM-dd");
+   462→                  const dayData = tradesByDate.get(key);
+   463→                  const hasTrades = dayData && dayData.trades.length > 0;
+   464→                  const isCurrentMonth = isSameMonth(day, currentMonth);
+   465→                  const isSelected =
+   466→                    selectedDate && isSameDay(day, selectedDate);
+   467→                  const isTodayDate = isToday(day);
+   468→
+   469→                  return (
+   470→                    <button
+   471→                      key={idx}
+   472→                      onClick={() => handleDateClick(day)}
+   473→                      disabled={!hasTrades || !isCurrentMonth}
+   474→                      className={cn(
+   475→                        "relative flex flex-col items-center justify-center rounded-lg p-1 min-h-[44px] md:min-h-[56px] transition-all duration-200 text-sm",
+   476→                        // Base styles
+   477→                        "hover:bg-muted/50",
+   478→                        // Current month vs outside
+   479→                        isCurrentMonth
+   480→                          ? "text-foreground"
+   481→                          : "text-muted-foreground/40",
+   482→                        // Today
+   483→                        isTodayDate &&
+   484→                          !isSelected &&
+   485→                          "ring-1 ring-primary/30",
+   486→                        // Selected
+   487→                        isSelected &&
+   488→                          "ring-2 ring-primary bg-primary/10",
+   489→                        // Has trades - clickable
+   490→                        hasTrades && isCurrentMonth
+   491→                          ? "cursor-pointer hover:scale-[1.02]"
+   492→                          : "cursor-default",
+   493→                        // No trades - dim
+   494→                        !hasTrades && isCurrentMonth && "opacity-60"
+   495→                      )}
+   496→                    >
+   497→                      <span
+   498→                        className={cn(
+   499→                          "text-xs md:text-sm font-medium leading-none",
+   500→                          isSelected && "text-primary font-bold"
+   501→                        )}
+   502→                      >
+   503→                        {format(day, "d")}
+   504→                      </span>
+   505→                      {hasTrades && isCurrentMonth && (
+   506→                        <>
+   507→                          {/* Color indicator dot */}
+   508→                          <div
+   509→                            className={cn(
+   510→                              "w-1.5 h-1.5 rounded-full mt-0.5",
+   511→                              dayData!.isProfit
+   512→                                ? "bg-profit"
+   513→                                : "bg-loss"
+   514→                            )}
+   515→                          />
+   516→                          {/* RR Value */}
+   517→                          <span
+   518→                            className={cn(
+   519→                              "text-[9px] md:text-[10px] font-mono leading-none mt-0.5",
+   520→                              dayData!.isProfit
+   521→                                ? "text-profit"
+   522→                                : "text-loss"
+   523→                            )}
+   524→                          >
+   525→                            {dayData!.totalRR >= 0 ? "+" : ""}
+   526→                            {dayData!.totalRR.toFixed(1)}
+   527→                          </span>
+   528→                        </>
+   529→                      )}
+   530→                    </button>
+   531→                  );
+   532→                })}
+   533→              </div>
+   534→            </div>
+   535→
+   536→            {/* Calendar Legend */}
+   537→            <div className="px-4 pb-4 flex items-center gap-4 text-xs text-muted-foreground">
+   538→              <div className="flex items-center gap-1.5">
+   539→                <div className="w-2.5 h-2.5 rounded-full bg-profit" />
+   540→                <span>{language === "fr" ? "Profit" : "Profit"}</span>
+   541→              </div>
+   542→              <div className="flex items-center gap-1.5">
+   543→                <div className="w-2.5 h-2.5 rounded-full bg-loss" />
+   544→                <span>{language === "fr" ? "Perte" : "Loss"}</span>
+   545→              </div>
+   546→              <div className="flex items-center gap-1.5">
+   547→                <div className="w-2.5 h-2.5 rounded-full ring-1 ring-primary/30" />
+   548→                <span>{language === "fr" ? "Aujourd'hui" : "Today"}</span>
+   549→              </div>
+   550→            </div>
+   551→          </Card>
+   552→        </div>
+   553→
+   554→        {/* Trade Detail Section (Right - 40%) */}
+   555→        {!isMobile ? (
+   556→          <div className="flex-1 lg:flex-[2]">
+   557→            <Card className="h-full overflow-hidden">
+   558→              <ScrollArea className="h-[calc(100vh-12rem)]">
+   559→                <div className="p-4 md:p-6">{tradeDetailContent}</div>
+   560→              </ScrollArea>
+   561→            </Card>
+   562→          </div>
+   563→        ) : (
+   564→          // Mobile: Sheet for trade detail
+   565→          <Sheet open={mobileDetailOpen} onOpenChange={setMobileDetailOpen}>
+   566→            <SheetContent side="bottom" className="h-[85vh] rounded-t-xl p-0">
+   567→              <SheetHeader className="p-4 border-b border-border">
+   568→                <SheetTitle className="text-sm">
+   569→                  {selectedDate
+   570→                    ? formatDateHeader(selectedDate)
+   571→                    : t(language, "tradeDetails")}
+   572→                </SheetTitle>
+   573→              </SheetHeader>
+   574→              <ScrollArea className="h-[calc(85vh-4rem)]">
+   575→                <div className="p-4">{tradeDetailContent}</div>
+   576→              </ScrollArea>
+   577→            </SheetContent>
+   578→          </Sheet>
+   579→        )}
+   580→      </div>
+   581→
+   582→      {/* Delete Confirmation Dialog */}
+   583→      <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+   584→        <DialogContent className="sm:max-w-md">
+   585→          <DialogHeader>
+   586→            <DialogTitle className="flex items-center gap-2">
+   587→              <Trash2 className="w-5 h-5 text-destructive" />
+   588→              {language === "fr" ? "Supprimer ce trade ?" : "Delete this trade?"}
+   589→            </DialogTitle>
+   590→            <DialogDescription>
+   591→              {deleteTarget && (
+   592→                language === "fr"
+   593→                  ? `Voulez-vous supprimer le trade ${deleteTarget.direction} ${deleteTarget.pair} ? Cette action est irréversible.`
+   594→                  : `Delete the ${deleteTarget.direction} ${deleteTarget.pair} trade? This action cannot be undone.`
+   595→              )}
+   596→            </DialogDescription>
+   597→          </DialogHeader>
+   598→          <DialogFooter className="gap-2 sm:gap-0">
+   599→            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+   600→              {language === "fr" ? "Annuler" : "Cancel"}
+   601→            </Button>
+   602→            <Button variant="destructive" onClick={handleDeleteTrade} disabled={isDeleting}>
+   603→              {isDeleting
+   604→                ? (language === "fr" ? "Suppression..." : "Deleting...")
+   605→                : (language === "fr" ? "Supprimer" : "Delete")
+   606→              }
+   607→            </Button>
+   608→          </DialogFooter>
+   609→        </DialogContent>
+   610→      </Dialog>
+   611→    </div>
+   612→  );
+   613→}
+   614→
+   615→// ─── Trade Card Component ────────────────────────────────────
+   616→function TradeCard({
+   617→  trade,
+   618→  index,
+   619→  language,
+   620→  isAdmin,
+   621→  isExpanded,
+   622→  onToggleExpand,
+   623→  onScreenshotClick,
+   624→  onTradeDetailClick,
+   625→  onDeleteClick,
+   626→}: {
+   627→  trade: TradeData;
+   628→  index: number;
+   629→  language: "fr" | "en";
+   630→  isAdmin: boolean;
+   631→  isExpanded: boolean;
+   632→  onToggleExpand: () => void;
+   633→  onScreenshotClick: (url: string | null) => void;
+   634→  onTradeDetailClick: (tradeId: string) => void;
+   635→  onDeleteClick: (tradeId: string) => void;
+   636→}) {
+   637→  const isLong = trade.direction === "LONG";
+   638→  const isWin = trade.result === "WIN";
+   639→  const isLoss = trade.result === "LOSS";
+   640→
+   641→  return (
+   642→    <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
+   643→      <Card
+   644→        className={cn(
+   645→          "overflow-hidden transition-all duration-300 border",
+   646→          isExpanded
+   647→            ? "border-primary/30 shadow-lg shadow-primary/5"
+   648→            : "border-border hover:border-border/80",
+   649→          isWin && !isExpanded && "border-profit/20",
+   650→          isLoss && !isExpanded && "border-loss/20"
+   651→        )}
+   652→      >
+   653→        {/* Card Header - Always visible */}
+   654→        <CollapsibleTrigger asChild>
+   655→          <button className="w-full p-3 md:p-4 text-left hover:bg-muted/30 transition-colors">
+   656→            <div className="flex items-start justify-between gap-3">
+   657→              <div className="flex items-center gap-2 min-w-0">
+   658→                {/* Direction indicator */}
+   659→                <div
+   660→                  className={cn(
+   661→                    "w-7 h-7 rounded-full flex items-center justify-center shrink-0",
+   662→                    isLong
+   663→                      ? "bg-profit/10 text-profit"
+   664→                      : "bg-loss/10 text-loss"
+   665→                  )}
+   666→                >
+   667→                  {isLong ? (
+   668→                    <ArrowUpRight className="w-3.5 h-3.5" />
+   669→                  ) : (
+   670→                    <ArrowDownRight className="w-3.5 h-3.5" />
+   671→                  )}
+   672→                </div>
+   673→
+   674→                <div className="min-w-0">
+   675→                  <div className="flex items-center gap-2">
+   676→                    <span className="text-xs font-semibold text-muted-foreground">
+   677→                      {t(language, "tradeNumber")}
+   678→                      {index + 1}
+   679→                    </span>
+   680→                    <Badge
+   681→                      className={cn(
+   682→                        "text-[10px] px-1.5 py-0 h-4 font-semibold",
+   683→                        isLong
+   684→                          ? "bg-profit/15 text-profit border-profit/20"
+   685→                          : "bg-loss/15 text-loss border-loss/20"
+   686→                      )}
+   687→                    >
+   688→                      {trade.direction}
+   689→                    </Badge>
+   690→                    <ResultBadge result={trade.result} language={language} size="sm" />
+   691→                  </div>
+   692→                  <div className="flex items-center gap-2 mt-0.5">
+   693→                    <Badge
+   694→                      variant="outline"
+   695→                      className="text-[10px] font-mono px-1.5 py-0 h-4"
+   696→                    >
+   697→                      {trade.pair}
+   698→                    </Badge>
+   699→                    {trade.setup && (
+   700→                      <span className="text-[10px] text-muted-foreground">
+   701→                        {trade.setup}
+   702→                      </span>
+   703→                    )}
+   704→                  </div>
+   705→                </div>
+   706→              </div>
+   707→
+   708→              {/* RR and expand button */}
+   709→              <div className="flex items-center gap-2 shrink-0">
+   710→                <div className="text-right">
+   711→                  <div
+   712→                    className={cn(
+   713→                      "text-sm font-bold font-mono",
+   714→                      trade.rr !== null && trade.rr >= 1 && "text-profit",
+   715→                      trade.rr !== null && trade.rr < 1 && "text-loss",
+   716→                      trade.rr === null && "text-muted-foreground"
+   717→                    )}
+   718→                  >
+   719→                    {trade.rr !== null ? `${trade.rr.toFixed(2)}R` : "—"}
+   720→                  </div>
+   721→                  {trade.pnl !== null && (
+   722→                    <div
+   723→                      className={cn(
+   724→                        "text-[10px] font-mono",
+   725→                        trade.pnl > 0 && "text-profit",
+   726→                        trade.pnl < 0 && "text-loss",
+   727→                        trade.pnl === 0 && "text-gold"
+   728→                      )}
+   729→                    >
+   730→                      {trade.pnl >= 0 ? "+" : ""}
+   731→                      {trade.pnl.toFixed(2)}
+   732→                    </div>
+   733→                  )}
+   734→                </div>
+   735→                {isAdmin && (
+   736→                  <button
+   737→                    onClick={(e) => { e.stopPropagation(); onDeleteClick(trade.id); }}
+   738→                    className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+   739→                    title={language === "fr" ? "Supprimer ce trade" : "Delete this trade"}
+   740→                  >
+   741→                    <Trash2 className="w-3.5 h-3.5" />
+   742→                  </button>
+   743→                )}
+   744→                <ChevronDown
+   745→                  className={cn(
+   746→                    "w-4 h-4 text-muted-foreground transition-transform duration-200",
+   747→                    isExpanded && "rotate-180"
+   748→                  )}
+   749→                />
+   750→              </div>
+   751→            </div>
+   752→
+   753→            {/* Quick info row */}
+   754→            <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
+   755→              {trade.entryTime && (
+   756→                <div className="flex items-center gap-1">
+   757→                  <Clock className="w-3 h-3" />
+   758→                  <span>
+   759→                    {trade.entryTime}
+   760→                    {trade.exitTime ? ` → ${trade.exitTime}` : ""}
+   761→                  </span>
+   762→                </div>
+   763→              )}
+   764→              {trade.duration && (
+   765→                <span>{trade.duration}</span>
+   766→              )}
+   767→              <span>{trade.session}</span>
+   768→              <span>•</span>
+   769→              <span>{trade.marketCondition}</span>
+   770→              {trade.newsEnabled && (
+   771→                <span className="flex items-center gap-0.5 text-gold">
+   772→                  <Newspaper className="w-3 h-3" />
+   773→                </span>
+   774→              )}
+   775→            </div>
+   776→          </button>
+   777→        </CollapsibleTrigger>
+   778→
+   779→        {/* Expanded Content */}
+   780→        <CollapsibleContent>
+   781→          <div className="px-3 pb-3 md:px-4 md:pb-4 space-y-4 border-t border-border pt-3">
+   782→            {/* Full Parameters */}
+   783→            <div className="space-y-2">
+   784→              <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   785→                {language === "fr" ? "Paramètres" : "Parameters"}
+   786→              </h5>
+   787→              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+   788→                <ParamItem
+   789→                  label={t(language, "entryPrice")}
+   790→                  value={trade.entryPrice.toFixed(2)}
+   791→                  mono
+   792→                />
+   793→                <ParamItem
+   794→                  label={t(language, "stopLoss")}
+   795→                  value={trade.stopLoss.toFixed(2)}
+   796→                  mono
+   797→                  valueClass="text-loss"
+   798→                />
+   799→                <ParamItem
+   800→                  label={t(language, "takeProfit")}
+   801→                  value={trade.takeProfit.toFixed(2)}
+   802→                  mono
+   803→                  valueClass="text-profit"
+   804→                />
+   805→                {trade.exitPrice !== null && (
+   806→                  <ParamItem
+   807→                    label={t(language, "exitPrice")}
+   808→                    value={trade.exitPrice.toFixed(2)}
+   809→                    mono
+   810→                  />
+   811→                )}
+   812→                {trade.lotSize !== null && (
+   813→                  <ParamItem
+   814→                    label={t(language, "lotSize")}
+   815→                    value={trade.lotSize.toString()}
+   816→                    mono
+   817→                  />
+   818→                )}
+   819→                <ParamItem
+   820→                  label={t(language, "timeframe")}
+   821→                  value={trade.timeframe}
+   822→                  mono
+   823→                />
+   824→              </div>
+   825→            </div>
+   826→
+   827→            {/* Auto-Calculated Metrics */}
+   828→            {(trade.rr !== null || trade.pnl !== null || trade.result) && (
+   829→              <div className="space-y-2">
+   830→                <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   831→                  {language === "fr" ? "Métriques" : "Metrics"}
+   832→                </h5>
+   833→                <div className="grid grid-cols-3 gap-2">
+   834→                  {trade.rr !== null && (
+   835→                    <div className="rounded-lg border border-border p-2 text-center">
+   836→                      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-0.5">
+   837→                        RR
+   838→                      </div>
+   839→                      <div
+   840→                        className={cn(
+   841→                          "text-sm font-bold font-mono",
+   842→                          trade.rr >= 1 ? "text-profit" : "text-loss"
+   843→                        )}
+   844→                      >
+   845→                        {trade.rr.toFixed(2)}
+   846→                      </div>
+   847→                    </div>
+   848→                  )}
+   849→                  {trade.pnl !== null && (
+   850→                    <div className="rounded-lg border border-border p-2 text-center">
+   851→                      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-0.5">
+   852→                        P&L
+   853→                      </div>
+   854→                      <div
+   855→                        className={cn(
+   856→                          "text-sm font-bold font-mono",
+   857→                          trade.pnl > 0
+   858→                            ? "text-profit"
+   859→                            : trade.pnl < 0
+   860→                            ? "text-loss"
+   861→                            : "text-gold"
+   862→                        )}
+   863→                      >
+   864→                        {trade.pnl >= 0 ? "+" : ""}
+   865→                        {trade.pnl.toFixed(2)}
+   866→                      </div>
+   867→                    </div>
+   868→                  )}
+   869→                  {trade.result && (
+   870→                    <div className="rounded-lg border border-border p-2 text-center">
+   871→                      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-0.5">
+   872→                        {t(language, "result")}
+   873→                      </div>
+   874→                      <div className="flex justify-center">
+   875→                        <ResultBadge
+   876→                          result={trade.result}
+   877→                          language={language}
+   878→                          size="sm"
+   879→                        />
+   880→                      </div>
+   881→                    </div>
+   882→                  )}
+   883→                </div>
+   884→              </div>
+   885→            )}
+   886→
+   887→            {/* Qualitative Data */}
+   888→            {(trade.emotions ||
+   889→              trade.confluence ||
+   890→              trade.mistakes ||
+   891→              trade.lessons) && (
+   892→              <div className="space-y-2">
+   893→                <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   894→                  {language === "fr"
+   895→                    ? "Données Qualitatives"
+   896→                    : "Qualitative Data"}
+   897→                </h5>
+   898→                <div className="space-y-1.5">
+   899→                  {trade.emotions && (
+   900→                    <QualitativeItem
+   901→                      icon={Heart}
+   902→                      label={t(language, "emotions")}
+   903→                      value={trade.emotions}
+   904→                      color="text-pink-400"
+   905→                    />
+   906→                  )}
+   907→                  {trade.confluence && (
+   908→                    <QualitativeItem
+   909→                      icon={Layers}
+   910→                      label={t(language, "confluence")}
+   911→                      value={trade.confluence}
+   912→                      color="text-primary"
+   913→                    />
+   914→                  )}
+   915→                  {trade.mistakes && (
+   916→                    <QualitativeItem
+   917→                      icon={AlertTriangle}
+   918→                      label={t(language, "mistakes")}
+   919→                      value={trade.mistakes}
+   920→                      color="text-loss"
+   921→                    />
+   922→                  )}
+   923→                  {trade.lessons && (
+   924→                    <QualitativeItem
+   925→                      icon={Lightbulb}
+   926→                      label={t(language, "lessons")}
+   927→                      value={trade.lessons}
+   928→                      color="text-gold"
+   929→                    />
+   930→                  )}
+   931→                </div>
+   932→              </div>
+   933→            )}
+   934→
+   935→            {/* Notes */}
+   936→            {trade.notes && (
+   937→              <div className="rounded-lg bg-muted/30 p-2.5">
+   938→                <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">
+   939→                  {t(language, "notes")}
+   940→                </div>
+   941→                <p className="text-xs text-foreground/80 whitespace-pre-wrap">
+   942→                  {trade.notes}
+   943→                </p>
+   944→              </div>
+   945→            )}
+   946→
+   947→            {/* Screenshots & Videos */}
+   948→            {trade.screenshots && trade.screenshots.length > 0 && (
+   949→              <div className="space-y-2">
+   950→                <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   951→                  {language === "fr" ? "Captures & Vidéos" : "Screenshots & Videos"}
+   952→                </h5>
+   953→                <div className="grid grid-cols-3 gap-2">
+   954→                  {trade.screenshots.map((screenshot) => {
+   955→                    const mediaSrc = screenshot.url.startsWith('upload/screenshots/')
+   956→                      ? `/api/screenshots/${screenshot.url.replace('upload/screenshots/', '')}`
+   957→                      : screenshot.url;
+   958→                    const isVideo = screenshot.url.includes('/video/upload/') || /\.(mp4|webm|mov|avi|mkv|m4v)$/i.test(screenshot.url);
+   959→                    return (
+   960→                    <button
+   961→                      key={screenshot.id}
+   962→                      onClick={(e) => { e.stopPropagation(); onScreenshotClick(mediaSrc); }}
+   963→                      className="group relative aspect-video rounded-lg overflow-hidden border border-border hover:border-primary/30 transition-colors"
+   964→                    >
+   965→                      {isVideo ? (
+   966→                        <video
+   967→                          src={mediaSrc}
+   968→                          className="w-full h-full object-cover"
+   969→                          muted
+   970→                          playsInline
+   971→                          preload="metadata"
+   972→                        />
+   973→                      ) : (
+   974→                        <img
+   975→                          src={mediaSrc}
+   976→                          alt={`${screenshot.type} screenshot`}
+   977→                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+   978→                        />
+   979→                      )}
+   980→                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+   981→                        <ImageIcon className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+   982→                      </div>
+   983→                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1 flex items-center justify-between">
+   984→                        <span className="text-[8px] text-white font-medium uppercase">
+   985→                          {screenshot.type === "analysis"
+   986→                            ? t(language, "analysisScreenshot")
+   987→                            : screenshot.type === "entry"
+   988→                            ? t(language, "entryScreenshot")
+   989→                            : t(language, "exitScreenshot")}
+   990→                        </span>
+   991→                        {isVideo && (
+   992→                          <span className="text-[7px] text-white/70 bg-white/20 rounded px-0.5">VID</span>
+   993→                        )}
+   994→                      </div>
+   995→                    </button>
+   996→                    );
+   997→                  })}
+   998→                </div>
+   999→              </div>
+  1000→            )}
+  1001→
+  1002→            {/* View Full Detail Button */}
+  1003→            <Button
+  1004→              variant="outline"
+  1005→              size="sm"
+  1006→              className="w-full text-xs gap-1.5"
+  1007→              onClick={() => onTradeDetailClick(trade.id)}
+  1008→            >
+  1009→              <BarChart3 className="w-3 h-3" />
+  1010→              {language === "fr"
+  1011→                ? "Voir le détail complet"
+  1012→                : "View full detail"}
+  1013→            </Button>
+  1014→          </div>
+  1015→        </CollapsibleContent>
+  1016→      </Card>
+  1017→    </Collapsible>
+  1018→  );
+  1019→}
+  1020→
+  1021→// ─── Result Badge ────────────────────────────────────────────
+  1022→function ResultBadge({
+  1023→  result,
+  1024→  language,
+  1025→  size = "default",
+  1026→}: {
+  1027→  result: string | null;
+  1028→  language: "fr" | "en";
+  1029→  size?: "default" | "sm";
+  1030→}) {
+  1031→  if (!result) return <span className="text-muted-foreground text-xs">—</span>;
+  1032→
+  1033→  const sizeClass = size === "sm" ? "text-[10px] px-1.5 py-0 h-4" : "text-xs";
+  1034→
+  1035→  if (result === "WIN") {
+  1036→    return (
+  1037→      <Badge
+  1038→        className={cn(
+  1039→          "bg-profit/15 text-profit border-profit/20 hover:bg-profit/20",
+  1040→          sizeClass
+  1041→        )}
+  1042→      >
+  1043→        {t(language, "win")}
+  1044→      </Badge>
+  1045→    );
+  1046→  }
+  1047→  if (result === "LOSS") {
+  1048→    return (
+  1049→      <Badge
+  1050→        className={cn(
+  1051→          "bg-loss/15 text-loss border-loss/20 hover:bg-loss/20",
+  1052→          sizeClass
+  1053→        )}
+  1054→      >
+  1055→        {t(language, "loss")}
+  1056→      </Badge>
+  1057→    );
+  1058→  }
+  1059→  return (
+  1060→    <Badge
+  1061→      className={cn(
+  1062→        "bg-gold/15 text-gold border-gold/20 hover:bg-gold/20",
+  1063→        sizeClass
+  1064→      )}
+  1065→    >
+  1066→      {t(language, "be")}
+  1067→    </Badge>
+  1068→  );
+  1069→}
+  1070→
+  1071→// ─── Parameter Item ──────────────────────────────────────────
+  1072→function ParamItem({
+  1073→  label,
+  1074→  value,
+  1075→  mono,
+  1076→  valueClass,
+  1077→}: {
+  1078→  label: string;
+  1079→  value: string;
+  1080→  mono?: boolean;
+  1081→  valueClass?: string;
+  1082→}) {
+  1083→  return (
+  1084→    <div className="rounded-md bg-muted/20 p-1.5">
+  1085→      <div className="text-[9px] uppercase tracking-wider text-muted-foreground leading-none mb-0.5">
+  1086→        {label}
+  1087→      </div>
+  1088→      <div
+  1089→        className={cn(
+  1090→          "text-xs font-semibold leading-none",
+  1091→          mono && "font-mono",
+  1092→          valueClass
+  1093→        )}
+  1094→      >
+  1095→        {value}
+  1096→      </div>
+  1097→    </div>
+  1098→  );
+  1099→}
+  1100→
+  1101→// ─── Qualitative Item ────────────────────────────────────────
+  1102→function QualitativeItem({
+  1103→  icon: Icon,
+  1104→  label,
+  1105→  value,
+  1106→  color,
+  1107→}: {
+  1108→  icon: React.ComponentType<{ className?: string }>;
+  1109→  label: string;
+  1110→  value: string;
+  1111→  color: string;
+  1112→}) {
+  1113→  return (
+  1114→    <div className="flex items-start gap-2">
+  1115→      <Icon className={cn("w-3 h-3 mt-0.5 shrink-0", color)} />
+  1116→      <div className="min-w-0">
+  1117→        <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
+  1118→          {label}
+  1119→        </span>
+  1120→        <p className="text-xs text-foreground/80 whitespace-pre-wrap">
+  1121→          {value}
+  1122→        </p>
+  1123→      </div>
+  1124→    </div>
+  1125→  );
+  1126→}
+  1127→
+  1128→// ─── Mini Charts Component ───────────────────────────────────
+  1129→function MiniCharts({
+  1130→  trades,
+  1131→  language,
+  1132→}: {
+  1133→  trades: TradeData[];
+  1134→  language: "fr" | "en";
+  1135→}) {
+  1136→  // RR by trade (last 10)
+  1137→  const rrChartData = useMemo(() => {
+  1138→    const lastTrades = trades.slice(-10);
+  1139→    return lastTrades.map((trade, i) => ({
+  1140→      name: `#${i + 1}`,
+  1141→      rr: trade.rr ?? 0,
+  1142→      fill:
+  1143→        trade.result === "WIN"
+  1144→          ? "var(--color-profit)"
+  1145→          : trade.result === "LOSS"
+  1146→          ? "var(--color-loss)"
+  1147→          : "var(--color-gold)",
+  1148→    }));
+  1149→  }, [trades]);
+  1150→
+  1151→  // Cumulative P&L
+  1152→  const cumulativePnLData = useMemo(() => {
+  1153→    const pnls = trades.map((trade) => trade.pnl ?? 0);
+  1154→    return pnls.reduce<Array<{ name: string; pnl: number }>>(
+  1155→      (acc, pnl, i) => {
+  1156→        const prevTotal = acc.length > 0 ? acc[acc.length - 1].pnl : 0;
+  1157→        acc.push({
+  1158→          name: `#${i + 1}`,
+  1159→          pnl: parseFloat((prevTotal + pnl).toFixed(2)),
+  1160→        });
+  1161→        return acc;
+  1162→      },
+  1163→      []
+  1164→    );
+  1165→  }, [trades]);
+  1166→
+  1167→  const chartConfig = {
+  1168→    rr: {
+  1169→      label: "RR",
+  1170→      color: "var(--color-profit)",
+  1171→    },
+  1172→    pnl: {
+  1173→      label: "P&L",
+  1174→      color: "var(--color-primary)",
+  1175→    },
+  1176→  };
+  1177→
+  1178→  return (
+  1179→    <div className="space-y-4">
+  1180→      <h5 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+  1181→        {language === "fr" ? "Graphiques" : "Charts"}
+  1182→      </h5>
+  1183→
+  1184→      <div className="grid grid-cols-1 gap-4">
+  1185→        {/* RR by Trade Bar Chart */}
+  1186→        <div className="rounded-lg border border-border p-3">
+  1187→          <div className="text-[10px] text-muted-foreground font-medium mb-2">
+  1188→            {language === "fr" ? "RR par Trade" : "RR by Trade"}
+  1189→          </div>
+  1190→          <div className="h-32">
+  1191→            <ResponsiveContainer width="100%" height="100%">
+  1192→              <BarChart data={rrChartData} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+  1193→                <XAxis
+  1194→                  dataKey="name"
+  1195→                  tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
+  1196→                  axisLine={{ stroke: "var(--color-border)" }}
+  1197→                  tickLine={false}
+  1198→                />
+  1199→                <YAxis
+  1200→                  tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
+  1201→                  axisLine={{ stroke: "var(--color-border)" }}
+  1202→                  tickLine={false}
+  1203→                  width={30}
+  1204→                />
+  1205→                <RechartsTooltip
+  1206→                  contentStyle={{
+  1207→                    backgroundColor: "var(--color-card)",
+  1208→                    border: "1px solid var(--color-border)",
+  1209→                    borderRadius: "8px",
+  1210→                    fontSize: "11px",
+  1211→                  }}
+  1212→                />
+  1213→                <Bar dataKey="rr" radius={[3, 3, 0, 0]}>
+  1214→                  {rrChartData.map((entry, index) => (
+  1215→                    <Cell
+  1216→                      key={`cell-${index}`}
+  1217→                      fill={entry.fill}
+  1218→                      opacity={0.8}
+  1219→                    />
+  1220→                  ))}
+  1221→                </Bar>
+  1222→              </BarChart>
+  1223→            </ResponsiveContainer>
+  1224→          </div>
+  1225→        </div>
+  1226→
+  1227→        {/* Cumulative P&L Line Chart */}
+  1228→        <div className="rounded-lg border border-border p-3">
+  1229→          <div className="text-[10px] text-muted-foreground font-medium mb-2">
+  1230→            {language === "fr" ? "P&L Cumulé" : "Cumulative P&L"}
+  1231→          </div>
+  1232→          <div className="h-32">
+  1233→            <ResponsiveContainer width="100%" height="100%">
+  1234→              <LineChart
+  1235→                data={cumulativePnLData}
+  1236→                margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
+  1237→              >
+  1238→                <XAxis
+  1239→                  dataKey="name"
+  1240→                  tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
+  1241→                  axisLine={{ stroke: "var(--color-border)" }}
+  1242→                  tickLine={false}
+  1243→                />
+  1244→                <YAxis
+  1245→                  tick={{ fontSize: 9, fill: "var(--color-muted-foreground)" }}
+  1246→                  axisLine={{ stroke: "var(--color-border)" }}
+  1247→                  tickLine={false}
+  1248→                  width={35}
+  1249→                />
+  1250→                <RechartsTooltip
+  1251→                  contentStyle={{
+  1252→                    backgroundColor: "var(--color-card)",
+  1253→                    border: "1px solid var(--color-border)",
+  1254→                    borderRadius: "8px",
+  1255→                    fontSize: "11px",
+  1256→                  }}
+  1257→                />
+  1258→                <Line
+  1259→                  type="monotone"
+  1260→                  dataKey="pnl"
+  1261→                  stroke="var(--color-primary)"
+  1262→                  strokeWidth={2}
+  1263→                  dot={{ r: 3, fill: "var(--color-primary)" }}
+  1264→                  activeDot={{ r: 4, fill: "var(--color-primary)" }}
+  1265→                />
+  1266→              </LineChart>
+  1267→            </ResponsiveContainer>
+  1268→          </div>
+  1269→        </div>
+  1270→      </div>
+  1271→    </div>
+  1272→  );
+  1273→}
+  1274→

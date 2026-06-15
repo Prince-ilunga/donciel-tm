@@ -118,3 +118,64 @@ Stage Summary:
 - Calendar now shows week data, expandable event details with interpretation/direction/pairs
 - All Marché sub-tabs display in French when language is French
 - Asset selectors (Tous/XAUUSD/EURUSD/GBPUSD/US30/US100) added to Calendar, Sentiment, Alerts
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Add live capabilities to Marché tab with real-time updates, countdowns, and live status indicators
+
+Work Log:
+- Analyzed current Marché tab architecture: 5 sub-tabs (Calendar, Analyse IA, Sentiment, Alertes, Statistiques)
+- Created /api/market/live/route.ts — lightweight live endpoint (30s cache):
+  - Market session detection (Asian/European/US/Off-hours) with French labels
+  - RSS-based event fetching with live status classification (UPCOMING/IN_PROGRESS/COMPLETED)
+  - Next high-impact event identification with countdown
+  - Live alert from ZAI SDK when available
+  - Market mood detection
+  - Asset-specific filtering (XAUUSD, EURUSD, GBPUSD, US30, US100)
+- Added LiveTickerBanner component at top of Marché tab:
+  - Pulsing LIVE indicator with real-time clock
+  - Market session status (PRÉ-OUVERTURE EUROPÉENNE, SESSION AMÉRICAINE, etc.)
+  - Market mood badge (HAUSSIER/BAISSIER/NEUTRE)
+  - Next event countdown with ⏳ emoji
+  - In-progress events ticker
+  - Live alert banner with animation
+- Added LivePulseDot component (pulsing red/green/amber dot)
+- Added LiveEventStatusBadge component (EN DIRECT/À VENIR/TERMINÉ)
+- Enhanced CalendarSubTab:
+  - Live status on every event (UPCOMING/IN_PROGRESS/COMPLETED)
+  - "ÉVÉNEMENTS EN DIRECT" section for in-progress events
+  - "PROCHAINS ÉVÉNEMENTS" section with countdown timers
+  - "ÉVÉNEMENTS RÉCENTS" section for recently completed events
+  - Auto-refresh every 60 seconds (was 5 minutes)
+  - Live data refresh every 30 seconds
+- Enhanced CalendarEventRow:
+  - Live status badge on each event
+  - Countdown timer for upcoming events
+  - "EN COURS" pulsing indicator for live events
+  - Completed events shown with reduced opacity and strikethrough
+- Enhanced SentimentSubTab:
+  - Live indicator bar with market mood and real-time clock
+  - Auto-refresh every 60 seconds
+  - Live data refresh every 30 seconds
+- Enhanced AlertsSubTab:
+  - Live alert indicator bar with next event countdown
+  - Auto-refresh every 60 seconds
+  - Live data refresh every 30 seconds
+- Enhanced CountdownTimer:
+  - Urgent mode (pulsing red when <5 minutes)
+  - ⏳ emoji prefix
+  - Size variants (sm/md/lg)
+- Enhanced StatisticsSubTab: Auto-refresh every 60 seconds
+- Tested with agent browser: all sub-tabs work, live features verified
+- Lint passes with no errors
+- Pushed to GitHub: commit 082190b (main), cleanup 963f35a
+
+Stage Summary:
+- Marché tab now has full live capabilities with real-time data
+- LiveTickerBanner at top shows market session, mood, next event countdown
+- Calendar shows events with live status (EN DIRECT/À VENIR/TERMINÉ) and countdowns
+- All sub-tabs auto-refresh every 30-60 seconds for live feel
+- Events classified by live status with visual indicators
+- Countdown timers show ⏳ and pulse red when urgent (<5 min)
+- New API endpoint /api/market/live provides lightweight live data
