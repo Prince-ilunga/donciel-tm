@@ -14,7 +14,6 @@ export const translations = {
     setupVideos: "Vidéos du Setup",
     prepNotes: "Notes de Préparation",
     newsFundamental: "Marché",
-    coachTab: "Coach IA",
     adminVerification: "Vérification Admin",
     roleManagement: "Gestion des Rôles",
     
@@ -173,6 +172,21 @@ export const translations = {
     globalStats: "Statistiques Globales DONCIEL",
     readOnly: "Lecture seule",
     
+    // BILAN
+    bilan: "BILAN",
+    bilanDescription: "Analyse des configurations par niveau de performance",
+    bestConfigs: "Configurations Meilleures",
+    bestConfigsDesc: "Configurations avec les meilleurs taux de réussite",
+    avgConfigs: "Configurations Moyennes",
+    avgConfigsDesc: "Configurations avec performance modérée",
+    weakConfigs: "Configurations Faibles",
+    weakConfigsDesc: "Configurations sous-performantes à optimiser",
+    configLabel: "Configuration",
+    tradesCount: "Trades",
+    avgRRLabel: "RR Moy",
+    winRateLabel: "WR",
+    noBilanData: "Ajoutez des trades pour voir l'analyse BILAN",
+    
     // Export
     exportPDF: "Exporter en PDF",
     exportData: "Exporter les Données",
@@ -281,7 +295,6 @@ export const translations = {
     setupVideos: "Setup Videos",
     prepNotes: "Preparation Notes",
     newsFundamental: "Market",
-    coachTab: "AI Coach",
     adminVerification: "Admin Verification",
     roleManagement: "Role Management",
     
@@ -439,6 +452,21 @@ export const translations = {
     individualStats: "Individual Statistics",
     globalStats: "Global DONCIEL Statistics",
     readOnly: "Read Only",
+    
+    // BILAN
+    bilan: "BILAN",
+    bilanDescription: "Configuration analysis by performance level",
+    bestConfigs: "Best Configurations",
+    bestConfigsDesc: "Configurations with highest success rates",
+    avgConfigs: "Average Configurations",
+    avgConfigsDesc: "Configurations with moderate performance",
+    weakConfigs: "Weak Configurations",
+    weakConfigsDesc: "Underperforming configurations to optimize",
+    configLabel: "Configuration",
+    tradesCount: "Trades",
+    avgRRLabel: "Avg RR",
+    winRateLabel: "WR",
+    noBilanData: "Add trades to see BILAN analysis",
     
     // Export
     exportPDF: "Export PDF",
