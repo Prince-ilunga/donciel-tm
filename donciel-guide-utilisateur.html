@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DONCIEL™ — Journal de Trading Professionnel</title>
+<style>
+  /* ═══════════════════════════════════════════════════════════════════
+     DONCIEL™ Brand System — Dark Trading Aesthetic
+     Primary: Emerald #10b981 | Dark: #0f172a | Accent: Gold #f59e0b
+  ═══════════════════════════════════════════════════════════════════ */
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --emerald: #10b981;
+    --emerald-light: #34d399;
+    --emerald-dark: #059669;
+    --emerald-glow: rgba(16, 185, 129, 0.15);
+    --emerald-glow-strong: rgba(16, 185, 129, 0.3);
+    --dark-bg: #0f172a;
+    --dark-surface: #1e293b;
+    --dark-card: #1a2332;
+    --dark-border: rgba(16, 185, 129, 0.12);
+    --dark-border-subtle: rgba(255, 255, 255, 0.06);
+    --gold: #f59e0b;
+    --gold-light: #fbbf24;
+    --gold-dim: rgba(245, 158, 11, 0.15);
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --white: #ffffff;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--dark-bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+
+  /* ── Page Container ──────────────────────────────────────── */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    page-break-inside: avoid;
+    background: var(--dark-bg);
+    display: flex;
+    flex-direction: column;
+    padding: 36px 40px;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  /* ── Decorative Elements ─────────────────────────────────── */
+  .corner-accent {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    pointer-events: none;
+  }
+  .corner-accent.tl { top: 20px; left: 20px; border-top: 1px solid rgba(16,185,129,0.2); border-left: 1px solid rgba(16,185,129,0.2); }
+  .corner-accent.br { bottom: 20px; right: 20px; border-bottom: 1px solid rgba(16,185,129,0.2); border-right: 1px solid rgba(16,185,129,0.2); }
+
+  .grid-bg {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  .glow-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+  }
+  .glow-orb.emerald { background: var(--emerald-glow); width: 260px; height: 260px; }
+  .glow-orb.gold { background: var(--gold-dim); width: 180px; height: 180px; }
+
+  /* ── Page Footer ─────────────────────────────────────────── */
+  .page-footer {
+    margin-top: auto;
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 12px;
+  }
+  .page-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+  }
+
+  /* ── Section Badge ───────────────────────────────────────── */
+  .badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 100px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+  }
+  .badge-emerald {
+    background: var(--emerald-glow);
+    color: var(--emerald-light);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+  .badge-gold {
+    background: var(--gold-dim);
+    color: var(--gold-light);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+  }
+
+  /* ── Page Header ─────────────────────────────────────────── */
+  .page-header { margin-bottom: 24px; position: relative; z-index: 2; }
+  .page-header .badge { margin-bottom: 12px; }
+  .page-header h1 {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--white);
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+  .page-header .subtitle {
+    font-size: 11.5px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 460px;
+  }
+
+  /* ── Feature Cards ───────────────────────────────────────── */
+  .feature-card {
+    background: var(--dark-card);
+    border: 1px solid var(--dark-border);
+    border-radius: 12px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--emerald), transparent);
+  }
+  .feature-card .icon {
+    width: 34px; height: 34px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; margin-bottom: 8px;
+    background: var(--emerald-glow);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+  }
+  .feature-card h3 { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 3px; }
+  .feature-card p { font-size: 10.5px; color: var(--text-secondary); line-height: 1.5; }
+
+  /* ── Tab Item ────────────────────────────────────────────── */
+  .tab-item {
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 12px 14px;
+    background: var(--dark-card);
+    border: 1px solid var(--dark-border-subtle);
+    border-left: 3px solid var(--emerald);
+    border-radius: 0 10px 10px 0;
+  }
+  .tab-item .tab-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    background: var(--emerald-glow);
+    flex-shrink: 0;
+  }
+  .tab-item .tab-content h3 { font-size: 12.5px; font-weight: 700; color: var(--emerald-light); margin-bottom: 2px; }
+  .tab-item .tab-content p { font-size: 10px; color: var(--text-secondary); line-height: 1.45; }
+
+  /* ── Step Item ───────────────────────────────────────────── */
+  .step-item {
+    display: flex; align-items: flex-start; gap: 16px;
+    position: relative; padding-left: 4px;
+  }
+  .step-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 23px; top: 44px; bottom: -12px;
+    width: 2px;
+    background: linear-gradient(180deg, var(--emerald), var(--dark-border));
+  }
+  .step-num {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 700;
+    background: linear-gradient(135deg, var(--emerald-dark), var(--emerald));
+    color: var(--dark-bg);
+    flex-shrink: 0;
+  }
+  .step-content { padding-top: 2px; }
+  .step-content h3 { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+  .step-content p { font-size: 10.5px; color: var(--text-secondary); line-height: 1.45; }
+
+  /* ── Advanced Card ───────────────────────────────────────── */
+  .advanced-card {
+    background: var(--dark-card);
+    border: 1px solid var(--dark-border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    position: relative; overflow: hidden;
+  }
+  .advanced-card::after {
+    content: '';
+    position: absolute; top: -20px; right: -20px;
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    filter: blur(40px);
+    pointer-events: none;
+    opacity: 0.25;
+  }
+  .advanced-card.gold-accent::after { background: var(--gold); }
+  .advanced-card.emerald-accent::after { background: var(--emerald); }
+
+  .advanced-card .card-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+  }
+  .advanced-card .card-header .card-icon {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .advanced-card .card-header .card-icon.emerald-bg {
+    background: var(--emerald-glow); border: 1px solid rgba(16,185,129,0.2);
+  }
+  .advanced-card .card-header .card-icon.gold-bg {
+    background: var(--gold-dim); border: 1px solid rgba(245,158,11,0.2);
+  }
+  .advanced-card .card-header h2 { font-size: 15px; font-weight: 700; color: var(--white); }
+  .advanced-card .card-header .card-badge {
+    font-size: 8px; padding: 2px 8px; border-radius: 100px;
+    font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  }
+  .advanced-card .card-body p {
+    font-size: 11px; color: var(--text-secondary); line-height: 1.55; margin-bottom: 10px;
+  }
+  .advanced-card .card-body .sub-features {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  }
+  .advanced-card .card-body .sub-feat {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 10px;
+    background: rgba(255,255,255,0.03); border-radius: 8px;
+    font-size: 9.5px; color: var(--text-secondary);
+  }
+  .advanced-card .card-body .sub-feat .dot {
+    width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
+  }
+  .advanced-card .card-body .sub-feat .dot.emerald { background: var(--emerald); }
+  .advanced-card .card-body .sub-feat .dot.gold { background: var(--gold); }
+
+  /* ── Feature Item (Page 5) ──────────────────────────────── */
+  .feat-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px;
+    background: var(--dark-card);
+    border: 1px solid var(--dark-border-subtle);
+    border-radius: 12px;
+  }
+  .feat-item .feat-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .feat-item .feat-icon.emerald-bg {
+    background: var(--emerald-glow); border: 1px solid rgba(16,185,129,0.2);
+  }
+  .feat-item .feat-icon.gold-bg {
+    background: var(--gold-dim); border: 1px solid rgba(245,158,11,0.2);
+  }
+  .feat-item .feat-text h3 { font-size: 11.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+  .feat-item .feat-text p { font-size: 9.5px; color: var(--text-secondary); line-height: 1.45; }
+
+  /* ═══════════════════════════════════════════════════════════
+     PAGE 1: COVER — Special layout
+  ═══════════════════════════════════════════════════════════ */
+  #page-cover {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 36px 40px;
+  }
+  #page-cover .grid-bg { opacity: 0.2; }
+
+  #page-cover .cover-content {
+    position: relative; z-index: 2;
+    display: flex; flex-direction: column; align-items: center;
+  }
+
+  #page-cover .logo-diamond {
+    width: 68px; height: 68px; margin-bottom: 24px;
+  }
+  #page-cover .logo-diamond svg { width: 68px; height: 68px; }
+
+  #page-cover .brand-name {
+    font-size: 46px;
+    font-weight: 900;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  #page-cover .brand-name span {
+    background: linear-gradient(135deg, var(--emerald-light), var(--emerald));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  #page-cover .brand-sub {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    margin-bottom: 32px;
+  }
+
+  #page-cover .divider-line {
+    width: 80px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--emerald), transparent);
+    margin: 0 auto 28px;
+  }
+
+  #page-cover .tagline {
+    font-size: 16px;
+    font-weight: 300;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    line-height: 1.7;
+  }
+  #page-cover .tagline em {
+    color: var(--emerald-light);
+    font-style: normal;
+    font-weight: 500;
+  }
+
+  #page-cover .cover-footer {
+    position: relative; z-index: 2;
+    margin-top: auto;
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+  }
+  #page-cover .cover-footer span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── Description Block (Page 2) ─────────────────────────── */
+  .desc-block {
+    background: linear-gradient(135deg, rgba(16,185,129,0.06), rgba(16,185,129,0.02));
+    border: 1px solid var(--dark-border);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+    position: relative; z-index: 2;
+  }
+  .desc-block p {
+    font-size: 12px; color: var(--text-secondary); line-height: 1.65;
+  }
+  .desc-block p strong {
+    color: var(--emerald-light); font-weight: 600;
+  }
+
+  /* ── Architecture Block (Page 5) ────────────────────────── */
+  .arch-block {
+    margin-top: 16px;
+    background: linear-gradient(135deg, rgba(16,185,129,0.05), rgba(245,158,11,0.03));
+    border: 1px solid var(--dark-border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    position: relative; z-index: 2;
+  }
+  .arch-block h3 {
+    font-size: 12px; font-weight: 700; color: var(--emerald-light); margin-bottom: 5px;
+  }
+  .arch-block p {
+    font-size: 10px; color: var(--text-secondary); line-height: 1.55;
+  }
+
+  /* ── CTA Block (Page 6) ─────────────────────────────────── */
+  .cta-block {
+    margin-top: auto;
+    background: linear-gradient(135deg, var(--emerald-dark), var(--emerald));
+    border-radius: 16px;
+    padding: 22px 26px;
+    text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .cta-block::before {
+    content: '';
+    position: absolute; top: -30px; right: -30px;
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+  }
+  .cta-block h2 {
+    font-size: 16px; font-weight: 800; color: var(--dark-bg); margin-bottom: 4px;
+  }
+  .cta-block p {
+    font-size: 10.5px; color: rgba(15,23,42,0.7); line-height: 1.5;
+  }
+
+  /* ── Grid Layouts ────────────────────────────────────────── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .flex-col { display: flex; flex-direction: column; gap: 10px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 1: COVER
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-cover">
+  <div class="grid-bg"></div>
+  <div class="glow-orb emerald" style="top: 12%; left: 18%;"></div>
+  <div class="glow-orb emerald" style="bottom: 18%; right: 12%;"></div>
+  <div class="glow-orb gold" style="top: 45%; right: 25%;"></div>
+
+  <div class="corner-accent tl"></div>
+  <div class="corner-accent br"></div>
+
+  <div class="cover-content">
+    <div class="logo-diamond">
+      <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="14" y="14" width="44" height="44" rx="8" stroke="url(#grad1)" stroke-width="2" fill="none" transform="rotate(45 36 36)"/>
+        <rect x="22" y="22" width="28" height="28" rx="4" stroke="url(#grad1)" stroke-width="1.5" fill="rgba(16,185,129,0.08)" transform="rotate(45 36 36)"/>
+        <circle cx="36" cy="36" r="4" fill="#10b981"/>
+        <defs>
+          <linearGradient id="grad1" x1="0" y1="0" x2="72" y2="72">
+            <stop offset="0%" stop-color="#10b981"/>
+            <stop offset="100%" stop-color="#34d399"/>
+          </linearGradient>
+        </defs>
+      </svg>
+    </div>
+
+    <div class="brand-name"><span>DONCIEL</span></div>
+    <div class="brand-sub">Journal de Trading Professionnel</div>
+    <div class="divider-line"></div>
+    <div class="tagline">
+      Maîtrisez vos trades.<br>
+      Maîtrisez votre <em>destin</em>.
+    </div>
+  </div>
+
+  <div class="cover-footer">
+    <span>Guide Utilisateur</span>
+    <span>&bull;</span>
+    <span>v2.0</span>
+    <span>&bull;</span>
+    <span>2025</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 2: VUE D'ENSEMBLE
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-overview">
+  <div class="glow-orb emerald" style="top: -60px; right: -40px;"></div>
+  <div class="grid-bg" style="opacity:0.3;"></div>
+  <div class="corner-accent tl"></div>
+  <div class="corner-accent br"></div>
+
+  <div class="page-header">
+    <div class="badge badge-emerald">Vue d'ensemble</div>
+    <h1>Tout pour le trader moderne</h1>
+    <p class="subtitle">DONCIEL™ combine analyse avancée, gestion rigoureuse et suivi professionnel dans une interface élégante.</p>
+  </div>
+
+  <div class="desc-block">
+    <p>
+      <strong>DONCIEL™</strong> est un journal de trading ultra-professionnel conçu pour les traders exigeants. Centralisez vos données, analysez vos performances et optimisez votre stratégie grâce à des outils de pointe — le tout dans un environnement sécurisé et bilingue.
+    </p>
+  </div>
+
+  <div class="grid-2">
+    <div class="feature-card">
+      <div class="icon">📊</div>
+      <h3>Journal Ultra-Pro</h3>
+      <p>Saisie complète de trades avec métriques avancées, notes et suivi de performance en temps réel.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">⚡</div>
+      <h3>Analyse Temps Réel</h3>
+      <p>Tableaux de bord dynamiques, graphiques de distribution et statistiques instantanées.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">🌐</div>
+      <h3>Bilingue FR / EN</h3>
+      <p>Interface complète en français et anglais. Changez de langue en un clic.</p>
+    </div>
+    <div class="feature-card">
+      <div class="icon">🔒</div>
+      <h3>Sécurité & Rôles</h3>
+      <p>Authentification sécurisée, rôles Admin/User et protection des données sensibles.</p>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span class="page-num">02 / 06</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 3: ONGLETS PRINCIPAUX
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-tabs-main">
+  <div class="glow-orb emerald" style="bottom: -40px; left: -60px;"></div>
+  <div class="grid-bg" style="opacity:0.25;"></div>
+  <div class="corner-accent tl"></div>
+  <div class="corner-accent br"></div>
+
+  <div class="page-header">
+    <div class="badge badge-emerald">Navigation</div>
+    <h1>Onglets Principaux</h1>
+    <p class="subtitle">Six onglets essentiels pour couvrir tous les aspects de votre activité de trading.</p>
+  </div>
+
+  <div class="flex-col">
+    <div class="tab-item">
+      <div class="tab-icon">🎯</div>
+      <div class="tab-content">
+        <h3>Exécution DONCIEL</h3>
+        <p>Suivez votre progression : phases d'exécution, cycles de trading et objectifs. Vue synthétique de votre parcours.</p>
+      </div>
+    </div>
+    <div class="tab-item">
+      <div class="tab-icon">⚙️</div>
+      <div class="tab-content">
+        <h3>Setup</h3>
+        <p>Gérez vos données de marché, saisissez vos trades avec précision et configurez vos paramètres.</p>
+      </div>
+    </div>
+    <div class="tab-item">
+      <div class="tab-icon">📅</div>
+      <div class="tab-content">
+        <h3>Journal</h3>
+        <p>Calendrier interactif. Visualisez vos sessions, identifiez vos jours les plus performants.</p>
+      </div>
+    </div>
+    <div class="tab-item">
+      <div class="tab-icon">📈</div>
+      <div class="tab-content">
+        <h3>Distribution RR</h3>
+        <p>Analysez votre ratio Risk-Reward. Distribution, statistiques et identification des setups rentables.</p>
+      </div>
+    </div>
+    <div class="tab-item">
+      <div class="tab-icon">⏱️</div>
+      <div class="tab-content">
+        <h3>Timing</h3>
+        <p>Performance par période : horaires, jours de la semaine, sessions de marché. Optimisez vos moments.</p>
+      </div>
+    </div>
+    <div class="tab-item">
+      <div class="tab-icon">🎬</div>
+      <div class="tab-content">
+        <h3>Vidéos</h3>
+        <p>Ressources d'apprentissage et tutoriels vidéo pour perfectionner votre approche.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span class="page-num">03 / 06</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 4: ONGLETS AVANCÉS
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-tabs-advanced">
+  <div class="glow-orb gold" style="top: -30px; right: -40px;"></div>
+  <div class="glow-orb emerald" style="bottom: -30px; left: -40px;"></div>
+  <div class="grid-bg" style="opacity:0.2;"></div>
+  <div class="corner-accent tl"></div>
+  <div class="corner-accent br"></div>
+
+  <div class="page-header">
+    <div class="badge badge-gold">Avancé</div>
+    <h1>Onglets Avancés</h1>
+    <p class="subtitle">Des outils professionnels pour les traders qui veulent passer au niveau supérieur.</p>
+  </div>
+
+  <div class="advanced-card emerald-accent">
+    <div class="card-header">
+      <div class="card-icon emerald-bg">📓</div>
+      <div>
+        <h2>Notes de Préparation</h2>
+        <span class="card-badge badge-emerald">Pro</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <p>Notebook ultra-professionnel pour structurer votre routine de préparation de marché.</p>
+      <div class="sub-features">
+        <div class="sub-feat"><div class="dot emerald"></div>Tracking d'humeur quotidien</div>
+        <div class="sub-feat"><div class="dot emerald"></div>Checklist pré-market</div>
+        <div class="sub-feat"><div class="dot emerald"></div>Score de performance</div>
+        <div class="sub-feat"><div class="dot emerald"></div>Notes illimitées</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="advanced-card gold-accent">
+    <div class="card-header">
+      <div class="card-icon gold-bg">🌍</div>
+      <div>
+        <h2>Marché</h2>
+        <span class="card-badge badge-gold">IA</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <p>Suivi macroéconomique avec intelligence artificielle intégrée pour des insights actionnables.</p>
+      <div class="sub-features">
+        <div class="sub-feat"><div class="dot gold"></div>Calendrier économique</div>
+        <div class="sub-feat"><div class="dot gold"></div>Analyse IA du marché</div>
+        <div class="sub-feat"><div class="dot gold"></div>Indicateur de sentiment</div>
+        <div class="sub-feat"><div class="dot gold"></div>Alertes en temps réel</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="advanced-card emerald-accent">
+    <div class="card-header">
+      <div class="card-icon emerald-bg">📖</div>
+      <div>
+        <h2>Playbook</h2>
+        <span class="card-badge badge-emerald">Stratégie</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <p>Documentez et suivez vos stratégies. Chaque setup est traqué, mesuré et optimisé.</p>
+      <div class="sub-features">
+        <div class="sub-feat"><div class="dot emerald"></div>Stratégies documentées</div>
+        <div class="sub-feat"><div class="dot emerald"></div>Règles d'entrée/sortie</div>
+        <div class="sub-feat"><div class="dot emerald"></div>Performance par setup</div>
+        <div class="sub-feat"><div class="dot emerald"></div>Historique complet</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    <span class="page-num">04 / 06</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 5: FONCTIONNALITÉS CLÉS
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-features">
+  <div class="glow-orb emerald" style="top: 40%; left: -60px;"></div>
+  <div class="glow-orb gold" style="bottom: -30px; right: -30px;"></div>
+  <div class="grid-bg" style="opacity:0.25;"></div>
+  <div class="corner-accent tl"></div>
+  <div class="corner-accent br"></div>
+
+  <div class="page-header">
+    <div class="badge badge-emerald">Technologie</div>
+    <h1>Fonctionnalités Clés</h1>
+    <p class="subtitle">Une architecture pensée pour la performance, la sécurité et l'expérience utilisateur.</p>
+  </div>
+
+  <div class="grid-2">
+    <div class="feat-item">
+      <div class="feat-icon emerald-bg">🔐</div>
+      <div class="feat-text">
+        <h3>Authentification Sécurisée</h3>
+        <p>Authentification robuste avec gestion de sessions et protection des données.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-icon gold-bg">👑</div>
+      <div class="feat-text">
+        <h3>Rôles Admin / User</h3>
+        <p>Permissions fines. Les administrateurs contrôlent les accès et validations.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-icon emerald-bg">📄</div>
+      <div class="feat-text">
+        <h3>Export PDF</h3>
+        <p>Rapports, analyses et journaux exportables en PDF professionnel.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-icon gold-bg">🌙</div>
+      <div class="feat-text">
+        <h3>Mode Sombre / Clair</h3>
+        <p>Interface adaptative selon vos préférences visuelles.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-icon emerald-bg">🌐</div>
+      <div class="feat-text">
+        <h3>Bilingue FR / EN</h3>
+        <p>Interface complète en français et anglais. Commutation instantanée.</p>
+      </div>
+    </div>
+    <div class="feat-item">
+      <div class="feat-icon gold-bg">📊</div>
+      <div class="feat-text">
+        <h3>Statistiques Avancées</h3>
+        <p>Métriques détaillées, graphiques et tableaux de bord analytiques.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch-block">
+    <h3>🏗️ Architecture Robuste</h3>
+    <p>Architecture moderne et évolutive : composants réutilisables, gestion d'état optimisée, API REST sécurisée et base de données fiable. Conçu pour accompagner votre croissance.</p>
+  </div>
+
+  <div class="page-footer">
+    <span class="page-num">05 / 06</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PAGE 6: COMMENCER
+═══════════════════════════════════════════════════════════ -->
+<div class="page" id="page-start">
+  <div class="glow-orb emerald" style="top: 15%; right: -50px;"></div>
+  <div class="grid-bg" style="opacity:0.2;"></div>
+  <div class="corner-accent tl"></div>
+  <div class="corner-accent br"></div>
+
+  <div class="page-header">
+    <div class="badge badge-gold">Démarrage</div>
+    <h1>Commencer avec DONCIEL</h1>
+    <p class="subtitle">Six étapes simples pour tirer le meilleur parti de votre journal de trading.</p>
+  </div>
+
+  <div class="flex-col" style="gap:14px;">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h3>Créez un compte</h3>
+        <p>Inscrivez-vous avec votre email. L'inscription est rapide et sécurisée.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h3>Attendez l'approbation admin</h3>
+        <p>Un administrateur validera votre compte pour garantir la sécurité de la plateforme.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h3>Connectez-vous</h3>
+        <p>Accédez à votre espace personnel avec vos identifiants sécurisés.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <h3>Explorez les onglets</h3>
+        <p>Découvrez les neuf onglets : Exécution, Setup, Journal, Distribution, Timing, Vidéos, Notes, Marché et Playbook.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <h3>Saisissez vos trades</h3>
+        <p>Enregistrez chaque trade avec précision : paire, direction, RR, notes et captures d'écran.</p>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">6</div>
+      <div class="step-content">
+        <h3>Analysez vos performances</h3>
+        <p>Consultez vos statistiques, identifiez vos forces et optimisez votre stratégie.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta-block">
+    <h2>Prêt à maîtriser vos trades ?</h2>
+    <p>Rejoignez DONCIEL™ et transformez votre approche du trading.</p>
+  </div>
+
+  <div class="page-footer">
+    <span class="page-num">06 / 06</span>
+  </div>
+</div>
+
+</body>
+</html>

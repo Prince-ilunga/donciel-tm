@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --page-bg: #f6f7f7;
+    --accent: #3490af;
+    --accent-secondary: #4ec7b8;
+    --header-fill: #395346;
+    --cover-block: #496054;
+    --icon: #46a977;
+    --text-primary: #151716;
+    --text-muted: #77817c;
+    --border: #bfd8cb;
+  }
+  body {
+    width: 794px;
+    height: 1123px;
+    margin: 0; padding: 0;
+    font-family: 'Inter', sans-serif;
+    background: var(--page-bg);
+    position: relative;
+  }
+  @page {
+    size: 794px 1123px;
+    margin: 0;
+  }
+
+  /* Layer 1 - Background (subtle large geometric accent) */
+  .cover-layer-1 {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .bg-circle {
+    position: absolute;
+    right: -120px;
+    top: -80px;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    border: 1.5pt solid var(--accent);
+    opacity: 0.06;
+  }
+  .bg-circle-2 {
+    position: absolute;
+    right: -60px;
+    bottom: 100px;
+    width: 350px;
+    height: 350px;
+    border-radius: 50%;
+    border: 1pt solid var(--icon);
+    opacity: 0.05;
+  }
+
+  /* Layer 2 - Structure */
+  .cover-layer-2 {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .anchor-line {
+    position: absolute;
+    left: 70px;
+    top: 112px;
+    width: 6pt;
+    height: 899px;
+    background: var(--header-fill);
+  }
+  .meta-separator {
+    position: absolute;
+    left: 125px;
+    top: 806px;
+    width: 280px;
+    height: 1pt;
+    background: var(--header-fill);
+    opacity: 0.35;
+  }
+
+  /* Layer 3 - Content */
+  .cover-layer-3 {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+  }
+
+  /* Drawer A - Kicker */
+  .kicker {
+    position: absolute;
+    left: 125px;
+    top: 168px;
+    font-size: 13pt;
+    font-weight: 400;
+    letter-spacing: 3pt;
+    color: var(--text-muted);
+    opacity: 0.6;
+    text-transform: uppercase;
+  }
+
+  /* Drawer B - Hero Title */
+  .hero-title {
+    position: absolute;
+    left: 125px;
+    top: 260px;
+    width: 470px;
+    font-size: 52pt;
+    font-weight: 900;
+    line-height: 1.10;
+    color: var(--header-fill);
+  }
+
+  /* Accent bar under hero title */
+  .title-accent {
+    position: absolute;
+    left: 125px;
+    top: 530px;
+    width: 60pt;
+    height: 4pt;
+    background: var(--accent);
+  }
+
+  /* Drawer C - Summary */
+  .summary {
+    position: absolute;
+    left: 125px;
+    top: 576px;
+    width: 440px;
+    font-size: 15pt;
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--text-primary);
+    opacity: 0.85;
+  }
+
+  /* Drawer D - Meta */
+  .meta {
+    position: absolute;
+    left: 125px;
+    top: 850px;
+    font-size: 14pt;
+    font-weight: 400;
+    line-height: 2.0;
+    color: var(--text-muted);
+  }
+  .meta strong {
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+  <!-- Layer 1 - Background -->
+  <div class="cover-layer-1">
+    <div class="bg-circle"></div>
+    <div class="bg-circle-2"></div>
+  </div>
+
+  <!-- Layer 2 - Structure -->
+  <div class="cover-layer-2">
+    <div class="anchor-line"></div>
+    <div class="meta-separator"></div>
+  </div>
+
+  <!-- Layer 3 - Content -->
+  <div class="cover-layer-3">
+    <div class="kicker">GUIDE DE MAINTENANCE</div>
+    <div class="hero-title">DONCIEL<br>Trading<br>Journal</div>
+    <div class="title-accent"></div>
+    <div class="summary">
+      Guide technique de maintenance pour l'application
+      DONCIEL Trading Journal. Ce document couvre
+      l'architecture, les procedures de mise a jour,
+      la sauvegarde et le depannage courant.
+    </div>
+    <div class="meta">
+      <strong>Version</strong> 1.0<br>
+      <strong>Date</strong> Mars 2026<br>
+      <strong>Auteur</strong> Equipe DONCIEL
+    </div>
+  </div>
+</body>
+</html>

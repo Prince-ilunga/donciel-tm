@@ -1,0 +1,1116 @@
+     1→<!DOCTYPE html>
+     2→<html lang="fr">
+     3→<head>
+     4→<meta charset="UTF-8">
+     5→<meta name="viewport" content="width=device-width, initial-scale=1.0">
+     6→<title>DONCIEL™ — Journal de Trading Professionnel</title>
+     7→<style>
+     8→  /* ═══════════════════════════════════════════════════════════════════
+     9→     DONCIEL™ Brand System — Dark Trading Aesthetic
+    10→     Primary: Emerald #10b981 | Dark: #0f172a | Accent: Gold #f59e0b
+    11→  ═══════════════════════════════════════════════════════════════════ */
+    12→
+    13→  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+    14→
+    15→  @page {
+    16→    size: A4;
+    17→    margin: 0;
+    18→  }
+    19→
+    20→  * { margin: 0; padding: 0; box-sizing: border-box; }
+    21→
+    22→  :root {
+    23→    --emerald: #10b981;
+    24→    --emerald-light: #34d399;
+    25→    --emerald-dark: #059669;
+    26→    --emerald-glow: rgba(16, 185, 129, 0.15);
+    27→    --emerald-glow-strong: rgba(16, 185, 129, 0.3);
+    28→    --dark-bg: #0f172a;
+    29→    --dark-surface: #1e293b;
+    30→    --dark-card: #1a2332;
+    31→    --dark-border: rgba(16, 185, 129, 0.12);
+    32→    --dark-border-subtle: rgba(255, 255, 255, 0.06);
+    33→    --gold: #f59e0b;
+    34→    --gold-light: #fbbf24;
+    35→    --gold-dim: rgba(245, 158, 11, 0.15);
+    36→    --text-primary: #f1f5f9;
+    37→    --text-secondary: #94a3b8;
+    38→    --text-muted: #64748b;
+    39→    --white: #ffffff;
+    40→    --page-w: 210mm;
+    41→    --page-h: 297mm;
+    42→  }
+    43→
+    44→  body {
+    45→    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    46→    background: var(--dark-bg);
+    47→    color: var(--text-primary);
+    48→    -webkit-font-smoothing: antialiased;
+    49→    -moz-osx-font-smoothing: grayscale;
+    50→    line-height: 1.6;
+    51→  }
+    52→
+    53→  /* ── Page Container ──────────────────────────────────────── */
+    54→  .page {
+    55→    width: var(--page-w);
+    56→    height: var(--page-h);
+    57→    position: relative;
+    58→    overflow: hidden;
+    59→    page-break-after: always;
+    60→    background: var(--dark-bg);
+    61→  }
+    62→  .page:last-child { page-break-after: auto; }
+    63→
+    64→  /* ── Decorative Elements ─────────────────────────────────── */
+    65→  .corner-accent {
+    66→    position: absolute;
+    67→    width: 120px;
+    68→    height: 120px;
+    69→    border: 1px solid var(--dark-border);
+    70→    pointer-events: none;
+    71→  }
+    72→  .corner-accent.tl { top: 24px; left: 24px; border-right: none; border-bottom: none; }
+    73→  .corner-accent.br { bottom: 24px; right: 24px; border-left: none; border-top: none; }
+    74→
+    75→  .grid-bg {
+    76→    position: absolute;
+    77→    inset: 0;
+    78→    background-image:
+    79→      linear-gradient(var(--dark-border-subtle) 1px, transparent 1px),
+    80→      linear-gradient(90deg, var(--dark-border-subtle) 1px, transparent 1px);
+    81→    background-size: 40px 40px;
+    82→    opacity: 0.4;
+    83→    pointer-events: none;
+    84→  }
+    85→
+    86→  .glow-orb {
+    87→    position: absolute;
+    88→    border-radius: 50%;
+    89→    filter: blur(80px);
+    90→    pointer-events: none;
+    91→  }
+    92→  .glow-orb.emerald {
+    93→    background: var(--emerald-glow);
+    94→    width: 300px;
+    95→    height: 300px;
+    96→  }
+    97→  .glow-orb.gold {
+    98→    background: var(--gold-dim);
+    99→    width: 200px;
+   100→    height: 200px;
+   101→  }
+   102→
+   103→  /* ── Page Number ─────────────────────────────────────────── */
+   104→  .page-num {
+   105→    position: absolute;
+   106→    bottom: 20px;
+   107→    right: 32px;
+   108→    font-family: 'JetBrains Mono', monospace;
+   109→    font-size: 10px;
+   110→    color: var(--text-muted);
+   111→    letter-spacing: 2px;
+   112→  }
+   113→
+   114→  /* ── Section Badge ───────────────────────────────────────── */
+   115→  .badge {
+   116→    display: inline-block;
+   117→    padding: 4px 14px;
+   118→    border-radius: 100px;
+   119→    font-size: 10px;
+   120→    font-weight: 700;
+   121→    letter-spacing: 2.5px;
+   122→    text-transform: uppercase;
+   123→  }
+   124→  .badge-emerald {
+   125→    background: var(--emerald-glow);
+   126→    color: var(--emerald-light);
+   127→    border: 1px solid rgba(16, 185, 129, 0.25);
+   128→  }
+   129→  .badge-gold {
+   130→    background: var(--gold-dim);
+   131→    color: var(--gold-light);
+   132→    border: 1px solid rgba(245, 158, 11, 0.25);
+   133→  }
+   134→
+   135→  /* ── Feature Cards ───────────────────────────────────────── */
+   136→  .feature-card {
+   137→    background: var(--dark-card);
+   138→    border: 1px solid var(--dark-border);
+   139→    border-radius: 12px;
+   140→    padding: 20px;
+   141→    position: relative;
+   142→    overflow: hidden;
+   143→    transition: border-color 0.3s;
+   144→  }
+   145→  .feature-card::before {
+   146→    content: '';
+   147→    position: absolute;
+   148→    top: 0;
+   149→    left: 0;
+   150→    right: 0;
+   151→    height: 2px;
+   152→    background: linear-gradient(90deg, var(--emerald), transparent);
+   153→  }
+   154→  .feature-card .icon {
+   155→    width: 36px;
+   156→    height: 36px;
+   157→    border-radius: 8px;
+   158→    display: flex;
+   159→    align-items: center;
+   160→    justify-content: center;
+   161→    font-size: 18px;
+   162→    margin-bottom: 10px;
+   163→    background: var(--emerald-glow);
+   164→    border: 1px solid rgba(16, 185, 129, 0.2);
+   165→  }
+   166→  .feature-card h3 {
+   167→    font-size: 14px;
+   168→    font-weight: 700;
+   169→    color: var(--text-primary);
+   170→    margin-bottom: 4px;
+   171→  }
+   172→  .feature-card p {
+   173→    font-size: 11px;
+   174→    color: var(--text-secondary);
+   175→    line-height: 1.5;
+   176→  }
+   177→
+   178→  /* ── Tab Item ────────────────────────────────────────────── */
+   179→  .tab-item {
+   180→    display: flex;
+   181→    align-items: flex-start;
+   182→    gap: 14px;
+   183→    padding: 14px 16px;
+   184→    background: var(--dark-card);
+   185→    border: 1px solid var(--dark-border-subtle);
+   186→    border-left: 3px solid var(--emerald);
+   187→    border-radius: 0 10px 10px 0;
+   188→  }
+   189→  .tab-item .tab-icon {
+   190→    width: 40px;
+   191→    height: 40px;
+   192→    border-radius: 10px;
+   193→    display: flex;
+   194→    align-items: center;
+   195→    justify-content: center;
+   196→    font-size: 20px;
+   197→    background: var(--emerald-glow);
+   198→    flex-shrink: 0;
+   199→  }
+   200→  .tab-item .tab-content h3 {
+   201→    font-size: 13px;
+   202→    font-weight: 700;
+   203→    color: var(--emerald-light);
+   204→    margin-bottom: 2px;
+   205→  }
+   206→  .tab-item .tab-content p {
+   207→    font-size: 10.5px;
+   208→    color: var(--text-secondary);
+   209→    line-height: 1.45;
+   210→  }
+   211→
+   212→  /* ── Step Item ───────────────────────────────────────────── */
+   213→  .step-item {
+   214→    display: flex;
+   215→    align-items: flex-start;
+   216→    gap: 16px;
+   217→    position: relative;
+   218→  }
+   219→  .step-item:not(:last-child)::after {
+   220→    content: '';
+   221→    position: absolute;
+   222→    left: 19px;
+   223→    top: 42px;
+   224→    bottom: -14px;
+   225→    width: 2px;
+   226→    background: linear-gradient(180deg, var(--emerald), var(--dark-border));
+   227→  }
+   228→  .step-num {
+   229→    width: 40px;
+   230→    height: 40px;
+   231→    border-radius: 50%;
+   232→    display: flex;
+   233→    align-items: center;
+   234→    justify-content: center;
+   235→    font-family: 'JetBrains Mono', monospace;
+   236→    font-size: 14px;
+   237→    font-weight: 700;
+   238→    background: linear-gradient(135deg, var(--emerald-dark), var(--emerald));
+   239→    color: var(--dark-bg);
+   240→    flex-shrink: 0;
+   241→  }
+   242→  .step-content h3 {
+   243→    font-size: 13px;
+   244→    font-weight: 700;
+   245→    color: var(--text-primary);
+   246→    margin-bottom: 2px;
+   247→    padding-top: 2px;
+   248→  }
+   249→  .step-content p {
+   250→    font-size: 10.5px;
+   251→    color: var(--text-secondary);
+   252→    line-height: 1.45;
+   253→  }
+   254→
+   255→  /* ── Key Value Pairs ─────────────────────────────────────── */
+   256→  .kv-row {
+   257→    display: flex;
+   258→    align-items: center;
+   259→    gap: 10px;
+   260→    padding: 8px 0;
+   261→    border-bottom: 1px solid var(--dark-border-subtle);
+   262→  }
+   263→  .kv-row:last-child { border-bottom: none; }
+   264→  .kv-row .kv-icon {
+   265→    font-size: 16px;
+   266→    width: 28px;
+   267→    text-align: center;
+   268→  }
+   269→  .kv-row .kv-label {
+   270→    font-size: 11px;
+   271→    font-weight: 600;
+   272→    color: var(--text-primary);
+   273→    flex: 1;
+   274→  }
+   275→  .kv-row .kv-value {
+   276→    font-size: 11px;
+   277→    color: var(--emerald-light);
+   278→    font-weight: 500;
+   279→  }
+   280→
+   281→  /* ═══════════════════════════════════════════════════════════
+   282→     PAGE 1: COVER
+   283→  ═══════════════════════════════════════════════════════════ */
+   284→  #page-cover {
+   285→    display: flex;
+   286→    flex-direction: column;
+   287→    align-items: center;
+   288→    justify-content: center;
+   289→    text-align: center;
+   290→    position: relative;
+   291→  }
+   292→  #page-cover .grid-bg { opacity: 0.25; }
+   293→
+   294→  #page-cover .cover-logo {
+   295→    position: relative;
+   296→    z-index: 2;
+   297→    margin-bottom: 16px;
+   298→  }
+   299→  #page-cover .cover-logo .logo-diamond {
+   300→    width: 72px;
+   301→    height: 72px;
+   302→    margin: 0 auto 20px;
+   303→    position: relative;
+   304→  }
+   305→  #page-cover .cover-logo .logo-diamond svg {
+   306→    width: 72px;
+   307→    height: 72px;
+   308→  }
+   309→
+   310→  #page-cover .brand-name {
+   311→    font-size: 48px;
+   312→    font-weight: 900;
+   313→    letter-spacing: 8px;
+   314→    color: var(--white);
+   315→    text-transform: uppercase;
+   316→    margin-bottom: 4px;
+   317→    position: relative;
+   318→    z-index: 2;
+   319→  }
+   320→  #page-cover .brand-name span {
+   321→    background: linear-gradient(135deg, var(--emerald-light), var(--emerald));
+   322→    -webkit-background-clip: text;
+   323→    -webkit-text-fill-color: transparent;
+   324→    background-clip: text;
+   325→  }
+   326→
+   327→  #page-cover .brand-tm {
+   328→    font-size: 11px;
+   329→    font-weight: 400;
+   330→    color: var(--text-muted);
+   331→    letter-spacing: 6px;
+   332→    text-transform: uppercase;
+   333→    margin-bottom: 36px;
+   334→    position: relative;
+   335→    z-index: 2;
+   336→  }
+   337→
+   338→  #page-cover .divider-line {
+   339→    width: 80px;
+   340→    height: 2px;
+   341→    background: linear-gradient(90deg, transparent, var(--emerald), transparent);
+   342→    margin: 0 auto 32px;
+   343→    position: relative;
+   344→    z-index: 2;
+   345→  }
+   346→
+   347→  #page-cover .tagline {
+   348→    font-size: 16px;
+   349→    font-weight: 300;
+   350→    color: var(--text-secondary);
+   351→    letter-spacing: 1px;
+   352→    position: relative;
+   353→    z-index: 2;
+   354→    max-width: 340px;
+   355→    line-height: 1.6;
+   356→  }
+   357→  #page-cover .tagline em {
+   358→    color: var(--emerald-light);
+   359→    font-style: normal;
+   360→    font-weight: 500;
+   361→  }
+   362→
+   363→  #page-cover .cover-meta {
+   364→    position: absolute;
+   365→    bottom: 36px;
+   366→    left: 0;
+   367→    right: 0;
+   368→    display: flex;
+   369→    justify-content: center;
+   370→    gap: 32px;
+   371→    z-index: 2;
+   372→  }
+   373→  #page-cover .cover-meta span {
+   374→    font-family: 'JetBrains Mono', monospace;
+   375→    font-size: 9px;
+   376→    color: var(--text-muted);
+   377→    letter-spacing: 2px;
+   378→    text-transform: uppercase;
+   379→  }
+   380→
+   381→  #page-cover .corner-deco {
+   382→    position: absolute;
+   383→    width: 60px;
+   384→    height: 60px;
+   385→    border-color: var(--emerald);
+   386→    opacity: 0.3;
+   387→    z-index: 2;
+   388→  }
+   389→
+   390→  /* ═══════════════════════════════════════════════════════════
+   391→     PAGE 2: VUE D'ENSEMBLE
+   392→  ═══════════════════════════════════════════════════════════ */
+   393→  #page-overview {
+   394→    padding: 40px 36px;
+   395→  }
+   396→  #page-overview .page-header {
+   397→    margin-bottom: 28px;
+   398→  }
+   399→  #page-overview .page-header .badge { margin-bottom: 12px; }
+   400→  #page-overview .page-header h1 {
+   401→    font-size: 28px;
+   402→    font-weight: 800;
+   403→    color: var(--white);
+   404→    margin-bottom: 6px;
+   405→    letter-spacing: -0.5px;
+   406→  }
+   407→  #page-overview .page-header .subtitle {
+   408→    font-size: 12px;
+   409→    color: var(--text-secondary);
+   410→    line-height: 1.6;
+   411→    max-width: 440px;
+   412→  }
+   413→
+   414→  #page-overview .desc-block {
+   415→    background: linear-gradient(135deg, rgba(16,185,129,0.06), rgba(16,185,129,0.02));
+   416→    border: 1px solid var(--dark-border);
+   417→    border-radius: 14px;
+   418→    padding: 22px 24px;
+   419→    margin-bottom: 24px;
+   420→  }
+   421→  #page-overview .desc-block p {
+   422→    font-size: 12.5px;
+   423→    color: var(--text-secondary);
+   424→    line-height: 1.7;
+   425→  }
+   426→  #page-overview .desc-block p strong {
+   427→    color: var(--emerald-light);
+   428→    font-weight: 600;
+   429→  }
+   430→
+   431→  #page-overview .features-grid {
+   432→    display: grid;
+   433→    grid-template-columns: 1fr 1fr;
+   434→    gap: 14px;
+   435→  }
+   436→
+   437→  /* ═══════════════════════════════════════════════════════════
+   438→     PAGE 3: ONGLETS PRINCIPAUX
+   439→  ═══════════════════════════════════════════════════════════ */
+   440→  #page-tabs-main {
+   441→    padding: 40px 36px;
+   442→  }
+   443→  #page-tabs-main .page-header {
+   444→    margin-bottom: 22px;
+   445→  }
+   446→  #page-tabs-main .page-header .badge { margin-bottom: 12px; }
+   447→  #page-tabs-main .page-header h1 {
+   448→    font-size: 26px;
+   449→    font-weight: 800;
+   450→    color: var(--white);
+   451→    margin-bottom: 6px;
+   452→  }
+   453→  #page-tabs-main .page-header .subtitle {
+   454→    font-size: 11.5px;
+   455→    color: var(--text-secondary);
+   456→    line-height: 1.6;
+   457→    max-width: 400px;
+   458→  }
+   459→
+   460→  #page-tabs-main .tabs-list {
+   461→    display: flex;
+   462→    flex-direction: column;
+   463→    gap: 10px;
+   464→  }
+   465→
+   466→  /* ═══════════════════════════════════════════════════════════
+   467→     PAGE 4: ONGLETS AVANCÉS
+   468→  ═══════════════════════════════════════════════════════════ */
+   469→  #page-tabs-advanced {
+   470→    padding: 40px 36px;
+   471→  }
+   472→  #page-tabs-advanced .page-header {
+   473→    margin-bottom: 24px;
+   474→  }
+   475→  #page-tabs-advanced .page-header .badge { margin-bottom: 12px; }
+   476→  #page-tabs-advanced .page-header h1 {
+   477→    font-size: 26px;
+   478→    font-weight: 800;
+   479→    color: var(--white);
+   480→    margin-bottom: 6px;
+   481→  }
+   482→  #page-tabs-advanced .page-header .subtitle {
+   483→    font-size: 11.5px;
+   484→    color: var(--text-secondary);
+   485→    line-height: 1.6;
+   486→    max-width: 400px;
+   487→  }
+   488→
+   489→  .advanced-card {
+   490→    background: var(--dark-card);
+   491→    border: 1px solid var(--dark-border);
+   492→    border-radius: 14px;
+   493→    padding: 22px 24px;
+   494→    margin-bottom: 16px;
+   495→    position: relative;
+   496→    overflow: hidden;
+   497→  }
+   498→  .advanced-card::after {
+   499→    content: '';
+   500→    position: absolute;
+   501→    top: 0;
+   502→    right: 0;
+   503→    width: 120px;
+   504→    height: 120px;
+   505→    border-radius: 50%;
+   506→    filter: blur(50px);
+   507→    pointer-events: none;
+   508→    opacity: 0.3;
+   509→  }
+   510→  .advanced-card.gold-accent::after { background: var(--gold-dim); }
+   511→  .advanced-card.emerald-accent::after { background: var(--emerald-glow); }
+   512→
+   513→  .advanced-card .card-header {
+   514→    display: flex;
+   515→    align-items: center;
+   516→    gap: 12px;
+   517→    margin-bottom: 12px;
+   518→  }
+   519→  .advanced-card .card-header .card-icon {
+   520→    width: 44px;
+   521→    height: 44px;
+   522→    border-radius: 12px;
+   523→    display: flex;
+   524→    align-items: center;
+   525→    justify-content: center;
+   526→    font-size: 22px;
+   527→    flex-shrink: 0;
+   528→  }
+   529→  .advanced-card .card-header .card-icon.emerald-bg {
+   530→    background: var(--emerald-glow);
+   531→    border: 1px solid rgba(16,185,129,0.2);
+   532→  }
+   533→  .advanced-card .card-header .card-icon.gold-bg {
+   534→    background: var(--gold-dim);
+   535→    border: 1px solid rgba(245,158,11,0.2);
+   536→  }
+   537→  .advanced-card .card-header h2 {
+   538→    font-size: 16px;
+   539→    font-weight: 700;
+   540→    color: var(--white);
+   541→  }
+   542→  .advanced-card .card-header .card-badge {
+   543→    font-size: 9px;
+   544→    padding: 2px 8px;
+   545→    border-radius: 100px;
+   546→    font-weight: 700;
+   547→    letter-spacing: 1.5px;
+   548→    text-transform: uppercase;
+   549→  }
+   550→
+   551→  .advanced-card .card-body p {
+   552→    font-size: 11.5px;
+   553→    color: var(--text-secondary);
+   554→    line-height: 1.6;
+   555→    margin-bottom: 12px;
+   556→  }
+   557→  .advanced-card .card-body .sub-features {
+   558→    display: grid;
+   559→    grid-template-columns: 1fr 1fr;
+   560→    gap: 8px;
+   561→  }
+   562→  .advanced-card .card-body .sub-feat {
+   563→    display: flex;
+   564→    align-items: center;
+   565→    gap: 8px;
+   566→    padding: 6px 10px;
+   567→    background: rgba(255,255,255,0.03);
+   568→    border-radius: 8px;
+   569→    font-size: 10px;
+   570→    color: var(--text-secondary);
+   571→  }
+   572→  .advanced-card .card-body .sub-feat .dot {
+   573→    width: 5px;
+   574→    height: 5px;
+   575→    border-radius: 50%;
+   576→    flex-shrink: 0;
+   577→  }
+   578→  .advanced-card .card-body .sub-feat .dot.emerald { background: var(--emerald); }
+   579→  .advanced-card .card-body .sub-feat .dot.gold { background: var(--gold); }
+   580→
+   581→  /* ═══════════════════════════════════════════════════════════
+   582→     PAGE 5: FONCTIONNALITÉS CLÉS
+   583→  ═══════════════════════════════════════════════════════════ */
+   584→  #page-features {
+   585→    padding: 40px 36px;
+   586→  }
+   587→  #page-features .page-header {
+   588→    margin-bottom: 24px;
+   589→  }
+   590→  #page-features .page-header .badge { margin-bottom: 12px; }
+   591→  #page-features .page-header h1 {
+   592→    font-size: 26px;
+   593→    font-weight: 800;
+   594→    color: var(--white);
+   595→    margin-bottom: 6px;
+   596→  }
+   597→  #page-features .page-header .subtitle {
+   598→    font-size: 11.5px;
+   599→    color: var(--text-secondary);
+   600→    line-height: 1.6;
+   601→    max-width: 420px;
+   602→  }
+   603→
+   604→  #page-features .features-list {
+   605→    display: grid;
+   606→    grid-template-columns: 1fr 1fr;
+   607→    gap: 12px;
+   608→  }
+   609→
+   610→  .feat-item {
+   611→    display: flex;
+   612→    align-items: flex-start;
+   613→    gap: 12px;
+   614→    padding: 16px;
+   615→    background: var(--dark-card);
+   616→    border: 1px solid var(--dark-border-subtle);
+   617→    border-radius: 12px;
+   618→  }
+   619→  .feat-item .feat-icon {
+   620→    width: 38px;
+   621→    height: 38px;
+   622→    border-radius: 10px;
+   623→    display: flex;
+   624→    align-items: center;
+   625→    justify-content: center;
+   626→    font-size: 18px;
+   627→    flex-shrink: 0;
+   628→  }
+   629→  .feat-item .feat-icon.emerald-bg {
+   630→    background: var(--emerald-glow);
+   631→    border: 1px solid rgba(16,185,129,0.2);
+   632→  }
+   633→  .feat-item .feat-icon.gold-bg {
+   634→    background: var(--gold-dim);
+   635→    border: 1px solid rgba(245,158,11,0.2);
+   636→  }
+   637→  .feat-item .feat-text h3 {
+   638→    font-size: 12px;
+   639→    font-weight: 700;
+   640→    color: var(--text-primary);
+   641→    margin-bottom: 2px;
+   642→  }
+   643→  .feat-item .feat-text p {
+   644→    font-size: 10px;
+   645→    color: var(--text-secondary);
+   646→    line-height: 1.45;
+   647→  }
+   648→
+   649→  #page-features .arch-block {
+   650→    margin-top: 18px;
+   651→    background: linear-gradient(135deg, rgba(16,185,129,0.05), rgba(245,158,11,0.03));
+   652→    border: 1px solid var(--dark-border);
+   653→    border-radius: 14px;
+   654→    padding: 18px 22px;
+   655→  }
+   656→  #page-features .arch-block h3 {
+   657→    font-size: 13px;
+   658→    font-weight: 700;
+   659→    color: var(--emerald-light);
+   660→    margin-bottom: 6px;
+   661→  }
+   662→  #page-features .arch-block p {
+   663→    font-size: 10.5px;
+   664→    color: var(--text-secondary);
+   665→    line-height: 1.55;
+   666→  }
+   667→
+   668→  /* ═══════════════════════════════════════════════════════════
+   669→     PAGE 6: COMMENCER
+   670→  ═══════════════════════════════════════════════════════════ */
+   671→  #page-start {
+   672→    padding: 40px 36px;
+   673→    display: flex;
+   674→    flex-direction: column;
+   675→  }
+   676→  #page-start .page-header {
+   677→    margin-bottom: 24px;
+   678→  }
+   679→  #page-start .page-header .badge { margin-bottom: 12px; }
+   680→  #page-start .page-header h1 {
+   681→    font-size: 26px;
+   682→    font-weight: 800;
+   683→    color: var(--white);
+   684→    margin-bottom: 6px;
+   685→  }
+   686→  #page-start .page-header .subtitle {
+   687→    font-size: 11.5px;
+   688→    color: var(--text-secondary);
+   689→    line-height: 1.6;
+   690→    max-width: 400px;
+   691→  }
+   692→
+   693→  #page-start .steps-container {
+   694→    flex: 1;
+   695→    display: flex;
+   696→    flex-direction: column;
+   697→    gap: 16px;
+   698→    padding-left: 4px;
+   699→  }
+   700→
+   701→  #page-start .cta-block {
+   702→    margin-top: auto;
+   703→    background: linear-gradient(135deg, var(--emerald-dark), var(--emerald));
+   704→    border-radius: 16px;
+   705→    padding: 24px 28px;
+   706→    text-align: center;
+   707→    position: relative;
+   708→    overflow: hidden;
+   709→  }
+   710→  #page-start .cta-block::before {
+   711→    content: '';
+   712→    position: absolute;
+   713→    top: -40px;
+   714→    right: -40px;
+   715→    width: 120px;
+   716→    height: 120px;
+   717→    border-radius: 50%;
+   718→    background: rgba(255,255,255,0.08);
+   719→  }
+   720→  #page-start .cta-block h2 {
+   721→    font-size: 18px;
+   722→    font-weight: 800;
+   723→    color: var(--dark-bg);
+   724→    margin-bottom: 4px;
+   725→  }
+   726→  #page-start .cta-block p {
+   727→    font-size: 11px;
+   728→    color: rgba(15,23,42,0.7);
+   729→    line-height: 1.5;
+   730→  }
+   731→
+   732→  /* ── Decorative Lines ────────────────────────────────────── */
+   733→  .deco-line {
+   734→    position: absolute;
+   735→    background: var(--emerald);
+   736→    opacity: 0.1;
+   737→  }
+   738→  .deco-line.h { height: 1px; width: 100%; left: 0; }
+   739→  .deco-line.v { width: 1px; height: 100%; top: 0; }
+   740→</style>
+   741→</head>
+   742→<body>
+   743→
+   744→<!-- ═══════════════════════════════════════════════════════════
+   745→     PAGE 1: COVER
+   746→═══════════════════════════════════════════════════════════ -->
+   747→<div class="page" id="page-cover">
+   748→  <div class="grid-bg"></div>
+   749→  <div class="glow-orb emerald" style="top: 15%; left: 20%;"></div>
+   750→  <div class="glow-orb emerald" style="bottom: 20%; right: 15%;"></div>
+   751→  <div class="glow-orb gold" style="top: 50%; right: 30%;"></div>
+   752→
+   753→  <!-- Corner decorations -->
+   754→  <div class="corner-deco" style="top:28px; left:28px; border-top:1px solid var(--emerald); border-left:1px solid var(--emerald); opacity:0.4;"></div>
+   755→  <div class="corner-deco" style="top:28px; right:28px; border-top:1px solid var(--emerald); border-right:1px solid var(--emerald); opacity:0.4;"></div>
+   756→  <div class="corner-deco" style="bottom:28px; left:28px; border-bottom:1px solid var(--emerald); border-left:1px solid var(--emerald); opacity:0.4;"></div>
+   757→  <div class="corner-deco" style="bottom:28px; right:28px; border-bottom:1px solid var(--emerald); border-right:1px solid var(--emerald); opacity:0.4;"></div>
+   758→
+   759→  <!-- Logo -->
+   760→  <div class="cover-logo">
+   761→    <div class="logo-diamond">
+   762→      <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+   763→        <rect x="14" y="14" width="44" height="44" rx="8" stroke="url(#grad1)" stroke-width="2" fill="none" transform="rotate(45 36 36)"/>
+   764→        <rect x="22" y="22" width="28" height="28" rx="4" stroke="url(#grad1)" stroke-width="1.5" fill="rgba(16,185,129,0.08)" transform="rotate(45 36 36)"/>
+   765→        <circle cx="36" cy="36" r="4" fill="#10b981"/>
+   766→        <defs>
+   767→          <linearGradient id="grad1" x1="0" y1="0" x2="72" y2="72">
+   768→            <stop offset="0%" stop-color="#10b981"/>
+   769→            <stop offset="100%" stop-color="#34d399"/>
+   770→          </linearGradient>
+   771→        </defs>
+   772→      </svg>
+   773→    </div>
+   774→  </div>
+   775→
+   776→  <div class="brand-name"><span>DONCIEL</span></div>
+   777→  <div class="brand-tm">Journal de Trading Professionnel</div>
+   778→  <div class="divider-line"></div>
+   779→  <div class="tagline">
+   780→    Maîtrisez vos trades.<br>
+   781→    Maîtrisez votre <em>destin</em>.
+   782→  </div>
+   783→
+   784→  <div class="cover-meta">
+   785→    <span>Guide Utilisateur</span>
+   786→    <span>&bull;</span>
+   787→    <span>v2.0</span>
+   788→    <span>&bull;</span>
+   789→    <span>2025</span>
+   790→  </div>
+   791→</div>
+   792→
+   793→<!-- ═══════════════════════════════════════════════════════════
+   794→     PAGE 2: VUE D'ENSEMBLE
+   795→═══════════════════════════════════════════════════════════ -->
+   796→<div class="page" id="page-overview">
+   797→  <div class="glow-orb emerald" style="top: -80px; right: -60px;"></div>
+   798→  <div class="corner-accent tl"></div>
+   799→  <div class="corner-accent br"></div>
+   800→
+   801→  <div class="page-header">
+   802→    <div class="badge badge-emerald">Vue d'ensemble</div>
+   803→    <h1>Tout pour le trader moderne</h1>
+   804→    <p class="subtitle">DONCIEL™ combine analyse avancée, gestion rigoureuse et suivi professionnel dans une interface élégante et intuitive.</p>
+   805→  </div>
+   806→
+   807→  <div class="desc-block">
+   808→    <p>
+   809→      <strong>DONCIEL™</strong> est un journal de trading ultra-professionnel conçu pour les traders exigeants. Centralisez vos données, analysez vos performances et optimisez votre stratégie grâce à des outils de pointe, le tout dans un environnement sécurisé et bilingue.
+   810→    </p>
+   811→  </div>
+   812→
+   813→  <div class="features-grid">
+   814→    <div class="feature-card">
+   815→      <div class="icon">📊</div>
+   816→      <h3>Journal Ultra-Pro</h3>
+   817→      <p>Saisie complète de trades avec métriques avancées, notes et suivi de performance en temps réel.</p>
+   818→    </div>
+   819→    <div class="feature-card">
+   820→      <div class="icon">⚡</div>
+   821→      <h3>Analyse Temps Réel</h3>
+   822→      <p>Tableaux de bord dynamiques, graphiques de distribution et statistiques instantanées.</p>
+   823→    </div>
+   824→    <div class="feature-card">
+   825→      <div class="icon">🌐</div>
+   826→      <h3>Bilingue FR / EN</h3>
+   827→      <p>Interface complète en français et anglais. Changez de langue en un clic.</p>
+   828→    </div>
+   829→    <div class="feature-card">
+   830→      <div class="icon">🔒</div>
+   831→      <h3>Sécurité & Rôles</h3>
+   832→      <p>Authentification sécurisée, rôles Admin/User et protection des données sensibles.</p>
+   833→    </div>
+   834→  </div>
+   835→
+   836→  <div class="page-num">02 / 06</div>
+   837→</div>
+   838→
+   839→<!-- ═══════════════════════════════════════════════════════════
+   840→     PAGE 3: ONGLETS PRINCIPAUX
+   841→═══════════════════════════════════════════════════════════ -->
+   842→<div class="page" id="page-tabs-main">
+   843→  <div class="glow-orb emerald" style="bottom: -60px; left: -80px;"></div>
+   844→  <div class="corner-accent tl"></div>
+   845→  <div class="corner-accent br"></div>
+   846→
+   847→  <div class="page-header">
+   848→    <div class="badge badge-emerald">Navigation</div>
+   849→    <h1>Onglets Principaux</h1>
+   850→    <p class="subtitle">Six onglets essentiels pour couvrir tous les aspects de votre activité de trading.</p>
+   851→  </div>
+   852→
+   853→  <div class="tabs-list">
+   854→    <div class="tab-item">
+   855→      <div class="tab-icon">🎯</div>
+   856→      <div class="tab-content">
+   857→        <h3>Exécution DONCIEL</h3>
+   858→        <p>Suivez votre progression globale : phases d'exécution, cycles de trading et objectifs atteints. Vue synthétique de votre parcours.</p>
+   859→      </div>
+   860→    </div>
+   861→    <div class="tab-item">
+   862→      <div class="tab-icon">⚙️</div>
+   863→      <div class="tab-content">
+   864→        <h3>Setup</h3>
+   865→        <p>Gérez vos données de marché, saisissez vos trades avec précision et configurez vos paramètres de trading personnalisés.</p>
+   866→      </div>
+   867→    </div>
+   868→    <div class="tab-item">
+   869→      <div class="tab-icon">📅</div>
+   870→      <div class="tab-content">
+   871→        <h3>Journal</h3>
+   872→        <p>Calendrier de trading interactif. Visualisez vos sessions, identifiez vos jours les plus performants et suivez votre régularité.</p>
+   873→      </div>
+   874→    </div>
+   875→    <div class="tab-item">
+   876→      <div class="tab-icon">📈</div>
+   877→      <div class="tab-content">
+   878→        <h3>Distribution RR</h3>
+   879→        <p>Analysez votre ratio Risk-Reward. Graphiques de distribution, statistiques détaillées et identification des setups les plus rentables.</p>
+   880→      </div>
+   881→    </div>
+   882→    <div class="tab-item">
+   883→      <div class="tab-icon">⏱️</div>
+   884→      <div class="tab-content">
+   885→        <h3>Timing</h3>
+   886→        <p>Performance par période : horaires, jours de la semaine, sessions de marché. Optimisez vos moments de trading.</p>
+   887→      </div>
+   888→    </div>
+   889→    <div class="tab-item">
+   890→      <div class="tab-icon">🎬</div>
+   891→      <div class="tab-content">
+   892→        <h3>Vidéos</h3>
+   893→        <p>Ressources d'apprentissage et tutoriels vidéo. Perfects your skills with curated educational content.</p>
+   894→      </div>
+   895→    </div>
+   896→  </div>
+   897→
+   898→  <div class="page-num">03 / 06</div>
+   899→</div>
+   900→
+   901→<!-- ═══════════════════════════════════════════════════════════
+   902→     PAGE 4: ONGLETS AVANCÉS
+   903→═══════════════════════════════════════════════════════════ -->
+   904→<div class="page" id="page-tabs-advanced">
+   905→  <div class="glow-orb gold" style="top: -40px; right: -60px;"></div>
+   906→  <div class="glow-orb emerald" style="bottom: -40px; left: -60px;"></div>
+   907→  <div class="corner-accent tl"></div>
+   908→  <div class="corner-accent br"></div>
+   909→
+   910→  <div class="page-header">
+   911→    <div class="badge badge-gold">Avancé</div>
+   912→    <h1>Onglets Avancés</h1>
+   913→    <p class="subtitle">Des outils professionnels pour les traders qui veulent passer au niveau supérieur.</p>
+   914→  </div>
+   915→
+   916→  <!-- Notes de Préparation -->
+   917→  <div class="advanced-card emerald-accent">
+   918→    <div class="card-header">
+   919→      <div class="card-icon emerald-bg">📓</div>
+   920→      <div>
+   921→        <h2>Notes de Préparation</h2>
+   922→        <span class="card-badge badge-emerald">Pro</span>
+   923→      </div>
+   924→    </div>
+   925→    <div class="card-body">
+   926→      <p>Notebook ultra-professionnel pour structurer votre routine de préparation de marché. Chaque détail compte.</p>
+   927→      <div class="sub-features">
+   928→        <div class="sub-feat"><div class="dot emerald"></div>Tracking d'humeur quotidien</div>
+   929→        <div class="sub-feat"><div class="dot emerald"></div>Checklist pré-market</div>
+   930→        <div class="sub-feat"><div class="dot emerald"></div>Score de performance</div>
+   931→        <div class="sub-feat"><div class="dot emerald"></div>Notes illimitées</div>
+   932→      </div>
+   933→    </div>
+   934→  </div>
+   935→
+   936→  <!-- Marché -->
+   937→  <div class="advanced-card gold-accent">
+   938→    <div class="card-header">
+   939→      <div class="card-icon gold-bg">🌍</div>
+   940→      <div>
+   941→        <h2>Marché</h2>
+   942→        <span class="card-badge badge-gold">IA</span>
+   943→      </div>
+   944→    </div>
+   945→    <div class="card-body">
+   946→      <p>Suivi complet de l'environnement macroéconomique avec intelligence artificielle intégrée pour des insights actionnables.</p>
+   947→      <div class="sub-features">
+   948→        <div class="sub-feat"><div class="dot gold"></div>Calendrier économique</div>
+   949→        <div class="sub-feat"><div class="dot gold"></div>Analyse IA du marché</div>
+   950→        <div class="sub-feat"><div class="dot gold"></div>Indicateur de sentiment</div>
+   951→        <div class="sub-feat"><div class="dot gold"></div>Alertes en temps réel</div>
+   952→      </div>
+   953→    </div>
+   954→  </div>
+   955→
+   956→  <!-- Playbook -->
+   957→  <div class="advanced-card emerald-accent">
+   958→    <div class="card-header">
+   959→      <div class="card-icon emerald-bg">📖</div>
+   960→      <div>
+   961→        <h2>Playbook</h2>
+   962→        <span class="card-badge badge-emerald">Stratégie</span>
+   963→      </div>
+   964→    </div>
+   965→    <div class="card-body">
+   966→      <p>Documentez et suivez vos stratégies de trading. Chaque setup est traqué, mesuré et optimisé pour la performance.</p>
+   967→      <div class="sub-features">
+   968→        <div class="sub-feat"><div class="dot emerald"></div>Stratégies documentées</div>
+   969→        <div class="sub-feat"><div class="dot emerald"></div>Règles d'entrée/sortie</div>
+   970→        <div class="sub-feat"><div class="dot emerald"></div>Performance par setup</div>
+   971→        <div class="sub-feat"><div class="dot emerald"></div>Historique complet</div>
+   972→      </div>
+   973→    </div>
+   974→  </div>
+   975→
+   976→  <div class="page-num">04 / 06</div>
+   977→</div>
+   978→
+   979→<!-- ═══════════════════════════════════════════════════════════
+   980→     PAGE 5: FONCTIONNALITÉS CLÉS
+   981→═══════════════════════════════════════════════════════════ -->
+   982→<div class="page" id="page-features">
+   983→  <div class="glow-orb emerald" style="top: 50%; left: -80px;"></div>
+   984→  <div class="glow-orb gold" style="bottom: -40px; right: -40px;"></div>
+   985→  <div class="corner-accent tl"></div>
+   986→  <div class="corner-accent br"></div>
+   987→
+   988→  <div class="page-header">
+   989→    <div class="badge badge-emerald">Technologie</div>
+   990→    <h1>Fonctionnalités Clés</h1>
+   991→    <p class="subtitle">Une architecture pensée pour la performance, la sécurité et l'expérience utilisateur.</p>
+   992→  </div>
+   993→
+   994→  <div class="features-list">
+   995→    <div class="feat-item">
+   996→      <div class="feat-icon emerald-bg">🔐</div>
+   997→      <div class="feat-text">
+   998→        <h3>Authentification Sécurisée</h3>
+   999→        <p>Système d'authentification robuste avec gestion de sessions et protection des données.</p>
+  1000→      </div>
+  1001→    </div>
+  1002→    <div class="feat-item">
+  1003→      <div class="feat-icon gold-bg">👑</div>
+  1004→      <div class="feat-text">
+  1005→        <h3>Rôles Admin / User</h3>
+  1006→        <p>Gestion fine des permissions. Les administrateurs contrôlent les accès et validations.</p>
+  1007→      </div>
+  1008→    </div>
+  1009→    <div class="feat-item">
+  1010→      <div class="feat-icon emerald-bg">📄</div>
+  1011→      <div class="feat-text">
+  1012→        <h3>Export PDF</h3>
+  1013→        <p>Exportez vos rapports, analyses et journaux en PDF professionnel en un clic.</p>
+  1014→      </div>
+  1015→    </div>
+  1016→    <div class="feat-item">
+  1017→      <div class="feat-icon gold-bg">🌙</div>
+  1018→      <div class="feat-text">
+  1019→        <h3>Mode Sombre / Clair</h3>
+  1020→        <p>Interface adaptative. Passez du thème sombre au thème clair selon vos préférences.</p>
+  1021→      </div>
+  1022→    </div>
+  1023→    <div class="feat-item">
+  1024→      <div class="feat-icon emerald-bg">🌐</div>
+  1025→      <div class="feat-text">
+  1026→        <h3>Bilingue FR / EN</h3>
+  1027→        <p>Interface complète disponible en français et anglais. Commutez instantanément.</p>
+  1028→      </div>
+  1029→    </div>
+  1030→    <div class="feat-item">
+  1031→      <div class="feat-icon gold-bg">📊</div>
+  1032→      <div class="feat-text">
+  1033→        <h3>Statistiques Avancées</h3>
+  1034→        <p>Métriques détaillées, graphiques de performance et tableaux de bord analytiques.</p>
+  1035→      </div>
+  1036→    </div>
+  1037→  </div>
+  1038→
+  1039→  <div class="arch-block">
+  1040→    <h3>🏗️ Architecture Robuste</h3>
+  1041→    <p>Développé avec une architecture moderne et évolutive : composants réutilisables, gestion d'état optimisée, API REST sécurisée et base de données fiable. Conçu pour accompagner votre croissance de trader.</p>
+  1042→  </div>
+  1043→
+  1044→  <div class="page-num">05 / 06</div>
+  1045→</div>
+  1046→
+  1047→<!-- ═══════════════════════════════════════════════════════════
+  1048→     PAGE 6: COMMENCER
+  1049→═══════════════════════════════════════════════════════════ -->
+  1050→<div class="page" id="page-start">
+  1051→  <div class="glow-orb emerald" style="top: 20%; right: -60px;"></div>
+  1052→  <div class="corner-accent tl"></div>
+  1053→  <div class="corner-accent br"></div>
+  1054→
+  1055→  <div class="page-header">
+  1056→    <div class="badge badge-gold">Démarrage</div>
+  1057→    <h1>Commencer avec DONCIEL</h1>
+  1058→    <p class="subtitle">Six étapes simples pour tirer le meilleur parti de votre journal de trading.</p>
+  1059→  </div>
+  1060→
+  1061→  <div class="steps-container">
+  1062→    <div class="step-item">
+  1063→      <div class="step-num">1</div>
+  1064→      <div class="step-content">
+  1065→        <h3>Créez un compte</h3>
+  1066→        <p>Inscrivez-vous avec votre email. L'inscription est rapide et sécurisée.</p>
+  1067→      </div>
+  1068→    </div>
+  1069→    <div class="step-item">
+  1070→      <div class="step-num">2</div>
+  1071→      <div class="step-content">
+  1072→        <h3>Attendez l'approbation admin</h3>
+  1073→        <p>Un administrateur validera votre compte pour garantir la sécurité de la plateforme.</p>
+  1074→      </div>
+  1075→    </div>
+  1076→    <div class="step-item">
+  1077→      <div class="step-num">3</div>
+  1078→      <div class="step-content">
+  1079→        <h3>Connectez-vous</h3>
+  1080→        <p>Accédez à votre espace personnel avec vos identifiants sécurisés.</p>
+  1081→      </div>
+  1082→    </div>
+  1083→    <div class="step-item">
+  1084→      <div class="step-num">4</div>
+  1085→      <div class="step-content">
+  1086→        <h3>Explorez les onglets</h3>
+  1087→        <p>Découvrez les neuf onglets : Exécution, Setup, Journal, Distribution, Timing, Vidéos, Notes, Marché et Playbook.</p>
+  1088→      </div>
+  1089→    </div>
+  1090→    <div class="step-item">
+  1091→      <div class="step-num">5</div>
+  1092→      <div class="step-content">
+  1093→        <h3>Saisissez vos trades</h3>
+  1094→        <p>Enregistrez chaque trade avec précision : paire, direction, RR, notes et screenshots.</p>
+  1095→      </div>
+  1096→    </div>
+  1097→    <div class="step-item">
+  1098→      <div class="step-num">6</div>
+  1099→      <div class="step-content">
+  1100→        <h3>Analysez vos performances</h3>
+  1101→        <p>Consultez vos statistiques, identifiez vos forces et optimisez votre stratégie de trading.</p>
+  1102→      </div>
+  1103→    </div>
+  1104→  </div>
+  1105→
+  1106→  <div class="cta-block">
+  1107→    <h2>Prêt à maîtriser vos trades ?</h2>
+  1108→    <p>Rejoignez DONCIEL™ et transformez votre approche du trading.</p>
+  1109→  </div>
+  1110→
+  1111→  <div class="page-num">06 / 06</div>
+  1112→</div>
+  1113→
+  1114→</body>
+  1115→</html>
+  1116→
