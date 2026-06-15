@@ -22,6 +22,7 @@ model User {
   customPairs   CustomPair[]
   videos        Video[]
   alerts        Alert[]
+  playbooks     Playbook[]
 }
 
 model Trade {
@@ -58,6 +59,8 @@ model Trade {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   screenshots     Screenshot[]
+  playbookId      String?
+  playbook        Playbook? @relation(fields: [playbookId], references: [id], onDelete: SetNull)
 }
 
 model Screenshot {
@@ -133,6 +136,45 @@ model CustomPair {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   createdAt DateTime @default(now())
+}
+
+model Playbook {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  description       String?
+  category          String?  // BREAKOUT, RETRACE, TREND_FOLLOW, REVERSAL, RANGE, CUSTOM
+  direction         String?  // LONG, SHORT, BOTH
+  marketCondition   String?  // CONTINUATION, RETRACEMENT, ANY
+  session           String?  // LONDON, NEW YORK, ASIE, OVERLAP, ANY
+  timeframe         String?  // M1, M5, M15, M30, H1, H4, D1, W1
+  entryRules        String?  // JSON array of rule strings
+  exitRules         String?  // JSON array of rule strings
+  stopLossRules     String?
+  takeProfitRules   String?
+  riskPerTrade      Float?   // Percentage
+  targetRR          Float?
+  trailingStopRules String?
+  checklist         String?  // JSON array of {text, checked}
+  tags              String?  // JSON array of tag strings
+  notes             String?  // Observations, lessons
+  status            String   @default("ACTIVE") // ACTIVE, PAUSED, ARCHIVED
+  color             String?  // Custom color hex
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  screenshots       PlaybookScreenshot[]
+  trades            Trade[]
+}
+
+model PlaybookScreenshot {
+  id         String   @id @default(cuid())
+  playbookId String
+  playbook   Playbook @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  url        String
+  type       String   // example_win, example_loss, reference
+  caption    String?
+  createdAt  DateTime @default(now())
 }
 
 model UploadSession {

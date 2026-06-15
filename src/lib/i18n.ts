@@ -279,6 +279,24 @@ export const translations = {
     deleteSetupConfirm: "Êtes-vous sûr de vouloir supprimer ce setup ?",
     maxSetupsReached: "Nombre maximum de setups atteint",
 
+    // Playbook
+    playbook: "Playbook",
+    playbookDescription: "Vos stratégies documentées et testées",
+    addPlaybook: "Nouveau Setup",
+    editPlaybook: "Modifier le Setup",
+    deletePlaybook: "Supprimer le Setup",
+    playbookName: "Nom du Setup",
+    playbookCategory: "Catégorie",
+    playbookDirection: "Direction",
+    playbookStatus: "Statut",
+    entryRules: "Règles d'Entrée",
+    exitRules: "Règles de Sortie",
+    riskManagement: "Gestion du Risque",
+    preTradeChecklist: "Checklist Pré-Trade",
+    playbookPerformance: "Performance du Setup",
+    noPlaybooks: "Aucun playbook créé",
+    noPlaybooksDesc: "Créez votre premier setup pour documenter vos stratégies",
+
   },
   en: {
     // App
@@ -559,6 +577,24 @@ export const translations = {
     deleteSetup: "Delete Setup",
     deleteSetupConfirm: "Are you sure you want to delete this setup?",
     maxSetupsReached: "Maximum number of setups reached",
+
+    // Playbook
+    playbook: "Playbook",
+    playbookDescription: "Your documented and tested strategies",
+    addPlaybook: "New Setup",
+    editPlaybook: "Edit Setup",
+    deletePlaybook: "Delete Setup",
+    playbookName: "Setup Name",
+    playbookCategory: "Category",
+    playbookDirection: "Direction",
+    playbookStatus: "Status",
+    entryRules: "Entry Rules",
+    exitRules: "Exit Rules",
+    riskManagement: "Risk Management",
+    preTradeChecklist: "Pre-Trade Checklist",
+    playbookPerformance: "Setup Performance",
+    noPlaybooks: "No playbooks created",
+    noPlaybooksDesc: "Create your first setup to document your strategies",
 
   }
 } as const;
