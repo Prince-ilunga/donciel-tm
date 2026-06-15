@@ -20,22 +20,19 @@ export async function GET(request: NextRequest) {
       where.type = type;
     }
 
-    // Try with alerts include first; fall back to screenshots only if DB not yet migrated
     let notes;
     try {
       notes = await db.note.findMany({
         where,
-        orderBy: { date: 'desc' },
+        orderBy: [{ pinned: 'desc' }, { date: 'desc' }],
         include: { screenshots: true, alerts: true },
       });
     } catch {
-      // Fallback: alerts relation may not exist yet (pending prisma db push)
       notes = await db.note.findMany({
         where,
         orderBy: { date: 'desc' },
         include: { screenshots: true },
       });
-      // Ensure each note has an alerts array for the frontend
       notes = notes.map((n: any) => ({ ...n, alerts: [] }));
     }
 
@@ -57,7 +54,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { type, title, content, date } = body;
+    const {
+      type, title, content, date,
+      mood, confidence, marketBias, tags, checklist,
+      priority, pinned, plan, observation, rules,
+    } = body;
 
     if (!type || !title || !date) {
       return NextResponse.json(
@@ -80,6 +81,16 @@ export async function POST(request: NextRequest) {
         title,
         content: content || '',
         date: new Date(date),
+        ...(mood && { mood }),
+        ...(confidence != null && { confidence: Number(confidence) }),
+        ...(marketBias && { marketBias }),
+        ...(tags && { tags: typeof tags === 'string' ? tags : JSON.stringify(tags) }),
+        ...(checklist && { checklist: typeof checklist === 'string' ? checklist : JSON.stringify(checklist) }),
+        ...(priority && { priority }),
+        ...(pinned != null && { pinned: Boolean(pinned) }),
+        ...(plan != null && { plan }),
+        ...(observation != null && { observation }),
+        ...(rules != null && { rules }),
       },
     });
 
