@@ -73,7 +73,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
-import { getFileUrl } from "@/lib/storage";
+import { getFileUrl } from "@/lib/file-url";
 
 // ─── Constants ──────────────────────────────────────────
 const NOTE_TYPES = [
