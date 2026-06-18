@@ -302,6 +302,67 @@ function getNoteGroupLabel(date: Date, language: "fr" | "en"): string {
   return format(date, "MMMM yyyy", { locale: undefined });
 }
 
+// ─── Error Boundary ─────────────────────────────────────
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class NotesErrorBoundary extends React.Component<
+  { children: React.ReactNode; language: "fr" | "en" },
+  ErrorBoundaryState
+> {
+  constructor(props: { children: React.ReactNode; language: "fr" | "en" }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("NotesTab error:", error, errorInfo);
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      const { language } = this.props;
+      return (
+        <div className="p-6 max-w-md mx-auto text-center space-y-4">
+          <AlertTriangle className="w-12 h-12 mx-auto text-amber-500" />
+          <h3 className="text-lg font-semibold">
+            {language === "fr" ? "Une erreur est survenue" : "An error occurred"}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {language === "fr"
+              ? "Le chargement des notes a rencontré un problème. Vous pouvez réessayer."
+              : "Loading notes encountered a problem. You can retry."}
+          </p>
+          {this.state.error && (
+            <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded font-mono break-all">
+              {this.state.error.message}
+            </p>
+          )}
+          <div className="flex gap-2 justify-center">
+            <Button onClick={this.handleRetry} variant="default" size="sm">
+              {language === "fr" ? "Réessayer" : "Retry"}
+            </Button>
+            <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+              {language === "fr" ? "Recharger la page" : "Reload page"}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ─── Main Component ──────────────────────────────────────
 export function NotesTab() {
   const { language } = useAppStore();
@@ -490,6 +551,7 @@ export function NotesTab() {
   ];
 
   return (
+    <NotesErrorBoundary language={language}>
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto overflow-x-hidden">
       {/* ─── Header ──────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -812,6 +874,7 @@ export function NotesTab() {
         </DialogContent>
       </Dialog>
     </div>
+    </NotesErrorBoundary>
   );
 }
 
