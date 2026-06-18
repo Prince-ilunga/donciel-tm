@@ -204,3 +204,33 @@ Stage Summary:
 - Fix: Extracted client-safe getFileUrl to separate file, updated one import line
 - No other files or functionality changed
 - Only notes-tab.tsx import line changed + new file-url.ts added
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Fix Notes tab still crashing on Vercel (second attempt)
+
+Work Log:
+- User reported Notes tab still crashes on Vercel after first fix (file-url extraction)
+- Verified first fix IS deployed: cloudinary SDK NOT in client bundle (only URL strings present)
+- Verified Vercel deployment is up to date: new chunk filenames, last-modified timestamp current
+- Tested Notes tab on Vercel with test user: works without errors
+- Unable to reproduce crash with test data (notes with screenshots, alerts, null fields)
+- Root cause of residual crash likely: user's browser caching old JS bundle, OR data-specific edge case
+- Solution: Added class-based ErrorBoundary (NotesErrorBoundary) wrapping entire NotesTab content
+  - Catches any client-side exception in Notes tab only
+  - Shows user-friendly error message with actual error text for debugging
+  - Provides "Retry" and "Reload page" buttons
+  - Logs error to console with component stack
+  - Prevents whole-page crash ("Application error" screen)
+- Only modified: src/components/notes/notes-tab.tsx (added error boundary class + wrapped return)
+- Lint passes, production build succeeds
+- Verified error boundary IS deployed on Vercel (getDerivedStateFromError found in chunks)
+- Pushed to GitHub: commit 263e291
+
+Stage Summary:
+- Error boundary added to Notes tab - prevents full-page crash
+- If any runtime error occurs, user sees retry screen instead of "Application error"
+- Error message is displayed for debugging
+- No other tabs or functionality affected
+- User may need to hard-refresh browser (Ctrl+Shift+R) to clear cached old JS
