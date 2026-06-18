@@ -179,3 +179,28 @@ Stage Summary:
 - Events classified by live status with visual indicators
 - Countdown timers show ⏳ and pulse red when urgent (<5 min)
 - New API endpoint /api/market/live provides lightweight live data
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Fix Notes tab crash on Vercel production (client-side exception)
+
+Work Log:
+- Analyzed user screenshot showing "Application error: a client-side exception has occurred" on donciel-trading.vercel.app when opening Notes tab
+- Reproduced locally by creating a test user with real notes data (mood, confidence, tags, checklist, screenshots, alerts)
+- Notes tab worked locally (dev mode) but crashes on Vercel production build
+- Root cause: notes-tab.tsx (a "use client" component) imports getFileUrl from src/lib/storage.ts
+  - storage.ts has top-level imports: cloudinary, path, fs (all Node.js-only)
+  - These cannot run in the browser bundle
+  - Dev mode (Turbopack) tolerates this, but Vercel production build crashes
+- Fix: Created new client-safe file src/lib/file-url.ts containing only the pure-string getFileUrl function (no Node.js imports)
+- Updated import in notes-tab.tsx: from "@/lib/storage" → from "@/lib/file-url"
+- Verified: lint passes, Notes tab renders correctly with notes, note viewer dialog works
+- Cleaned up test data from database
+- Pushed to GitHub: commit f27cdb3
+
+Stage Summary:
+- Root cause: Node.js-only imports (cloudinary/fs/path) in storage.ts bundled into client component
+- Fix: Extracted client-safe getFileUrl to separate file, updated one import line
+- No other files or functionality changed
+- Only notes-tab.tsx import line changed + new file-url.ts added
