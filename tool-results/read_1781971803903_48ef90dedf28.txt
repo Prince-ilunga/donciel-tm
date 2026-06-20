@@ -1,0 +1,2002 @@
+     1→"use client";
+     2→
+     3→import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+     4→import { useAppStore } from "@/stores/app-store";
+     5→import { t } from "@/lib/i18n";
+     6→import { useNotes } from "@/lib/hooks";
+     7→import { cn } from "@/lib/utils";
+     8→import { Card } from "@/components/ui/card";
+     9→import { Button } from "@/components/ui/button";
+    10→import { Input } from "@/components/ui/input";
+    11→import { Label } from "@/components/ui/label";
+    12→import { Textarea } from "@/components/ui/textarea";
+    13→import { Badge } from "@/components/ui/badge";
+    14→import { Skeleton } from "@/components/ui/skeleton";
+    15→import { ScrollArea } from "@/components/ui/scroll-area";
+    16→import { Separator } from "@/components/ui/separator";
+    17→import { Progress } from "@/components/ui/progress";
+    18→import { Slider } from "@/components/ui/slider";
+    19→import {
+    20→  Dialog,
+    21→  DialogContent,
+    22→  DialogHeader,
+    23→  DialogTitle,
+    24→  DialogDescription,
+    25→  DialogFooter,
+    26→} from "@/components/ui/dialog";
+    27→import {
+    28→  StickyNote,
+    29→  Plus,
+    30→  Edit3,
+    31→  Trash2,
+    32→  Calendar,
+    33→  Sun,
+    34→  CalendarDays,
+    35→  CalendarRange,
+    36→  Save,
+    37→  Loader2,
+    38→  Bell,
+    39→  BellRing,
+    40→  ImagePlus,
+    41→  X,
+    42→  Eye,
+    43→  ExternalLink,
+    44→  Camera,
+    45→  Search,
+    46→  Pin,
+    47→  PinOff,
+    48→  Target,
+    49→  TrendingUp,
+    50→  TrendingDown,
+    51→  Minus,
+    52→  Brain,
+    53→  CheckSquare,
+    54→  Square,
+    55→  Tag,
+    56→  BarChart3,
+    57→  Sparkles,
+    58→  Filter,
+    59→  ArrowUpDown,
+    60→  Zap,
+    61→  Activity,
+    62→  ChevronDown,
+    63→  ChevronRight,
+    64→  Heart,
+    65→  Shield,
+    66→  AlertTriangle,
+    67→  FileText,
+    68→  Layout,
+    69→  Star,
+    70→  Flame,
+    71→  Lightbulb,
+    72→  ClipboardList,
+    73→} from "lucide-react";
+    74→import { toast } from "sonner";
+    75→import { format, isToday, isYesterday, isThisWeek, isThisMonth } from "date-fns";
+    76→import { getFileUrl } from "@/lib/file-url";
+    77→
+    78→// ─── Constants ──────────────────────────────────────────
+    79→const NOTE_TYPES = [
+    80→  { id: "DAY", label_fr: "Journée", label_en: "Day", icon: Sun, color: "text-amber-500" },
+    81→  { id: "WEEK", label_fr: "Semaine", label_en: "Week", icon: CalendarDays, color: "text-primary" },
+    82→  { id: "MONTH", label_fr: "Mois", label_en: "Month", icon: CalendarRange, color: "text-emerald-500" },
+    83→];
+    84→
+    85→const MOODS = [
+    86→  { emoji: "😊", label_fr: "Confiant", label_en: "Confident", color: "bg-emerald-500/10 border-emerald-500/30" },
+    87→  { emoji: "🧠", label_fr: "Concentré", label_en: "Focused", color: "bg-blue-500/10 border-blue-500/30" },
+    88→  { emoji: "💪", label_fr: "Déterminé", label_en: "Determined", color: "bg-purple-500/10 border-purple-500/30" },
+    89→  { emoji: "😐", label_fr: "Neutre", label_en: "Neutral", color: "bg-gray-500/10 border-gray-500/30" },
+    90→  { emoji: "😤", label_fr: "Frustré", label_en: "Frustrated", color: "bg-orange-500/10 border-orange-500/30" },
+    91→  { emoji: "😴", label_fr: "Fatigué", label_en: "Tired", color: "bg-slate-500/10 border-slate-500/30" },
+    92→  { emoji: "😰", label_fr: "Anxieux", label_en: "Anxious", color: "bg-red-500/10 border-red-500/30" },
+    93→  { emoji: "🔥", label_fr: "En feu", label_en: "On fire", color: "bg-rose-500/10 border-rose-500/30" },
+    94→];
+    95→
+    96→const BIASES = [
+    97→  { id: "BULLISH", label_fr: "Haussier", label_en: "Bullish", icon: TrendingUp, color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/30" },
+    98→  { id: "BEARISH", label_fr: "Baissier", label_en: "Bearish", icon: TrendingDown, color: "text-red-500 bg-red-500/10 border-red-500/30" },
+    99→  { id: "NEUTRAL", label_fr: "Neutre", label_en: "Neutral", icon: Minus, color: "text-gray-500 bg-gray-500/10 border-gray-500/30" },
+   100→];
+   101→
+   102→const PRIORITIES = [
+   103→  { id: "URGENT", label_fr: "Urgent", label_en: "Urgent", color: "text-red-600 bg-red-500/10 border-red-500/30" },
+   104→  { id: "HIGH", label_fr: "Élevée", label_en: "High", color: "text-orange-600 bg-orange-500/10 border-orange-500/30" },
+   105→  { id: "MEDIUM", label_fr: "Moyenne", label_en: "Medium", color: "text-amber-600 bg-amber-500/10 border-amber-500/30" },
+   106→  { id: "LOW", label_fr: "Basse", label_en: "Low", color: "text-slate-500 bg-slate-500/10 border-slate-500/30" },
+   107→];
+   108→
+   109→const TAG_PRESETS = [
+   110→  "NFP", "FOMC", "CPI", "GDP", "News", "Range", "Trend",
+   111→  "Breakout", "Reversal", "Scalp", "Swing", "Gold",
+   112→  "Indices", "Forex", "High Impact", "Low Impact",
+   113→];
+   114→
+   115→const TEMPLATES = [
+   116→  {
+   117→    id: "daily-prep",
+   118→    label_fr: "Préparation Du Jour",
+   119→    label_en: "Daily Prep",
+   120→    icon: Sun,
+   121→    type: "DAY",
+   122→    content: "",
+   123→    plan: "• Marché attendu :\n• Niveaux clés :\n• Biais principal :\n• Setups surveillés :",
+   124→    observation: "• Structure du marché :\n• Zones de liquidité :\n• Corrélations :",
+   125→    rules: "• Règle #1 :\n• Règle #2 :\n• Règle #3 :",
+   126→    checklist: [
+   127→      { text: "Analyse du cadre temporel supérieur", checked: false },
+   128→      { text: "Identification des zones clés", checked: false },
+   129→      { text: "Vérification du calendrier économique", checked: false },
+   130→      { text: "Définition du biais directionnel", checked: false },
+   131→      { text: "Plan de gestion du risque défini", checked: false },
+   132→    ],
+   133→  },
+   134→  {
+   135→    id: "weekly-review",
+   136→    label_fr: "Bilan Hebdomadaire",
+   137→    label_en: "Weekly Review",
+   138→    icon: CalendarDays,
+   139→    type: "WEEK",
+   140→    content: "",
+   141→    plan: "• Objectifs de la semaine :\n• Pairs à surveiller :\n• Sessions prioritaires :",
+   142→    observation: "• Résumé des performances :\n• Meilleur trade :\n• Pire trade :",
+   143→    rules: "• Leçons apprises :\n• Erreurs à éviter :\n• Points d'amélioration :",
+   144→    checklist: [
+   145→      { text: "Analyse des trades de la semaine", checked: false },
+   146→      { text: "Calcul du P&L net", checked: false },
+   147→      { text: "Identification des patterns récurrents", checked: false },
+   148→      { text: "Mise à jour du plan de trading", checked: false },
+   149→      { text: "Objectifs pour la semaine prochaine", checked: false },
+   150→    ],
+   151→  },
+   152→  {
+   153→    id: "monthly-review",
+   154→    label_fr: "Bilan Mensuel",
+   155→    label_en: "Monthly Review",
+   156→    icon: CalendarRange,
+   157→    type: "MONTH",
+   158→    content: "",
+   159→    plan: "• Objectifs mensuels :\n• Croissance visée :\n• Focus principal :",
+   160→    observation: "• Évolution du winrate :\n• Évolution du RR moyen :\n• Meilleur/pire jour :",
+   161→    rules: "• Règles respectées :\n• Règles enfreintes :\n• Ajustements nécessaires :",
+   162→    checklist: [
+   163→      { text: "Compilation des statistiques mensuelles", checked: false },
+   164→      { text: "Analyse des configurations les plus rentables", checked: false },
+   165→      { text: "Évaluation de la discipline", checked: false },
+   166→      { text: "Revue du plan de gestion du risque", checked: false },
+   167→      { text: "Définition des objectifs du mois suivant", checked: false },
+   168→    ],
+   169→  },
+   170→  {
+   171→    id: "pre-session",
+   172→    label_fr: "Avant Session",
+   173→    label_en: "Pre-Session",
+   174→    icon: Brain,
+   175→    type: "DAY",
+   176→    content: "",
+   177→    plan: "• État mental :\n• Niveau d'énergie :\n• Biais du jour :",
+   178→    observation: "• Contexte macro :\n• Sentiment du marché :\n• Volatilité attendue :",
+   179→    rules: "• Stop absolu (pertes max) :\n• Nombre max de trades :\n• Règle de pause :",
+   180→    checklist: [
+   181→      { text: "Méditation/Visualisation", checked: false },
+   182→      { text: "Vérification du calendrier économique", checked: false },
+   183→      { text: "Préparation des ordres", checked: false },
+   184→      { text: "État émotionnel vérifié", checked: false },
+   185→    ],
+   186→  },
+   187→];
+   188→
+   189→// ─── Alert Hook ──────────────────────────────────────────
+   190→function useAlerts() {
+   191→  const [alerts, setAlerts] = useState<any[]>([]);
+   192→  const [loading, setLoading] = useState(true);
+   193→
+   194→  const fetchAlerts = useCallback(async () => {
+   195→    setLoading(true);
+   196→    try {
+   197→      const res = await fetch("/api/alerts");
+   198→      if (res.ok) {
+   199→        const data = await res.json();
+   200→        setAlerts(data.alerts || []);
+   201→      }
+   202→    } catch {
+   203→      setAlerts([]);
+   204→    }
+   205→    setLoading(false);
+   206→  }, []);
+   207→
+   208→  return { alerts, loading, refetch: fetchAlerts };
+   209→}
+   210→
+   211→// ─── Notification Checker ────────────────────────────────
+   212→function useNotificationChecker(alerts: any[]) {
+   213→  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+   214→  const triggeredRef = useRef<Set<string>>(new Set());
+   215→
+   216→  useEffect(() => {
+   217→    if (!alerts.length) return;
+   218→
+   219→    const checkAlerts = () => {
+   220→      const now = new Date();
+   221→      alerts.forEach((alert) => {
+   222→        if (alert.triggered) return;
+   223→        if (triggeredRef.current.has(alert.id)) return;
+   224→
+   225→        const alertTime = new Date(alert.alertDate);
+   226→        if (now >= alertTime) {
+   227→          triggeredRef.current.add(alert.id);
+   228→          fetch(`/api/alerts/${alert.id}`, {
+   229→            method: "PUT",
+   230→            headers: { "Content-Type": "application/json" },
+   231→            body: JSON.stringify({ triggered: true }),
+   232→          }).catch(() => {});
+   233→
+   234→          if ("Notification" in window) {
+   235→            if (Notification.permission === "granted") {
+   236→              new Notification("DONCIEL TM — Alerte", {
+   237→                body: alert.title + (alert.description ? `\n${alert.description}` : ""),
+   238→                icon: "/favicon.ico",
+   239→                tag: alert.id,
+   240→              });
+   241→            } else if (Notification.permission !== "denied") {
+   242→              Notification.requestPermission().then((perm) => {
+   243→                if (perm === "granted") {
+   244→                  new Notification("DONCIEL TM — Alerte", {
+   245→                    body: alert.title + (alert.description ? `\n${alert.description}` : ""),
+   246→                    icon: "/favicon.ico",
+   247→                    tag: alert.id,
+   248→                  });
+   249→                }
+   250→              });
+   251→            }
+   252→          }
+   253→        }
+   254→      });
+   255→    };
+   256→
+   257→    checkAlerts();
+   258→    intervalRef.current = setInterval(checkAlerts, 15000);
+   259→
+   260→    return () => {
+   261→      if (intervalRef.current) clearInterval(intervalRef.current);
+   262→    };
+   263→  }, [alerts]);
+   264→}
+   265→
+   266→// ─── Performance Hook ────────────────────────────────────
+   267→function useNotePerformance() {
+   268→  const [data, setData] = useState<any>(null);
+   269→  const [loading, setLoading] = useState(false);
+   270→
+   271→  const fetchPerf = useCallback(async (dateFrom?: string, dateTo?: string) => {
+   272→    setLoading(true);
+   273→    try {
+   274→      const params = new URLSearchParams();
+   275→      if (dateFrom) params.set("dateFrom", dateFrom);
+   276→      if (dateTo) params.set("dateTo", dateTo);
+   277→      const res = await fetch(`/api/notes/performance?${params}`);
+   278→      if (res.ok) {
+   279→        const result = await res.json();
+   280→        setData(result);
+   281→      }
+   282→    } catch {
+   283→      setData(null);
+   284→    }
+   285→    setLoading(false);
+   286→  }, []);
+   287→
+   288→  return { performanceData: data, loadingPerf: loading, fetchPerf };
+   289→}
+   290→
+   291→// ─── Parse helpers ──────────────────────────────────────
+   292→function parseJSON<T>(val: string | null | undefined, fallback: T): T {
+   293→  if (!val) return fallback;
+   294→  try { return JSON.parse(val); } catch { return fallback; }
+   295→}
+   296→
+   297→function getNoteGroupLabel(date: Date, language: "fr" | "en"): string {
+   298→  if (isToday(date)) return language === "fr" ? "Aujourd'hui" : "Today";
+   299→  if (isYesterday(date)) return language === "fr" ? "Hier" : "Yesterday";
+   300→  if (isThisWeek(date)) return language === "fr" ? "Cette semaine" : "This week";
+   301→  if (isThisMonth(date)) return language === "fr" ? "Ce mois" : "This month";
+   302→  return format(date, "MMMM yyyy", { locale: undefined });
+   303→}
+   304→
+   305→// ─── Error Boundary ─────────────────────────────────────
+   306→interface ErrorBoundaryState {
+   307→  hasError: boolean;
+   308→  error: Error | null;
+   309→}
+   310→
+   311→class NotesErrorBoundary extends React.Component<
+   312→  { children: React.ReactNode; language: "fr" | "en" },
+   313→  ErrorBoundaryState
+   314→> {
+   315→  constructor(props: { children: React.ReactNode; language: "fr" | "en" }) {
+   316→    super(props);
+   317→    this.state = { hasError: false, error: null };
+   318→  }
+   319→
+   320→  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+   321→    return { hasError: true, error };
+   322→  }
+   323→
+   324→  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+   325→    console.error("NotesTab error:", error, errorInfo);
+   326→  }
+   327→
+   328→  handleRetry = () => {
+   329→    this.setState({ hasError: false, error: null });
+   330→  };
+   331→
+   332→  render() {
+   333→    if (this.state.hasError) {
+   334→      const { language } = this.props;
+   335→      return (
+   336→        <div className="p-6 max-w-md mx-auto text-center space-y-4">
+   337→          <AlertTriangle className="w-12 h-12 mx-auto text-amber-500" />
+   338→          <h3 className="text-lg font-semibold">
+   339→            {language === "fr" ? "Une erreur est survenue" : "An error occurred"}
+   340→          </h3>
+   341→          <p className="text-sm text-muted-foreground">
+   342→            {language === "fr"
+   343→              ? "Le chargement des notes a rencontré un problème. Vous pouvez réessayer."
+   344→              : "Loading notes encountered a problem. You can retry."}
+   345→          </p>
+   346→          {this.state.error && (
+   347→            <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded font-mono break-all">
+   348→              {this.state.error.message}
+   349→            </p>
+   350→          )}
+   351→          <div className="flex gap-2 justify-center">
+   352→            <Button onClick={this.handleRetry} variant="default" size="sm">
+   353→              {language === "fr" ? "Réessayer" : "Retry"}
+   354→            </Button>
+   355→            <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+   356→              {language === "fr" ? "Recharger la page" : "Reload page"}
+   357→            </Button>
+   358→          </div>
+   359→        </div>
+   360→      );
+   361→    }
+   362→    return this.props.children;
+   363→  }
+   364→}
+   365→
+   366→// ─── Main Component ──────────────────────────────────────
+   367→export function NotesTab() {
+   368→  const { language } = useAppStore();
+   369→  const [activeType, setActiveType] = useState<string>("DAY");
+   370→  const [searchQuery, setSearchQuery] = useState("");
+   371→  const [sortBy, setSortBy] = useState<"date" | "priority" | "mood">("date");
+   372→  const [filterBias, setFilterBias] = useState<string | null>(null);
+   373→  const [filterPriority, setFilterPriority] = useState<string | null>(null);
+   374→  const [showFilters, setShowFilters] = useState(false);
+   375→  const { notes, loading, refetch } = useNotes(activeType);
+   376→  const { alerts, refetch: refetchAlerts } = useAlerts();
+   377→  const { performanceData, loadingPerf, fetchPerf } = useNotePerformance();
+   378→  const [showDialog, setShowDialog] = useState(false);
+   379→  const [editingNote, setEditingNote] = useState<any>(null);
+   380→  const [viewingNote, setViewingNote] = useState<any>(null);
+   381→  const [showPerfPanel, setShowPerfPanel] = useState(false);
+   382→  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+   383→
+   384→  useNotificationChecker(alerts);
+   385→
+   386→  // Fetch on mount
+   387→  useEffect(() => { refetch(); refetchAlerts(); fetchPerf(); }, [refetch, refetchAlerts, fetchPerf]);
+   388→
+   389→  // Filtered and sorted notes
+   390→  const filteredNotes = useMemo(() => {
+   391→    let result = notes.filter((n: any) => n.type === activeType);
+   392→
+   393→    // Search
+   394→    if (searchQuery) {
+   395→      const q = searchQuery.toLowerCase();
+   396→      result = result.filter((n: any) =>
+   397→        n.title?.toLowerCase().includes(q) ||
+   398→        n.content?.toLowerCase().includes(q) ||
+   399→        n.plan?.toLowerCase().includes(q) ||
+   400→        n.observation?.toLowerCase().includes(q) ||
+   401→        n.rules?.toLowerCase().includes(q) ||
+   402→        parseJSON<string[]>(n.tags, []).some(tag => tag.toLowerCase().includes(q))
+   403→      );
+   404→    }
+   405→
+   406→    // Bias filter
+   407→    if (filterBias) {
+   408→      result = result.filter((n: any) => n.marketBias === filterBias);
+   409→    }
+   410→
+   411→    // Priority filter
+   412→    if (filterPriority) {
+   413→      result = result.filter((n: any) => n.priority === filterPriority);
+   414→    }
+   415→
+   416→    // Sort
+   417→    result.sort((a: any, b: any) => {
+   418→      // Pinned always first
+   419→      if (a.pinned && !b.pinned) return -1;
+   420→      if (!a.pinned && b.pinned) return 1;
+   421→
+   422→      if (sortBy === "priority") {
+   423→        const pOrder: Record<string, number> = { URGENT: 4, HIGH: 3, MEDIUM: 2, LOW: 1 };
+   424→        return (pOrder[b.priority] || 0) - (pOrder[a.priority] || 0);
+   425→      }
+   426→      if (sortBy === "mood") {
+   427→        return (b.confidence || 0) - (a.confidence || 0);
+   428→      }
+   429→      return new Date(b.date).getTime() - new Date(a.date).getTime();
+   430→    });
+   431→
+   432→    return result;
+   433→  }, [notes, activeType, searchQuery, sortBy, filterBias, filterPriority]);
+   434→
+   435→  // Group notes by date label
+   436→  const groupedNotes = useMemo(() => {
+   437→    const groups: Record<string, any[]> = {};
+   438→    for (const note of filteredNotes) {
+   439→      const label = getNoteGroupLabel(new Date(note.date), language);
+   440→      if (!groups[label]) groups[label] = [];
+   441→      groups[label].push(note);
+   442→    }
+   443→    return groups;
+   444→  }, [filteredNotes, language]);
+   445→
+   446→  const handleDelete = async (id: string) => {
+   447→    if (!confirm(language === "fr" ? "Supprimer cette note ?" : "Delete this note?")) return;
+   448→    try {
+   449→      const res = await fetch(`/api/notes/${id}`, { method: "DELETE" });
+   450→      if (res.ok) {
+   451→        toast.success(language === "fr" ? "Note supprimée" : "Note deleted");
+   452→        refetch();
+   453→        refetchAlerts();
+   454→      }
+   455→    } catch {
+   456→      toast.error("Error");
+   457→    }
+   458→  };
+   459→
+   460→  const handleEdit = (note: any) => {
+   461→    setEditingNote(note);
+   462→    setShowDialog(true);
+   463→  };
+   464→
+   465→  const handleAdd = (template?: any) => {
+   466→    // Strip template id so NoteDialog knows this is a new note (not an edit)
+   467→    if (template) {
+   468→      const { id: _templateId, ...rest } = template;
+   469→      setEditingNote(rest);
+   470→    } else {
+   471→      setEditingNote(null);
+   472→    }
+   473→    setShowDialog(true);
+   474→    setShowTemplatePicker(false);
+   475→  };
+   476→
+   477→  const handleTogglePin = async (note: any) => {
+   478→    try {
+   479→      await fetch(`/api/notes/${note.id}`, {
+   480→        method: "PUT",
+   481→        headers: { "Content-Type": "application/json" },
+   482→        body: JSON.stringify({ pinned: !note.pinned }),
+   483→      });
+   484→      refetch();
+   485→      toast.success(note.pinned
+   486→        ? (language === "fr" ? "Note désépinglée" : "Note unpinned")
+   487→        : (language === "fr" ? "Note épinglée" : "Note pinned")
+   488→      );
+   489→    } catch {
+   490→      toast.error("Error");
+   491→    }
+   492→  };
+   493→
+   494→  const handleDeleteAlert = async (id: string) => {
+   495→    if (!confirm(language === "fr" ? "Supprimer cette alerte ?" : "Delete this alert?")) return;
+   496→    try {
+   497→      const res = await fetch(`/api/alerts/${id}`, { method: "DELETE" });
+   498→      if (res.ok) {
+   499→        toast.success(language === "fr" ? "Alerte supprimée" : "Alert deleted");
+   500→        refetchAlerts();
+   501→        refetch();
+   502→      }
+   503→    } catch {
+   504→      toast.error("Error");
+   505→    }
+   506→  };
+   507→
+   508→  // Stats
+   509→  const totalNotes = notes.length;
+   510→  const pinnedCount = notes.filter((n: any) => n.pinned).length;
+   511→  const moodsUsed = notes.filter((n: any) => n.mood).length;
+   512→  const checklistsTotal = notes.reduce((acc: number, n: any) => {
+   513→    const cl = parseJSON<{ checked: boolean }[]>(n.checklist, []);
+   514→    return acc + cl.length;
+   515→  }, 0);
+   516→  const checklistsDone = notes.reduce((acc: number, n: any) => {
+   517→    const cl = parseJSON<{ checked: boolean }[]>(n.checklist, []);
+   518→    return acc + cl.filter(c => c.checked).length;
+   519→  }, 0);
+   520→
+   521→  const standaloneAlerts = alerts.filter((a: any) => !a.noteId);
+   522→  const pendingAlerts = standaloneAlerts.filter((a: any) => !a.triggered);
+   523→  const triggeredAlerts = standaloneAlerts.filter((a: any) => a.triggered);
+   524→
+   525→  // Notebook stats cards
+   526→  const notebookStats = [
+   527→    {
+   528→      icon: FileText,
+   529→      label: language === "fr" ? "Total Notes" : "Total Notes",
+   530→      value: totalNotes,
+   531→      color: "text-primary",
+   532→    },
+   533→    {
+   534→      icon: Pin,
+   535→      label: language === "fr" ? "Épinglées" : "Pinned",
+   536→      value: pinnedCount,
+   537→      color: "text-amber-500",
+   538→    },
+   539→    {
+   540→      icon: Heart,
+   541→      label: language === "fr" ? "Avec Humeur" : "With Mood",
+   542→      value: moodsUsed,
+   543→      color: "text-rose-500",
+   544→    },
+   545→    {
+   546→      icon: CheckSquare,
+   547→      label: language === "fr" ? "Checklist" : "Checklist",
+   548→      value: checklistsTotal > 0 ? `${checklistsDone}/${checklistsTotal}` : "—",
+   549→      color: "text-emerald-500",
+   550→    },
+   551→  ];
+   552→
+   553→  return (
+   554→    <NotesErrorBoundary language={language}>
+   555→    <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto overflow-x-hidden">
+   556→      {/* ─── Header ──────────────────────────────────── */}
+   557→      <div className="flex items-center justify-between flex-wrap gap-3">
+   558→        <div>
+   559→          <h2 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-emerald-600 bg-clip-text text-transparent flex items-center gap-2">
+   560→            <Layout className="w-6 h-6 text-primary" />
+   561→            {language === "fr" ? "Notebook" : "Notebook"}
+   562→          </h2>
+   563→          <p className="text-sm text-muted-foreground mt-1">
+   564→            {language === "fr" ? "Journal de trading avancé avec analyse de performance" : "Advanced trading journal with performance analysis"}
+   565→          </p>
+   566→        </div>
+   567→        <div className="flex items-center gap-2">
+   568→          <Button
+   569→            variant="outline"
+   570→            size="sm"
+   571→            className="gap-1.5"
+   572→            onClick={() => setShowPerfPanel(!showPerfPanel)}
+   573→          >
+   574→            <BarChart3 className="w-4 h-4" />
+   575→            <span className="hidden sm:inline">{language === "fr" ? "Performance" : "Performance"}</span>
+   576→          </Button>
+   577→          <Button
+   578→            variant="outline"
+   579→            size="sm"
+   580→            className="gap-1.5"
+   581→            onClick={() => window.open("https://www.tradingview.com/chart/", "_blank")}
+   582→          >
+   583→            <ExternalLink className="w-4 h-4" />
+   584→            <span className="hidden sm:inline">TradingView</span>
+   585→          </Button>
+   586→          <Button size="sm" onClick={() => setShowTemplatePicker(true)} className="gap-1.5">
+   587→            <Sparkles className="w-4 h-4" />
+   588→            {language === "fr" ? "Nouvelle Note" : "New Note"}
+   589→          </Button>
+   590→        </div>
+   591→      </div>
+   592→
+   593→      {/* ─── Stats Bar ─────────────────────────────── */}
+   594→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   595→        {notebookStats.map((stat) => {
+   596→          const Icon = stat.icon;
+   597→          return (
+   598→            <Card key={stat.label} className="p-3 flex items-center gap-3">
+   599→              <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center bg-muted/50", stat.color)}>
+   600→                <Icon className="w-4 h-4" />
+   601→              </div>
+   602→              <div>
+   603→                <p className="text-lg font-bold leading-none">{stat.value}</p>
+   604→                <p className="text-[10px] text-muted-foreground mt-0.5">{stat.label}</p>
+   605→              </div>
+   606→            </Card>
+   607→          );
+   608→        })}
+   609→      </div>
+   610→
+   611→      {/* ─── Performance Panel (Collapsible) ─────────── */}
+   612→      {showPerfPanel && (
+   613→        <PerformancePanel
+   614→          language={language}
+   615→          performanceData={performanceData}
+   616→          loading={loadingPerf}
+   617→          fetchPerf={fetchPerf}
+   618→        />
+   619→      )}
+   620→
+   621→      {/* ─── Alerts Section ─────────────────────────── */}
+   622→      {(pendingAlerts.length > 0 || triggeredAlerts.length > 0) && (
+   623→        <div className="space-y-2">
+   624→          <div className="flex items-center gap-2">
+   625→            <BellRing className="w-4 h-4 text-primary" />
+   626→            <h3 className="text-sm font-semibold">
+   627→              {language === "fr" ? "Mes Alertes" : "My Alerts"}
+   628→            </h3>
+   629→            <Badge variant="secondary" className="text-[10px]">{pendingAlerts.length}</Badge>
+   630→          </div>
+   631→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+   632→            {pendingAlerts.slice(0, 6).map((alert: any) => (
+   633→              <Card key={alert.id} className="p-2.5 hover:border-primary/30 transition-colors">
+   634→                <div className="flex items-start justify-between gap-2">
+   635→                  <div className="flex-1 min-w-0">
+   636→                    <div className="flex items-center gap-1.5 mb-0.5">
+   637→                      <Bell className="w-3 h-3 text-primary shrink-0" />
+   638→                      <h4 className="text-xs font-semibold truncate">{alert.title}</h4>
+   639→                    </div>
+   640→                    {alert.description && (
+   641→                      <p className="text-[10px] text-muted-foreground line-clamp-1">{alert.description}</p>
+   642→                    )}
+   643→                    <Badge variant="outline" className="text-[9px] mt-1">
+   644→                      <Calendar className="w-2.5 h-2.5 mr-0.5" />
+   645→                      {new Date(alert.alertDate).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", {
+   646→                        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+   647→                      })}
+   648→                    </Badge>
+   649→                  </div>
+   650→                  <Button variant="ghost" size="icon" className="h-5 w-5 text-loss shrink-0" onClick={() => handleDeleteAlert(alert.id)}>
+   651→                    <Trash2 className="w-2.5 h-2.5" />
+   652→                  </Button>
+   653→                </div>
+   654→              </Card>
+   655→            ))}
+   656→          </div>
+   657→        </div>
+   658→      )}
+   659→
+   660→      {/* ─── Type Tabs ──────────────────────────────── */}
+   661→      <div className="grid grid-cols-3 gap-2">
+   662→        {NOTE_TYPES.map((nt) => {
+   663→          const Icon = nt.icon;
+   664→          const isActive = activeType === nt.id;
+   665→          const count = notes.filter((n: any) => n.type === nt.id).length;
+   666→          return (
+   667→            <button
+   668→              key={nt.id}
+   669→              onClick={() => setActiveType(nt.id)}
+   670→              className={cn(
+   671→                "p-3 rounded-xl border-2 transition-all duration-200 text-center",
+   672→                isActive
+   673→                  ? "border-primary bg-primary/10 shadow-lg shadow-primary/10"
+   674→                  : "border-border hover:border-primary/30 bg-card"
+   675→              )}
+   676→            >
+   677→              <Icon className={cn("w-5 h-5 mx-auto mb-1", nt.color)} />
+   678→              <div className="text-xs font-semibold">
+   679→                {language === "fr" ? nt.label_fr : nt.label_en}
+   680→              </div>
+   681→              <Badge variant="secondary" className="text-[9px] mt-1">{count}</Badge>
+   682→            </button>
+   683→          );
+   684→        })}
+   685→      </div>
+   686→
+   687→      {/* ─── Search & Filters ────────────────────────── */}
+   688→      <div className="space-y-2">
+   689→        <div className="flex items-center gap-2">
+   690→          <div className="relative flex-1">
+   691→            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+   692→            <Input
+   693→              value={searchQuery}
+   694→              onChange={(e) => setSearchQuery(e.target.value)}
+   695→              placeholder={language === "fr" ? "Rechercher dans les notes..." : "Search notes..."}
+   696→              className="pl-9 h-9 text-sm"
+   697→            />
+   698→            {searchQuery && (
+   699→              <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2">
+   700→                <X className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
+   701→              </button>
+   702→            )}
+   703→          </div>
+   704→          <Button
+   705→            variant={showFilters ? "default" : "outline"}
+   706→            size="sm"
+   707→            className="h-9 gap-1.5"
+   708→            onClick={() => setShowFilters(!showFilters)}
+   709→          >
+   710→            <Filter className="w-3.5 h-3.5" />
+   711→          </Button>
+   712→          <Button
+   713→            variant="outline"
+   714→            size="sm"
+   715→            className="h-9 gap-1.5"
+   716→            onClick={() => setSortBy(sortBy === "date" ? "priority" : sortBy === "priority" ? "mood" : "date")}
+   717→          >
+   718→            <ArrowUpDown className="w-3.5 h-3.5" />
+   719→            <span className="text-[10px] hidden sm:inline">
+   720→              {sortBy === "date" ? (language === "fr" ? "Date" : "Date") : sortBy === "priority" ? (language === "fr" ? "Priorité" : "Priority") : (language === "fr" ? "Humeur" : "Mood")}
+   721→            </span>
+   722→          </Button>
+   723→        </div>
+   724→
+   725→        {showFilters && (
+   726→          <Card className="p-3 space-y-2">
+   727→            <div className="flex items-center gap-2 flex-wrap">
+   728→              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   729→                {language === "fr" ? "Biais :" : "Bias:"}
+   730→              </span>
+   731→              {BIASES.map((b) => (
+   732→                <button
+   733→                  key={b.id}
+   734→                  onClick={() => setFilterBias(filterBias === b.id ? null : b.id)}
+   735→                  className={cn(
+   736→                    "px-2 py-0.5 rounded text-[10px] font-medium border transition-colors",
+   737→                    b.color,
+   738→                    filterBias === b.id ? "ring-2 ring-offset-1 ring-primary" : "opacity-60"
+   739→                  )}
+   740→                >
+   741→                  {language === "fr" ? b.label_fr : b.label_en}
+   742→                </button>
+   743→              ))}
+   744→            </div>
+   745→            <div className="flex items-center gap-2 flex-wrap">
+   746→              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+   747→                {language === "fr" ? "Priorité :" : "Priority:"}
+   748→              </span>
+   749→              {PRIORITIES.map((p) => (
+   750→                <button
+   751→                  key={p.id}
+   752→                  onClick={() => setFilterPriority(filterPriority === p.id ? null : p.id)}
+   753→                  className={cn(
+   754→                    "px-2 py-0.5 rounded text-[10px] font-medium border transition-colors",
+   755→                    p.color,
+   756→                    filterPriority === p.id ? "ring-2 ring-offset-1 ring-primary" : "opacity-60"
+   757→                  )}
+   758→                >
+   759→                  {language === "fr" ? p.label_fr : p.label_en}
+   760→                </button>
+   761→              ))}
+   762→            </div>
+   763→          </Card>
+   764→        )}
+   765→      </div>
+   766→
+   767→      {/* ─── Notes List ─────────────────────────────── */}
+   768→      {loading ? (
+   769→        <div className="space-y-3">
+   770→          {Array.from({ length: 3 }).map((_, i) => (
+   771→            <Card key={i} className="p-4"><Skeleton className="h-24 w-full" /></Card>
+   772→          ))}
+   773→        </div>
+   774→      ) : filteredNotes.length === 0 ? (
+   775→        <Card className="p-12 text-center">
+   776→          <StickyNote className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" />
+   777→          <p className="text-muted-foreground">
+   778→            {searchQuery
+   779→              ? (language === "fr" ? "Aucun résultat" : "No results")
+   780→              : t(language, "noData")}
+   781→          </p>
+   782→          <Button onClick={() => setShowTemplatePicker(true)} variant="outline" className="mt-4 gap-2">
+   783→            <Plus className="w-4 h-4" />
+   784→            {language === "fr" ? "Créer une note" : "Create a note"}
+   785→          </Button>
+   786→        </Card>
+   787→      ) : (
+   788→        <div className="space-y-4">
+   789→          {Object.entries(groupedNotes).map(([groupLabel, groupNotes]) => (
+   790→            <div key={groupLabel}>
+   791→              <div className="flex items-center gap-2 mb-2">
+   792→                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{groupLabel}</span>
+   793→                <Separator className="flex-1" />
+   794→                <Badge variant="secondary" className="text-[9px]">{groupNotes.length}</Badge>
+   795→              </div>
+   796→              <div className="space-y-2">
+   797→                {groupNotes.map((note: any) => (
+   798→                  <NoteCard
+   799→                    key={note.id}
+   800→                    note={note}
+   801→                    language={language}
+   802→                    onView={() => setViewingNote(note)}
+   803→                    onEdit={() => handleEdit(note)}
+   804→                    onDelete={() => handleDelete(note.id)}
+   805→                    onTogglePin={() => handleTogglePin(note)}
+   806→                  />
+   807→                ))}
+   808→              </div>
+   809→            </div>
+   810→          ))}
+   811→        </div>
+   812→      )}
+   813→
+   814→      {/* ─── View Note Dialog ───────────────────────── */}
+   815→      <Dialog open={!!viewingNote} onOpenChange={(open) => { if (!open) setViewingNote(null); }}>
+   816→        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+   817→          {viewingNote && <NoteViewer note={viewingNote} language={language} onClose={() => setViewingNote(null)} onEdit={() => { const n = viewingNote; setViewingNote(null); handleEdit(n); }} />}
+   818→        </DialogContent>
+   819→      </Dialog>
+   820→
+   821→      {/* ─── Add/Edit Note Dialog ────────────────────── */}
+   822→      <NoteDialog
+   823→        open={showDialog}
+   824→        onOpenChange={setShowDialog}
+   825→        note={editingNote}
+   826→        type={activeType}
+   827→        language={language}
+   828→        onSaved={() => { refetch(); refetchAlerts(); fetchPerf(); }}
+   829→      />
+   830→
+   831→      {/* ─── Template Picker ─────────────────────────── */}
+   832→      <Dialog open={showTemplatePicker} onOpenChange={setShowTemplatePicker}>
+   833→        <DialogContent className="max-w-md">
+   834→          <DialogHeader>
+   835→            <DialogTitle className="flex items-center gap-2">
+   836→              <Sparkles className="w-5 h-5 text-primary" />
+   837→              {language === "fr" ? "Créer une Note" : "Create a Note"}
+   838→            </DialogTitle>
+   839→            <DialogDescription>
+   840→              {language === "fr" ? "Choisissez un modèle ou commencez à vide" : "Choose a template or start blank"}
+   841→            </DialogDescription>
+   842→          </DialogHeader>
+   843→          <div className="space-y-2">
+   844→            {TEMPLATES.map((tmpl) => {
+   845→              const Icon = tmpl.icon;
+   846→              return (
+   847→                <button
+   848→                  key={tmpl.id}
+   849→                  onClick={() => handleAdd(tmpl)}
+   850→                  className="w-full p-3 rounded-lg border border-border hover:border-primary/30 hover:bg-primary/5 transition-colors text-left flex items-center gap-3"
+   851→                >
+   852→                  <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+   853→                    <Icon className="w-4 h-4 text-primary" />
+   854→                  </div>
+   855→                  <div className="flex-1 min-w-0">
+   856→                    <p className="text-sm font-semibold">{language === "fr" ? tmpl.label_fr : tmpl.label_en}</p>
+   857→                    <p className="text-[10px] text-muted-foreground">
+   858→                      {language === "fr" ? "Modèle prédéfini" : "Pre-built template"} • {NOTE_TYPES.find(nt => nt.id === tmpl.type)?.[language === "fr" ? "label_fr" : "label_en"]}
+   859→                    </p>
+   860→                  </div>
+   861→                  <Badge variant="outline" className="text-[9px] shrink-0">{tmpl.checklist.length} ✓</Badge>
+   862→                </button>
+   863→              );
+   864→            })}
+   865→            <Separator />
+   866→            <button
+   867→              onClick={() => handleAdd(null)}
+   868→              className="w-full p-3 rounded-lg border border-dashed border-border hover:border-primary/30 hover:bg-primary/5 transition-colors text-center"
+   869→            >
+   870→              <Plus className="w-4 h-4 mx-auto mb-1 text-muted-foreground" />
+   871→              <p className="text-xs text-muted-foreground">{language === "fr" ? "Note vide" : "Blank note"}</p>
+   872→            </button>
+   873→          </div>
+   874→        </DialogContent>
+   875→      </Dialog>
+   876→    </div>
+   877→    </NotesErrorBoundary>
+   878→  );
+   879→}
+   880→
+   881→// ─── Note Card ──────────────────────────────────────────
+   882→function NoteCard({
+   883→  note, language, onView, onEdit, onDelete, onTogglePin,
+   884→}: {
+   885→  note: any;
+   886→  language: "fr" | "en";
+   887→  onView: () => void;
+   888→  onEdit: () => void;
+   889→  onDelete: () => void;
+   890→  onTogglePin: () => void;
+   891→}) {
+   892→  const tags = parseJSON<string[]>(note.tags, []);
+   893→  const checklist = parseJSON<{ text: string; checked: boolean }[]>(note.checklist, []);
+   894→  const checkedCount = checklist.filter(c => c.checked).length;
+   895→  const priorityDef = PRIORITIES.find(p => p.id === note.priority);
+   896→  const biasDef = BIASES.find(b => b.id === note.marketBias);
+   897→
+   898→  return (
+   899→    <Card
+   900→      className={cn(
+   901→        "p-3 hover:border-primary/30 transition-all cursor-pointer group",
+   902→        note.pinned && "border-amber-500/30 bg-amber-500/5",
+   903→        note.priority === "URGENT" && "border-red-500/30"
+   904→      )}
+   905→      onClick={onView}
+   906→    >
+   907→      <div className="flex items-start gap-3">
+   908→        {/* Mood indicator */}
+   909→        <div className="shrink-0 text-xl w-9 h-9 flex items-center justify-center rounded-lg bg-muted/50">
+   910→          {note.mood || "📝"}
+   911→        </div>
+   912→
+   913→        {/* Content */}
+   914→        <div className="flex-1 min-w-0">
+   915→          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+   916→            {note.pinned && <Pin className="w-3 h-3 text-amber-500 shrink-0" />}
+   917→            <h4 className="text-sm font-semibold truncate">{note.title}</h4>
+   918→            {biasDef && (
+   919→              <Badge variant="outline" className={cn("text-[9px] gap-0.5 px-1.5 py-0", biasDef.color)}>
+   920→                {React.createElement(biasDef.icon, { className: "w-2.5 h-2.5" })}
+   921→              </Badge>
+   922→            )}
+   923→            {priorityDef && (
+   924→              <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0", priorityDef.color)}>
+   925→                {language === "fr" ? priorityDef.label_fr : priorityDef.label_en}
+   926→              </Badge>
+   927→            )}
+   928→          </div>
+   929→
+   930→          {/* Preview text */}
+   931→          <p className="text-xs text-muted-foreground line-clamp-2 mb-1.5 whitespace-pre-wrap">
+   932→            {note.content || note.plan || note.observation || ""}
+   933→          </p>
+   934→
+   935→          {/* Meta row */}
+   936→          <div className="flex items-center gap-2 flex-wrap">
+   937→            <Badge variant="outline" className="text-[9px]">
+   938→              {new Date(note.date).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", { month: "short", day: "numeric" })}
+   939→            </Badge>
+   940→            {note.confidence != null && (
+   941→              <Badge variant="secondary" className="text-[9px] gap-0.5">
+   942→                <Target className="w-2.5 h-2.5" />
+   943→                {note.confidence}/10
+   944→              </Badge>
+   945→            )}
+   946→            {checklist.length > 0 && (
+   947→              <Badge variant="secondary" className="text-[9px] gap-0.5">
+   948→                <CheckSquare className="w-2.5 h-2.5" />
+   949→                {checkedCount}/{checklist.length}
+   950→              </Badge>
+   951→            )}
+   952→            {note.screenshots?.length > 0 && (
+   953→              <Badge variant="secondary" className="text-[9px] gap-0.5">
+   954→                <Camera className="w-2.5 h-2.5" />
+   955→                {note.screenshots.length}
+   956→              </Badge>
+   957→            )}
+   958→            {note.alerts?.filter((a: any) => !a.triggered).length > 0 && (
+   959→              <Badge variant="secondary" className="text-[9px] gap-0.5">
+   960→                <Bell className="w-2.5 h-2.5" />
+   961→                {note.alerts.filter((a: any) => !a.triggered).length}
+   962→              </Badge>
+   963→            )}
+   964→            {tags.slice(0, 3).map((tag: string) => (
+   965→              <Badge key={tag} variant="outline" className="text-[9px] px-1.5 py-0 text-primary border-primary/20">
+   966→                {tag}
+   967→              </Badge>
+   968→            ))}
+   969→            {tags.length > 3 && (
+   970→              <span className="text-[9px] text-muted-foreground">+{tags.length - 3}</span>
+   971→            )}
+   972→          </div>
+   973→        </div>
+   974→
+   975→        {/* Actions */}
+   976→        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+   977→          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onTogglePin(); }}>
+   978→            {note.pinned ? <PinOff className="w-3 h-3 text-amber-500" /> : <Pin className="w-3 h-3" />}
+   979→          </Button>
+   980→          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+   981→            <Edit3 className="w-3 h-3" />
+   982→          </Button>
+   983→          <Button variant="ghost" size="icon" className="h-7 w-7 text-loss" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+   984→            <Trash2 className="w-3 h-3" />
+   985→          </Button>
+   986→        </div>
+   987→      </div>
+   988→    </Card>
+   989→  );
+   990→}
+   991→
+   992→// ─── Note Viewer ────────────────────────────────────────
+   993→function NoteViewer({
+   994→  note, language, onClose, onEdit,
+   995→}: {
+   996→  note: any;
+   997→  language: "fr" | "en";
+   998→  onClose: () => void;
+   999→  onEdit: () => void;
+  1000→}) {
+  1001→  const tags = parseJSON<string[]>(note.tags, []);
+  1002→  const checklist = parseJSON<{ text: string; checked: boolean }[]>(note.checklist, []);
+  1003→  const biasDef = BIASES.find(b => b.id === note.marketBias);
+  1004→  const priorityDef = PRIORITIES.find(p => p.id === note.priority);
+  1005→  const moodDef = MOODS.find(m => m.emoji === note.mood);
+  1006→
+  1007→  const [checklistState, setChecklistState] = useState(checklist);
+  1008→  const [savingChecklist, setSavingChecklist] = useState(false);
+  1009→
+  1010→  const handleToggleCheck = async (index: number) => {
+  1011→    const updated = [...checklistState];
+  1012→    updated[index] = { ...updated[index], checked: !updated[index].checked };
+  1013→    setChecklistState(updated);
+  1014→    setSavingChecklist(true);
+  1015→    try {
+  1016→      await fetch(`/api/notes/${note.id}`, {
+  1017→        method: "PUT",
+  1018→        headers: { "Content-Type": "application/json" },
+  1019→        body: JSON.stringify({ checklist: updated }),
+  1020→      });
+  1021→    } catch {
+  1022→      // Revert on error
+  1023→      setChecklistState(checklist);
+  1024→    }
+  1025→    setSavingChecklist(false);
+  1026→  };
+  1027→
+  1028→  const checkedCount = checklistState.filter(c => c.checked).length;
+  1029→  const progress = checklistState.length > 0 ? (checkedCount / checklistState.length) * 100 : 0;
+  1030→
+  1031→  return (
+  1032→    <>
+  1033→      <DialogHeader>
+  1034→        <DialogTitle className="flex items-center gap-2 flex-wrap">
+  1035→          {note.pinned && <Pin className="w-4 h-4 text-amber-500" />}
+  1036→          <span className="text-xl">{note.mood || "📝"}</span>
+  1037→          {note.title}
+  1038→          {biasDef && (
+  1039→            <Badge variant="outline" className={cn("text-[10px] gap-1", biasDef.color)}>
+  1040→              {React.createElement(biasDef.icon, { className: "w-3 h-3" })}
+  1041→              {language === "fr" ? biasDef.label_fr : biasDef.label_en}
+  1042→            </Badge>
+  1043→          )}
+  1044→          {priorityDef && (
+  1045→            <Badge variant="outline" className={cn("text-[10px]", priorityDef.color)}>
+  1046→              {language === "fr" ? priorityDef.label_fr : priorityDef.label_en}
+  1047→            </Badge>
+  1048→          )}
+  1049→        </DialogTitle>
+  1050→        <DialogDescription className="flex items-center gap-3 flex-wrap">
+  1051→          {new Date(note.date).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+  1052→          {note.confidence != null && (
+  1053→            <Badge variant="secondary" className="text-[10px] gap-1">
+  1054→              <Target className="w-3 h-3" />
+  1055→              {language === "fr" ? "Confiance" : "Confidence"}: {note.confidence}/10
+  1056→            </Badge>
+  1057→          )}
+  1058→          {moodDef && (
+  1059→            <Badge variant="secondary" className="text-[10px]">
+  1060→              {language === "fr" ? moodDef.label_fr : moodDef.label_en}
+  1061→            </Badge>
+  1062→          )}
+  1063→        </DialogDescription>
+  1064→      </DialogHeader>
+  1065→
+  1066→      <div className="space-y-4 mt-2">
+  1067→        {/* Tags */}
+  1068→        {tags.length > 0 && (
+  1069→          <div className="flex items-center gap-1.5 flex-wrap">
+  1070→            <Tag className="w-3 h-3 text-muted-foreground" />
+  1071→            {tags.map((tag: string) => (
+  1072→              <Badge key={tag} variant="outline" className="text-[10px] px-2 py-0.5 text-primary border-primary/20">
+  1073→                {tag}
+  1074→              </Badge>
+  1075→            ))}
+  1076→          </div>
+  1077→        )}
+  1078→
+  1079→        {/* Checklist */}
+  1080→        {checklistState.length > 0 && (
+  1081→          <Card className="p-3 border-emerald-500/20 bg-emerald-500/5">
+  1082→            <div className="flex items-center justify-between mb-2">
+  1083→              <div className="flex items-center gap-1.5">
+  1084→                <ClipboardList className="w-4 h-4 text-emerald-500" />
+  1085→                <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+  1086→                  {language === "fr" ? "Checklist" : "Checklist"}
+  1087→                </span>
+  1088→                {savingChecklist && <Loader2 className="w-3 h-3 animate-spin text-emerald-500" />}
+  1089→              </div>
+  1090→              <span className="text-[10px] text-muted-foreground">{checkedCount}/{checklistState.length}</span>
+  1091→            </div>
+  1092→            <Progress value={progress} className="h-1.5 mb-2" />
+  1093→            <div className="space-y-1">
+  1094→              {checklistState.map((item, idx) => (
+  1095→                <button
+  1096→                  key={idx}
+  1097→                  onClick={() => handleToggleCheck(idx)}
+  1098→                  className="w-full flex items-center gap-2 p-1.5 rounded hover:bg-emerald-500/10 transition-colors text-left"
+  1099→                >
+  1100→                  {item.checked
+  1101→                    ? <CheckSquare className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+  1102→                    : <Square className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+  1103→                  }
+  1104→                  <span className={cn("text-xs", item.checked && "line-through text-muted-foreground")}>
+  1105→                    {item.text}
+  1106→                  </span>
+  1107→                </button>
+  1108→              ))}
+  1109→            </div>
+  1110→          </Card>
+  1111→        )}
+  1112→
+  1113→        {/* Plan */}
+  1114→        {note.plan && (
+  1115→          <div>
+  1116→            <div className="flex items-center gap-1.5 mb-1">
+  1117→              <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+  1118→              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+  1119→                {language === "fr" ? "Plan" : "Plan"}
+  1120→              </span>
+  1121→            </div>
+  1122→            <Card className="p-3 bg-amber-500/5 border-amber-500/10">
+  1123→              <p className="text-xs whitespace-pre-wrap break-words">{note.plan}</p>
+  1124→            </Card>
+  1125→          </div>
+  1126→        )}
+  1127→
+  1128→        {/* Observations */}
+  1129→        {note.observation && (
+  1130→          <div>
+  1131→            <div className="flex items-center gap-1.5 mb-1">
+  1132→              <Eye className="w-3.5 h-3.5 text-blue-500" />
+  1133→              <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+  1134→                {language === "fr" ? "Observations" : "Observations"}
+  1135→              </span>
+  1136→            </div>
+  1137→            <Card className="p-3 bg-blue-500/5 border-blue-500/10">
+  1138→              <p className="text-xs whitespace-pre-wrap break-words">{note.observation}</p>
+  1139→            </Card>
+  1140→          </div>
+  1141→        )}
+  1142→
+  1143→        {/* Rules */}
+  1144→        {note.rules && (
+  1145→          <div>
+  1146→            <div className="flex items-center gap-1.5 mb-1">
+  1147→              <Shield className="w-3.5 h-3.5 text-purple-500" />
+  1148→              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+  1149→                {language === "fr" ? "Règles" : "Rules"}
+  1150→              </span>
+  1151→            </div>
+  1152→            <Card className="p-3 bg-purple-500/5 border-purple-500/10">
+  1153→              <p className="text-xs whitespace-pre-wrap break-words">{note.rules}</p>
+  1154→            </Card>
+  1155→          </div>
+  1156→        )}
+  1157→
+  1158→        {/* Main Content */}
+  1159→        {note.content && (
+  1160→          <div>
+  1161→            <div className="flex items-center gap-1.5 mb-1">
+  1162→              <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+  1163→              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+  1164→                {language === "fr" ? "Notes" : "Notes"}
+  1165→              </span>
+  1166→            </div>
+  1167→            <p className="text-sm whitespace-pre-wrap break-words bg-muted/30 rounded-lg p-3">{note.content}</p>
+  1168→          </div>
+  1169→        )}
+  1170→
+  1171→        {/* Alerts */}
+  1172→        {note.alerts?.length > 0 && (
+  1173→          <div>
+  1174→            <div className="flex items-center gap-1.5 mb-1">
+  1175→              <Bell className="w-3.5 h-3.5 text-primary" />
+  1176→              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+  1177→                {language === "fr" ? "Alertes" : "Alerts"}
+  1178→              </span>
+  1179→            </div>
+  1180→            <div className="space-y-1.5">
+  1181→              {note.alerts.map((alert: any) => (
+  1182→                <div key={alert.id} className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/10">
+  1183→                  <Bell className={cn("w-3.5 h-3.5 shrink-0", alert.triggered ? "text-muted-foreground" : "text-primary")} />
+  1184→                  <div className="flex-1 min-w-0">
+  1185→                    <p className={cn("text-xs font-medium truncate", alert.triggered && "line-through text-muted-foreground")}>{alert.title}</p>
+  1186→                    {alert.description && <p className="text-[10px] text-muted-foreground line-clamp-1">{alert.description}</p>}
+  1187→                  </div>
+  1188→                  <Badge variant="outline" className="text-[9px] shrink-0">
+  1189→                    {new Date(alert.alertDate).toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", {
+  1190→                      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  1191→                    })}
+  1192→                  </Badge>
+  1193→                </div>
+  1194→              ))}
+  1195→            </div>
+  1196→          </div>
+  1197→        )}
+  1198→
+  1199→        {/* Screenshots */}
+  1200→        {note.screenshots?.length > 0 && (
+  1201→          <div>
+  1202→            <div className="flex items-center gap-1.5 mb-1">
+  1203→              <Camera className="w-3.5 h-3.5 text-muted-foreground" />
+  1204→              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+  1205→                {language === "fr" ? "Captures d'écran" : "Screenshots"}
+  1206→              </span>
+  1207→            </div>
+  1208→            <div className="grid grid-cols-3 gap-2">
+  1209→              {note.screenshots.map((ss: any) => {
+  1210→                const src = ss.url.startsWith('http') ? ss.url : `/api/screenshots/${ss.url.replace('upload/screenshots/', '')}`;
+  1211→                return (
+  1212→                  <button
+  1213→                    key={ss.id}
+  1214→                    className="group relative aspect-video rounded-lg overflow-hidden border border-border hover:border-primary/30 transition-colors"
+  1215→                    onClick={(e) => { e.stopPropagation(); window.open(src, '_blank'); }}
+  1216→                  >
+  1217→                    <img src={src} alt="Screenshot" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+  1218→                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+  1219→                      <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+  1220→                    </div>
+  1221→                  </button>
+  1222→                );
+  1223→              })}
+  1224→            </div>
+  1225→          </div>
+  1226→        )}
+  1227→      </div>
+  1228→
+  1229→      <DialogFooter className="mt-4">
+  1230→        <Button variant="outline" onClick={onClose}>{language === "fr" ? "Fermer" : "Close"}</Button>
+  1231→        <Button onClick={onEdit}>{language === "fr" ? "Modifier" : "Edit"}</Button>
+  1232→      </DialogFooter>
+  1233→    </>
+  1234→  );
+  1235→}
+  1236→
+  1237→// ─── Performance Panel ──────────────────────────────────
+  1238→function PerformancePanel({
+  1239→  language, performanceData, loading, fetchPerf,
+  1240→}: {
+  1241→  language: "fr" | "en";
+  1242→  performanceData: any;
+  1243→  loading: boolean;
+  1244→  fetchPerf: (from?: string, to?: string) => void;
+  1245→}) {
+  1246→  const [dateFrom, setDateFrom] = useState("");
+  1247→  const [dateTo, setDateTo] = useState("");
+  1248→
+  1249→  const handleFetch = () => {
+  1250→    fetchPerf(dateFrom || undefined, dateTo || undefined);
+  1251→  };
+  1252→
+  1253→  const summary = performanceData?.summary;
+  1254→  const moodStats = performanceData?.moodStats || {};
+  1255→
+  1256→  return (
+  1257→    <Card className="p-4 border-primary/20 bg-gradient-to-br from-primary/5 to-emerald-500/5">
+  1258→      <div className="flex items-center justify-between mb-3">
+  1259→        <div className="flex items-center gap-2">
+  1260→          <BarChart3 className="w-4 h-4 text-primary" />
+  1261→          <h3 className="text-sm font-semibold">{language === "fr" ? "Performance & Corrélations" : "Performance & Correlations"}</h3>
+  1262→        </div>
+  1263→        <div className="flex items-center gap-2">
+  1264→          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-7 text-[10px] w-32" />
+  1265→          <span className="text-[10px] text-muted-foreground">→</span>
+  1266→          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-7 text-[10px] w-32" />
+  1267→          <Button size="sm" className="h-7 text-[10px] gap-1" onClick={handleFetch} disabled={loading}>
+  1268→            {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Activity className="w-3 h-3" />}
+  1269→            {language === "fr" ? "Analyser" : "Analyze"}
+  1270→          </Button>
+  1271→        </div>
+  1272→      </div>
+  1273→
+  1274→      {loading && !performanceData ? (
+  1275→        <div className="grid grid-cols-4 gap-3">
+  1276→          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
+  1277→        </div>
+  1278→      ) : summary ? (
+  1279→        <div className="space-y-3">
+  1280→          {/* Summary cards */}
+  1281→          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+  1282→            {[
+  1283→              { label: language === "fr" ? "Trades" : "Trades", value: summary.totalTrades, icon: Activity, color: "text-primary" },
+  1284→              { label: "Win Rate", value: `${summary.winRate}%`, icon: Target, color: summary.winRate >= 50 ? "text-emerald-500" : "text-red-500" },
+  1285→              { label: "W/L/B", value: `${summary.wins}/${summary.losses}/${summary.bes}`, icon: BarChart3, color: "text-blue-500" },
+  1286→              { label: "P&L", value: `$${summary.totalPnL}`, icon: summary.totalPnL >= 0 ? TrendingUp : TrendingDown, color: summary.totalPnL >= 0 ? "text-emerald-500" : "text-red-500" },
+  1287→              { label: "Total RR", value: summary.totalRR.toFixed(1), icon: Zap, color: "text-amber-500" },
+  1288→              { label: "Avg RR", value: summary.avgRR.toFixed(2), icon: Star, color: "text-purple-500" },
+  1289→              { label: language === "fr" ? "Meilleur Humeur" : "Best Mood", value: (() => {
+  1290→                let best = "";
+  1291→                let bestWR = -1;
+  1292→                for (const [mood, stat] of Object.entries(moodStats) as any[]) {
+  1293→                  const wr = stat.count > 0 ? (stat.wins / stat.count) * 100 : 0;
+  1294→                  if (wr > bestWR && stat.count >= 1) { bestWR = wr; best = mood; }
+  1295→                }
+  1296→                return best || "—";
+  1297→              })(), icon: Heart, color: "text-rose-500" },
+  1298→            ].map((stat) => {
+  1299→              const Icon = stat.icon;
+  1300→              return (
+  1301→                <Card key={stat.label} className="p-2.5 text-center">
+  1302→                  <Icon className={cn("w-3.5 h-3.5 mx-auto mb-1", stat.color)} />
+  1303→                  <p className="text-sm font-bold">{stat.value}</p>
+  1304→                  <p className="text-[9px] text-muted-foreground">{stat.label}</p>
+  1305→                </Card>
+  1306→              );
+  1307→            })}
+  1308→          </div>
+  1309→
+  1310→          {/* Mood vs Performance */}
+  1311→          {Object.keys(moodStats).length > 0 && (
+  1312→            <Card className="p-3">
+  1313→              <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+  1314→                {language === "fr" ? "Humeur vs Performance" : "Mood vs Performance"}
+  1315→              </h4>
+  1316→              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+  1317→                {Object.entries(moodStats).map(([mood, stat]: [string, any]) => {
+  1318→                  const wr = stat.count > 0 ? (stat.wins / stat.count) * 100 : 0;
+  1319→                  return (
+  1320→                    <div key={mood} className="p-2 rounded-lg border border-border bg-muted/30 text-center">
+  1321→                      <span className="text-xl">{mood}</span>
+  1322→                      <p className="text-xs font-bold mt-1">{wr.toFixed(0)}% WR</p>
+  1323→                      <p className="text-[9px] text-muted-foreground">{stat.count} {language === "fr" ? "trades" : "trades"}</p>
+  1324→                      <p className={cn("text-[10px] font-mono font-bold", stat.totalPnL >= 0 ? "text-emerald-500" : "text-red-500")}>
+  1325→                        ${stat.totalPnL.toFixed(0)}
+  1326→                      </p>
+  1327→                    </div>
+  1328→                  );
+  1329→                })}
+  1330→              </div>
+  1331→            </Card>
+  1332→          )}
+  1333→        </div>
+  1334→      ) : (
+  1335→        <p className="text-xs text-muted-foreground text-center py-4">
+  1336→          {language === "fr" ? "Cliquez sur Analyser pour voir vos performances" : "Click Analyze to see your performance"}
+  1337→        </p>
+  1338→      )}
+  1339→    </Card>
+  1340→  );
+  1341→}
+  1342→
+  1343→// ─── Note Dialog (Create/Edit) ──────────────────────────
+  1344→function NoteDialog({
+  1345→  open,
+  1346→  onOpenChange,
+  1347→  note,
+  1348→  type,
+  1349→  language,
+  1350→  onSaved,
+  1351→}: {
+  1352→  open: boolean;
+  1353→  onOpenChange: (open: boolean) => void;
+  1354→  note: any | null;
+  1355→  type: string;
+  1356→  language: "fr" | "en";
+  1357→  onSaved: () => void;
+  1358→}) {
+  1359→  const [title, setTitle] = useState("");
+  1360→  const [content, setContent] = useState("");
+  1361→  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  1362→  const [noteType, setNoteType] = useState(type);
+  1363→  const [mood, setMood] = useState("");
+  1364→  const [confidence, setConfidence] = useState(5);
+  1365→  const [marketBias, setMarketBias] = useState("");
+  1366→  const [tags, setTags] = useState<string[]>([]);
+  1367→  const [tagInput, setTagInput] = useState("");
+  1368→  const [checklist, setChecklist] = useState<{ text: string; checked: boolean }[]>([]);
+  1369→  const [newCheckItem, setNewCheckItem] = useState("");
+  1370→  const [priority, setPriority] = useState("");
+  1371→  const [pinned, setPinned] = useState(false);
+  1372→  const [plan, setPlan] = useState("");
+  1373→  const [observation, setObservation] = useState("");
+  1374→  const [rules, setRules] = useState("");
+  1375→  const [isSubmitting, setIsSubmitting] = useState(false);
+  1376→  const [activeEditorTab, setActiveEditorTab] = useState<"main" | "plan" | "obs" | "rules" | "checklist">("main");
+  1377→
+  1378→  // Screenshot state
+  1379→  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  1380→  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  1381→  const [existingScreenshots, setExistingScreenshots] = useState<any[]>([]);
+  1382→  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  1383→  const fileInputRef = useRef<HTMLInputElement>(null);
+  1384→
+  1385→  // Alert state
+  1386→  const [enableAlert, setEnableAlert] = useState(false);
+  1387→  const [alertTitle, setAlertTitle] = useState("");
+  1388→  const [alertDescription, setAlertDescription] = useState("");
+  1389→  const [alertDate, setAlertDate] = useState("");
+  1390→  const [alertTime, setAlertTime] = useState("");
+  1391→  const [existingAlerts, setExistingAlerts] = useState<any[]>([]);
+  1392→
+  1393→  // isTemplate check — a template is a note-like object without a real DB id but with a checklist
+  1394→  const isTemplate = note && !note.id && note.checklist;
+  1395→
+  1396→  React.useEffect(() => {
+  1397→    if (open) {
+  1398→      // Check if it's a template
+  1399→      if (note && !note.id && note.checklist) {
+  1400→        // Template
+  1401→        setTitle(language === "fr" ? (note.label_fr || "") : (note.label_en || ""));
+  1402→        setContent(note.content || "");
+  1403→        setDate(format(new Date(), "yyyy-MM-dd"));
+  1404→        setNoteType(note.type || type);
+  1405→        setMood("");
+  1406→        setConfidence(5);
+  1407→        setMarketBias("");
+  1408→        setTags([]);
+  1409→        setChecklist(note.checklist ? [...note.checklist] : []);
+  1410→        setPriority("");
+  1411→        setPinned(false);
+  1412→        setPlan(note.plan || "");
+  1413→        setObservation(note.observation || "");
+  1414→        setRules(note.rules || "");
+  1415→        setExistingScreenshots([]);
+  1416→        setSelectedFiles([]);
+  1417→        setPreviewUrls([]);
+  1418→        setEnableAlert(false);
+  1419→        setAlertTitle("");
+  1420→        setAlertDescription("");
+  1421→        setAlertDate(format(new Date(), "yyyy-MM-dd"));
+  1422→        setAlertTime(format(new Date(), "HH:mm"));
+  1423→        setExistingAlerts([]);
+  1424→        setActiveEditorTab(note.plan ? "plan" : "main");
+  1425→      } else if (note && note.id) {
+  1426→        // Editing existing note
+  1427→        setTitle(note.title || "");
+  1428→        setContent(note.content || "");
+  1429→        setDate(note.date ? format(new Date(note.date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"));
+  1430→        setNoteType(note.type || type);
+  1431→        setMood(note.mood || "");
+  1432→        setConfidence(note.confidence ?? 5);
+  1433→        setMarketBias(note.marketBias || "");
+  1434→        setTags(parseJSON<string[]>(note.tags, []));
+  1435→        setChecklist(parseJSON<{ text: string; checked: boolean }[]>(note.checklist, []));
+  1436→        setPriority(note.priority || "");
+  1437→        setPinned(note.pinned || false);
+  1438→        setPlan(note.plan || "");
+  1439→        setObservation(note.observation || "");
+  1440→        setRules(note.rules || "");
+  1441→        setExistingScreenshots(note.screenshots || []);
+  1442→        setSelectedFiles([]);
+  1443→        setPreviewUrls([]);
+  1444→        if (note.alerts?.length > 0) {
+  1445→          setExistingAlerts(note.alerts);
+  1446→          const firstAlert = note.alerts[0];
+  1447→          setEnableAlert(true);
+  1448→          setAlertTitle(firstAlert.title || "");
+  1449→          setAlertDescription(firstAlert.description || "");
+  1450→          const d = new Date(firstAlert.alertDate);
+  1451→          setAlertDate(format(d, "yyyy-MM-dd"));
+  1452→          setAlertTime(format(d, "HH:mm"));
+  1453→        } else {
+  1454→          setExistingAlerts([]);
+  1455→          setEnableAlert(false);
+  1456→          setAlertTitle("");
+  1457→          setAlertDescription("");
+  1458→          setAlertDate(format(new Date(), "yyyy-MM-dd"));
+  1459→          setAlertTime(format(new Date(), "HH:mm"));
+  1460→        }
+  1461→        setActiveEditorTab(note.plan ? "plan" : "main");
+  1462→      } else {
+  1463→        // New blank note
+  1464→        setTitle("");
+  1465→        setContent("");
+  1466→        setDate(format(new Date(), "yyyy-MM-dd"));
+  1467→        setNoteType(type);
+  1468→        setMood("");
+  1469→        setConfidence(5);
+  1470→        setMarketBias("");
+  1471→        setTags([]);
+  1472→        setChecklist([]);
+  1473→        setPriority("");
+  1474→        setPinned(false);
+  1475→        setPlan("");
+  1476→        setObservation("");
+  1477→        setRules("");
+  1478→        setExistingScreenshots([]);
+  1479→        setSelectedFiles([]);
+  1480→        setPreviewUrls([]);
+  1481→        setEnableAlert(false);
+  1482→        setAlertTitle("");
+  1483→        setAlertDescription("");
+  1484→        setAlertDate(format(new Date(), "yyyy-MM-dd"));
+  1485→        setAlertTime(format(new Date(), "HH:mm"));
+  1486→        setExistingAlerts([]);
+  1487→        setActiveEditorTab("main");
+  1488→      }
+  1489→    }
+  1490→  }, [open, note, type, language]);
+  1491→
+  1492→  useEffect(() => {
+  1493→    if (open && enableAlert && "Notification" in window && Notification.permission === "default") {
+  1494→      Notification.requestPermission();
+  1495→    }
+  1496→  }, [open, enableAlert]);
+  1497→
+  1498→  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  1499→    const files = e.target.files;
+  1500→    if (!files?.length) return;
+  1501→    const newFiles = Array.from(files);
+  1502→    const newUrls = newFiles.map(f => URL.createObjectURL(f));
+  1503→    setSelectedFiles(prev => [...prev, ...newFiles]);
+  1504→    setPreviewUrls(prev => [...prev, ...newUrls]);
+  1505→    if (fileInputRef.current) fileInputRef.current.value = "";
+  1506→  };
+  1507→
+  1508→  const handleRemovePendingFile = (index: number) => {
+  1509→    URL.revokeObjectURL(previewUrls[index]);
+  1510→    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  1511→    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  1512→  };
+  1513→
+  1514→  const handleRemoveExistingScreenshot = async (screenshotId: string) => {
+  1515→    try {
+  1516→      await fetch(`/api/notes/screenshots?screenshotId=${screenshotId}`, { method: "DELETE" });
+  1517→      setExistingScreenshots(prev => prev.filter((s) => s.id !== screenshotId));
+  1518→      toast.success(language === "fr" ? "Capture supprimée" : "Screenshot removed");
+  1519→    } catch {
+  1520→      toast.error("Error");
+  1521→    }
+  1522→  };
+  1523→
+  1524→  const handleAddTag = (tag: string) => {
+  1525→    const trimmed = tag.trim();
+  1526→    if (trimmed && !tags.includes(trimmed)) {
+  1527→      setTags(prev => [...prev, trimmed]);
+  1528→    }
+  1529→    setTagInput("");
+  1530→  };
+  1531→
+  1532→  const handleRemoveTag = (tag: string) => {
+  1533→    setTags(prev => prev.filter(t => t !== tag));
+  1534→  };
+  1535→
+  1536→  const handleAddCheckItem = () => {
+  1537→    if (newCheckItem.trim()) {
+  1538→      setChecklist(prev => [...prev, { text: newCheckItem.trim(), checked: false }]);
+  1539→      setNewCheckItem("");
+  1540→    }
+  1541→  };
+  1542→
+  1543→  const handleToggleCheckItem = (idx: number) => {
+  1544→    setChecklist(prev => prev.map((item, i) => i === idx ? { ...item, checked: !item.checked } : item));
+  1545→  };
+  1546→
+  1547→  const handleRemoveCheckItem = (idx: number) => {
+  1548→    setChecklist(prev => prev.filter((_, i) => i !== idx));
+  1549→  };
+  1550→
+  1551→  const handleSubmit = async () => {
+  1552→    if (!title) {
+  1553→      toast.error(language === "fr" ? "Le titre est requis" : "Title is required");
+  1554→      return;
+  1555→    }
+  1556→
+  1557→    if (enableAlert && (!alertTitle || !alertDate || !alertTime)) {
+  1558→      toast.error(language === "fr" ? "Titre et date/heure de l'alerte requis" : "Alert title and date/time required");
+  1559→      return;
+  1560→    }
+  1561→
+  1562→    if (enableAlert && "Notification" in window && Notification.permission === "default") {
+  1563→      await Notification.requestPermission();
+  1564→    }
+  1565→
+  1566→    setIsSubmitting(true);
+  1567→    try {
+  1568→      const body = {
+  1569→        title,
+  1570→        content,
+  1571→        date,
+  1572→        type: noteType,
+  1573→        mood: mood || null,
+  1574→        confidence,
+  1575→        marketBias: marketBias || null,
+  1576→        tags: tags.length > 0 ? JSON.stringify(tags) : null,
+  1577→        checklist: checklist.length > 0 ? JSON.stringify(checklist) : null,
+  1578→        priority: priority || null,
+  1579→        pinned,
+  1580→        plan: plan || null,
+  1581→        observation: observation || null,
+  1582→        rules: rules || null,
+  1583→      };
+  1584→
+  1585→      let savedNoteId: string;
+  1586→
+  1587→      if (note?.id) {
+  1588→        const res = await fetch(`/api/notes/${note.id}`, {
+  1589→          method: "PUT",
+  1590→          headers: { "Content-Type": "application/json" },
+  1591→          body: JSON.stringify(body),
+  1592→        });
+  1593→        if (!res.ok) {
+  1594→          toast.error("Error");
+  1595→          setIsSubmitting(false);
+  1596→          return;
+  1597→        }
+  1598→        savedNoteId = note.id;
+  1599→      } else {
+  1600→        const res = await fetch("/api/notes", {
+  1601→          method: "POST",
+  1602→          headers: { "Content-Type": "application/json" },
+  1603→          body: JSON.stringify(body),
+  1604→        });
+  1605→        if (!res.ok) {
+  1606→          toast.error("Error");
+  1607→          setIsSubmitting(false);
+  1608→          return;
+  1609→        }
+  1610→        const data = await res.json();
+  1611→        savedNoteId = data.note.id;
+  1612→      }
+  1613→
+  1614→      // Upload screenshots
+  1615→      if (selectedFiles.length > 0) {
+  1616→        setUploadingScreenshot(true);
+  1617→        for (const file of selectedFiles) {
+  1618→          const formData = new FormData();
+  1619→          formData.append("noteId", savedNoteId);
+  1620→          formData.append("file", file);
+  1621→          try {
+  1622→            await fetch("/api/notes/screenshots", { method: "POST", body: formData });
+  1623→          } catch {
+  1624→            // Continue
+  1625→          }
+  1626→        }
+  1627→        setUploadingScreenshot(false);
+  1628→      }
+  1629→
+  1630→      // Alert
+  1631→      if (enableAlert && alertTitle && alertDate && alertTime) {
+  1632→        const alertBody = {
+  1633→          title: alertTitle,
+  1634→          description: alertDescription || null,
+  1635→          alertDate: `${alertDate}T${alertTime}:00`,
+  1636→          noteId: savedNoteId,
+  1637→        };
+  1638→        const existingAlert = existingAlerts[0];
+  1639→        if (existingAlert) {
+  1640→          await fetch(`/api/alerts/${existingAlert.id}`, {
+  1641→            method: "PUT",
+  1642→            headers: { "Content-Type": "application/json" },
+  1643→            body: JSON.stringify(alertBody),
+  1644→          });
+  1645→        } else {
+  1646→          await fetch("/api/alerts", {
+  1647→            method: "POST",
+  1648→            headers: { "Content-Type": "application/json" },
+  1649→            body: JSON.stringify(alertBody),
+  1650→          });
+  1651→        }
+  1652→      } else if (!enableAlert && existingAlerts.length > 0) {
+  1653→        for (const a of existingAlerts) {
+  1654→          await fetch(`/api/alerts/${a.id}`, { method: "DELETE" });
+  1655→        }
+  1656→      }
+  1657→
+  1658→      toast.success(note?.id ? (language === "fr" ? "Note modifiée" : "Note updated") : (language === "fr" ? "Note ajoutée" : "Note added"));
+  1659→      onOpenChange(false);
+  1660→      onSaved();
+  1661→    } catch {
+  1662→      toast.error("Error");
+  1663→    }
+  1664→    setIsSubmitting(false);
+  1665→  };
+  1666→
+  1667→  // Cleanup preview URLs
+  1668→  useEffect(() => {
+  1669→    return () => { previewUrls.forEach(url => URL.revokeObjectURL(url)); };
+  1670→  }, []);
+  1671→
+  1672→  const editorTabs = [
+  1673→    { id: "main" as const, label: language === "fr" ? "Notes" : "Notes", icon: FileText },
+  1674→    { id: "plan" as const, label: language === "fr" ? "Plan" : "Plan", icon: Lightbulb },
+  1675→    { id: "obs" as const, label: language === "fr" ? "Observ." : "Observ.", icon: Eye },
+  1676→    { id: "rules" as const, label: language === "fr" ? "Règles" : "Rules", icon: Shield },
+  1677→    { id: "checklist" as const, label: "Checklist", icon: ClipboardList },
+  1678→  ];
+  1679→
+  1680→  return (
+  1681→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1682→      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
+  1683→        <DialogHeader>
+  1684→          <DialogTitle className="flex items-center gap-2">
+  1685→            <Layout className="w-5 h-5 text-primary" />
+  1686→            {note?.id ? t(language, "editNote") : (language === "fr" ? "Nouvelle Note" : "New Note")}
+  1687→          </DialogTitle>
+  1688→          <DialogDescription>
+  1689→            {language === "fr" ? "Rédigez votre note de trading avancée" : "Write your advanced trading note"}
+  1690→          </DialogDescription>
+  1691→        </DialogHeader>
+  1692→
+  1693→        <div className="space-y-4">
+  1694→          {/* Type & Date Row */}
+  1695→          <div className="grid grid-cols-4 gap-2">
+  1696→            {NOTE_TYPES.map((nt) => {
+  1697→              const Icon = nt.icon;
+  1698→              return (
+  1699→                <button
+  1700→                  key={nt.id}
+  1701→                  onClick={() => setNoteType(nt.id)}
+  1702→                  className={cn(
+  1703→                    "p-2 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1.5 justify-center",
+  1704→                    noteType === nt.id ? "border-primary bg-primary/10 text-primary" : "border-border hover:border-primary/30"
+  1705→                  )}
+  1706→                >
+  1707→                  <Icon className={cn("w-3.5 h-3.5", nt.color)} />
+  1708→                  {language === "fr" ? nt.label_fr : nt.label_en}
+  1709→                </button>
+  1710→              );
+  1711→            })}
+  1712→            <div className="col-span-1">
+  1713→              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-full text-xs" />
+  1714→            </div>
+  1715→          </div>
+  1716→
+  1717→          {/* Title */}
+  1718→          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={language === "fr" ? "Titre de la note" : "Note title"} className="text-sm font-semibold" />
+  1719→
+  1720→          {/* ─── Mood & Confidence Row ───────────────── */}
+  1721→          <Card className="p-3">
+  1722→            <div className="flex items-center justify-between mb-2">
+  1723→              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+  1724→                <Heart className="w-3 h-3" />
+  1725→                {language === "fr" ? "Humeur & Confiance" : "Mood & Confidence"}
+  1726→              </Label>
+  1727→              <div className="flex items-center gap-2">
+  1728→                <Pin className={cn("w-3 h-3 cursor-pointer", pinned ? "text-amber-500" : "text-muted-foreground")} onClick={() => setPinned(!pinned)} />
+  1729→                <span className="text-[9px] text-muted-foreground">{pinned ? (language === "fr" ? "Épinglée" : "Pinned") : (language === "fr" ? "Épingler" : "Pin")}</span>
+  1730→              </div>
+  1731→            </div>
+  1732→            {/* Mood selector */}
+  1733→            <div className="flex gap-1.5 flex-wrap mb-2">
+  1734→              {MOODS.map((m) => (
+  1735→                <button
+  1736→                  key={m.emoji}
+  1737→                  onClick={() => setMood(mood === m.emoji ? "" : m.emoji)}
+  1738→                  className={cn(
+  1739→                    "w-8 h-8 rounded-lg border text-lg flex items-center justify-center transition-all",
+  1740→                    mood === m.emoji ? m.color + " ring-2 ring-offset-1 ring-primary scale-110" : "border-border hover:border-primary/30"
+  1741→                  )}
+  1742→                  title={language === "fr" ? m.label_fr : m.label_en}
+  1743→                >
+  1744→                  {m.emoji}
+  1745→                </button>
+  1746→              ))}
+  1747→            </div>
+  1748→            {/* Confidence slider */}
+  1749→            <div className="flex items-center gap-3">
+  1750→              <span className="text-[10px] text-muted-foreground w-12">{language === "fr" ? "Confiance" : "Confidence"}</span>
+  1751→              <Slider
+  1752→                value={[confidence]}
+  1753→                onValueChange={(v) => setConfidence(v[0])}
+  1754→                min={1}
+  1755→                max={10}
+  1756→                step={1}
+  1757→                className="flex-1"
+  1758→              />
+  1759→              <span className={cn(
+  1760→                "text-sm font-bold font-mono w-6 text-right",
+  1761→                confidence >= 7 ? "text-emerald-500" : confidence >= 4 ? "text-amber-500" : "text-red-500"
+  1762→              )}>
+  1763→                {confidence}
+  1764→              </span>
+  1765→            </div>
+  1766→          </Card>
+  1767→
+  1768→          {/* ─── Market Bias & Priority ───────────────── */}
+  1769→          <div className="grid grid-cols-2 gap-3">
+  1770→            <div className="space-y-1.5">
+  1771→              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+  1772→                {language === "fr" ? "Biais de marché" : "Market Bias"}
+  1773→              </Label>
+  1774→              <div className="flex gap-1.5">
+  1775→                {BIASES.map((b) => {
+  1776→                  const Icon = b.icon;
+  1777→                  return (
+  1778→                    <button
+  1779→                      key={b.id}
+  1780→                      onClick={() => setMarketBias(marketBias === b.id ? "" : b.id)}
+  1781→                      className={cn(
+  1782→                        "flex-1 p-1.5 rounded-lg border text-[10px] font-medium transition-colors flex items-center justify-center gap-1",
+  1783→                        b.color,
+  1784→                        marketBias === b.id ? "ring-2 ring-offset-1 ring-primary" : "opacity-50"
+  1785→                      )}
+  1786→                    >
+  1787→                      <Icon className="w-3 h-3" />
+  1788→                      {language === "fr" ? b.label_fr : b.label_en}
+  1789→                    </button>
+  1790→                  );
+  1791→                })}
+  1792→              </div>
+  1793→            </div>
+  1794→            <div className="space-y-1.5">
+  1795→              <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+  1796→                {language === "fr" ? "Priorité" : "Priority"}
+  1797→              </Label>
+  1798→              <div className="grid grid-cols-2 gap-1.5">
+  1799→                {PRIORITIES.map((p) => (
+  1800→                  <button
+  1801→                    key={p.id}
+  1802→                    onClick={() => setPriority(priority === p.id ? "" : p.id)}
+  1803→                    className={cn(
+  1804→                      "p-1.5 rounded-lg border text-[10px] font-medium transition-colors",
+  1805→                      p.color,
+  1806→                      priority === p.id ? "ring-2 ring-offset-1 ring-primary" : "opacity-50"
+  1807→                    )}
+  1808→                  >
+  1809→                    {language === "fr" ? p.label_fr : p.label_en}
+  1810→                  </button>
+  1811→                ))}
+  1812→              </div>
+  1813→            </div>
+  1814→          </div>
+  1815→
+  1816→          {/* ─── Tags ──────────────────────────────── */}
+  1817→          <div className="space-y-1.5">
+  1818→            <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+  1819→              <Tag className="w-3 h-3" />
+  1820→              {language === "fr" ? "Tags" : "Tags"}
+  1821→            </Label>
+  1822→            <div className="flex items-center gap-1.5 flex-wrap mb-1">
+  1823→              {tags.map((tag) => (
+  1824→                <Badge key={tag} variant="outline" className="text-[10px] gap-1 text-primary border-primary/20 px-2 py-0.5">
+  1825→                  {tag}
+  1826→                  <button onClick={() => handleRemoveTag(tag)}><X className="w-2.5 h-2.5" /></button>
+  1827→                </Badge>
+  1828→              ))}
+  1829→            </div>
+  1830→            <div className="flex gap-1.5">
+  1831→              <Input
+  1832→                value={tagInput}
+  1833→                onChange={(e) => setTagInput(e.target.value)}
+  1834→                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddTag(tagInput); } }}
+  1835→                placeholder={language === "fr" ? "Ajouter un tag..." : "Add tag..."}
+  1836→                className="h-7 text-xs flex-1"
+  1837→              />
+  1838→              <Button variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => handleAddTag(tagInput)}>
+  1839→                <Plus className="w-3 h-3" />
+  1840→              </Button>
+  1841→            </div>
+  1842→            <div className="flex gap-1 flex-wrap">
+  1843→              {TAG_PRESETS.filter(p => !tags.includes(p)).slice(0, 10).map((preset) => (
+  1844→                <button
+  1845→                  key={preset}
+  1846→                  onClick={() => handleAddTag(preset)}
+  1847→                  className="px-1.5 py-0.5 rounded text-[9px] text-muted-foreground border border-border hover:border-primary/30 hover:text-primary transition-colors"
+  1848→                >
+  1849→                  + {preset}
+  1850→                </button>
+  1851→              ))}
+  1852→            </div>
+  1853→          </div>
+  1854→
+  1855→          {/* ─── Editor Tabs ────────────────────────── */}
+  1856→          <div className="border rounded-lg overflow-hidden">
+  1857→            <div className="flex border-b bg-muted/30">
+  1858→              {editorTabs.map((tab) => {
+  1859→                const Icon = tab.icon;
+  1860→                return (
+  1861→                  <button
+  1862→                    key={tab.id}
+  1863→                    onClick={() => setActiveEditorTab(tab.id)}
+  1864→                    className={cn(
+  1865→                      "flex-1 px-2 py-1.5 text-[10px] font-medium flex items-center justify-center gap-1 transition-colors",
+  1866→                      activeEditorTab === tab.id
+  1867→                        ? "bg-background text-primary border-b-2 border-primary"
+  1868→                        : "text-muted-foreground hover:text-foreground"
+  1869→                    )}
+  1870→                  >
+  1871→                    <Icon className="w-3 h-3" />
+  1872→                    <span className="hidden sm:inline">{tab.label}</span>
+  1873→                  </button>
+  1874→                );
+  1875→              })}
+  1876→            </div>
+  1877→            <div className="p-3">
+  1878→              {activeEditorTab === "main" && (
+  1879→                <Textarea
+  1880→                  value={content}
+  1881→                  onChange={(e) => setContent(e.target.value)}
+  1882→                  placeholder={language === "fr" ? "Écrivez vos notes ici..." : "Write your notes here..."}
+  1883→                  rows={6}
+  1884→                  className="resize-y !field-sizing-fixed overflow-y-auto break-words text-sm"
+  1885→                />
+  1886→              )}
+  1887→              {activeEditorTab === "plan" && (
+  1888→                <Textarea
+  1889→                  value={plan}
+  1890→                  onChange={(e) => setPlan(e.target.value)}
+  1891→                  placeholder={language === "fr"
+  1892→                    ? "• Marché attendu :\n• Niveaux clés :\n• Biais principal :\n• Setups surveillés :"
+  1893→                    : "• Expected market:\n• Key levels:\n• Main bias:\n• Setups to watch:"}
+  1894→                  rows={6}
+  1895→                  className="resize-y !field-sizing-fixed overflow-y-auto break-words text-sm border-amber-500/20 focus:border-amber-500/40"
+  1896→                />
+  1897→              )}
+  1898→              {activeEditorTab === "obs" && (
+  1899→                <Textarea
+  1900→                  value={observation}
+  1901→                  onChange={(e) => setObservation(e.target.value)}
+  1902→                  placeholder={language === "fr"
+  1903→                    ? "• Structure du marché :\n• Zones de liquidité :\n• Corrélations :"
+  1904→                    : "• Market structure:\n• Liquidity zones:\n• Correlations:"}
+  1905→                  rows={6}
+  1906→                  className="resize-y !field-sizing-fixed overflow-y-auto break-words text-sm border-blue-500/20 focus:border-blue-500/40"
+  1907→                />
+  1908→              )}
+  1909→              {activeEditorTab === "rules" && (
+  1910→                <Textarea
+  1911→                  value={rules}
+  1912→                  onChange={(e) => setRules(e.target.value)}
+  1913→                  placeholder={language === "fr"
+  1914→                    ? "• Règle #1 :\n• Règle #2 :\n• Règle #3 :"
+  1915→                    : "• Rule #1 :\n• Rule #2 :\n• Rule #3 :"}
+  1916→                  rows={6}
+  1917→                  className="resize-y !field-sizing-fixed overflow-y-auto break-words text-sm border-purple-500/20 focus:border-purple-500/40"
+  1918→                />
+  1919→              )}
+  1920→              {activeEditorTab === "checklist" && (
+  1921→                <div className="space-y-2">
+  1922→                  {checklist.map((item, idx) => (
+  1923→                    <div key={idx} className="flex items-center gap-2">
+  1924→                      <button onClick={() => handleToggleCheckItem(idx)}>
+  1925→                        {item.checked
+  1926→                          ? <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />
+  1927→                          : <Square className="w-4 h-4 text-muted-foreground shrink-0" />
+  1928→                        }
+  1929→                      </button>
+  1930→                      <span className={cn("text-sm flex-1", item.checked && "line-through text-muted-foreground")}>
+  1931→                        {item.text}
+  1932→                      </span>
+  1933→                      <Button variant="ghost" size="icon" className="h-6 w-6 text-loss shrink-0" onClick={() => handleRemoveCheckItem(idx)}>
+  1934→                        <X className="w-3 h-3" />
+  1935→                      </Button>
+  1936→                    </div>
+  1937→                  ))}
+  1938→                  <div className="flex gap-2">
+  1939→                    <Input
+  1940→                      value={newCheckItem}
+  1941→                      onChange={(e) => setNewCheckItem(e.target.value)}
+  1942→                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddCheckItem(); } }}
+  1943→                      placeholder={language === "fr" ? "Ajouter un élément..." : "Add item..."}
+  1944→                      className="h-8 text-xs flex-1"
+  1945→                    />
+  1946→                    <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={handleAddCheckItem}>
+  1947→                      <Plus className="w-3 h-3" />
+  1948→                    </Button>
+  1949→                  </div>
+  1950→                </div>
+  1951→              )}
+  1952→            </div>
+  1953→          </div>
+  1954→
+  1955→          {/* ─── Screenshots ─────────────────────────── */}
+  1956→          <div className="space-y-2">
+  1957→            <div className="flex items-center justify-between">
+  1958→              <Label className="text-xs flex items-center gap-1.5">
+  1959→                <Camera className="w-3.5 h-3.5" />
+  1960→                {language === "fr" ? "Captures d'écran" : "Screenshots"}
+  1961→              </Label>
+  1962→              <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" onClick={() => fileInputRef.current?.click()} disabled={uploadingScreenshot}>
+  1963→                {uploadingScreenshot ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImagePlus className="w-3 h-3" />}
+  1964→                {language === "fr" ? "Ajouter" : "Add"}
+  1965→              </Button>
+  1966→              <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileSelect} />
+  1967→            </div>
+  1968→            {existingScreenshots.length > 0 && (
+  1969→              <div className="grid grid-cols-4 gap-2">
+  1970→                {existingScreenshots.map((ss: any) => {
+  1971→                  const src = ss.url.startsWith('http') ? ss.url : `/api/screenshots/${ss.url.replace('upload/screenshots/', '')}`;
+  1972→                  return (
+  1973→                    <div key={ss.id} className="group relative aspect-video rounded-lg overflow-hidden border border-border">
+  1974→                      <img src={src} alt="Screenshot" className="w-full h-full object-cover" />
+  1975→                      <button onClick={() => handleRemoveExistingScreenshot(ss.id)} className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+  1976→                        <X className="w-3 h-3" />
+  1977→                      </button>
+  1978→                    </div>
+  1979→                  );
+  1980→                })}
+  1981→              </div>
+  1982→            )}
+  1983→            {previewUrls.length > 0 && (
+  1984→              <div className="grid grid-cols-4 gap-2">
+  1985→                {previewUrls.map((url, index) => (
+  1986→                  <div key={`pending-${index}`} className="group relative aspect-video rounded-lg overflow-hidden border border-primary/30 bg-primary/5">
+  1987→                    <img src={url} alt="Preview" className="w-full h-full object-cover" />
+  1988→                    <button onClick={() => handleRemovePendingFile(index)} className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+  1989→                      <X className="w-3 h-3" />
+  1990→                    </button>
+  1991→                  </div>
+  1992→                ))}
+  1993→              </div>
+  1994→            )}
+  1995→          </div>
+  1996→
+  1997→          <Separator />
+  1998→
+  1999→          {/* ─── Alert ────────────────────────────────── */}
+  2000→          <div className="space-y-2">
+
+[showing lines 1-2000 of 2037; use offset=2001 with limit to continue reading]

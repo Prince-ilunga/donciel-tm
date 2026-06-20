@@ -234,3 +234,81 @@ Stage Summary:
 - Error message is displayed for debugging
 - No other tabs or functionality affected
 - User may need to hard-refresh browser (Ctrl+Shift+R) to clear cached old JS
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Fix (1) Notes tab still crashing on Vercel + (2) screenshots cannot be saved in 'Saisie des trades' tab
+
+Work Log:
+- Viewed both user screenshots with VLM:
+  * Screenshot 1 (180600): "Application error: a client-side exception has occurred" on donciel-trading.vercel.app (Notes tab crash)
+  * Screenshot 2 (180620): Setup detail view showing "CAPTURES D'ÉCRAN — Aucune capture d'écran" (screenshot save failure)
+- Inspected notes-tab.tsx (~2056 lines) — imports are clean (file-url.ts, hooks.ts, app-store.ts all client-safe)
+- Ran `bun run build` locally → production build SUCCEEDS, so the Notes tab crash is a RUNTIME error, not a build error
+- Inspected the user's actual data in the database (Donciel user, 16 notes, 9 alerts, 20 note screenshots):
+  all dates valid, all JSON fields properly formatted → the crash is NOT data-specific
+- ROOT CAUSE of Notes tab crash identified:
+  The previous NotesErrorBoundary was placed INSIDE NotesTab's JSX return:
+    export function NotesTab() {
+      // ... all hooks (useMemo, useState, useEffect) live HERE, before the return
+      return (
+        <NotesErrorBoundary language={language}>   <-- boundary is here, INSIDE the return
+          <div>...</div>
+        </NotesErrorBoundary>
+      );
+    }
+  Errors thrown in the component's own hooks (useMemo/useEffect/useState initializer)
+  bubble UP to the parent component (main-app.tsx), not DOWN to the error boundary.
+  So the boundary never caught the error and the whole page crashed on Vercel
+  with the global "Application error" page.
+- FIX 1 (Notes tab): Restructured NotesTab into a thin wrapper + inner component:
+    export function NotesTab() {
+      const { language } = useAppStore();
+      return (
+        <NotesErrorBoundary language={language}>
+          <NotesTabInner language={language} />
+        </NotesErrorBoundary>
+      );
+    }
+    function NotesTabInner({ language }) { /* all hooks now here */ }
+  Now any rendering error in NotesTabInner's hooks is caught by the boundary.
+- FIX 1b: Hardened getNoteGroupLabel() with isNaN(date.getTime()) guard + try/catch
+  so invalid dates don't trigger the boundary unnecessarily.
+- ROOT CAUSE of screenshot save failure identified:
+  setup-tab.tsx uploads context/entry/exit screenshots to `POST /api/upload`
+  (FormData with file, tradeId, type), but that endpoint DID NOT EXIST.
+  The upload silently failed with a 404, so no screenshot was ever saved.
+  Confirmed: database had 0 trade screenshots for the user.
+- FIX 2 (screenshot upload): Created src/app/api/upload/route.ts that:
+  * Authenticates the user (getAuthUser)
+  * Verifies the trade belongs to the user
+  * Uploads the file via storage.uploadFile() (Cloudinary in prod, local fs in dev)
+  * In local mode, writes the file to upload/screenshots/<filename> so the
+    existing /api/screenshots/[filename] route can serve it
+  * Stores URL as either the Cloudinary secure_url or `upload/screenshots/<filename>`
+    (both formats are understood by resolveScreenshotUrl() in trade-detail-dialog.tsx)
+  * Creates a Screenshot record in the DB linked to the trade
+- FIX 2b: Narrowed .gitignore rule from `upload/` to `/upload/` because the old
+  pattern matched ANY directory named "upload", including src/app/api/upload/,
+  which prevented the new route from being tracked by git. The top-level
+  upload/ folder (where user-uploaded files live) stays ignored.
+- Verified both fixes with agent-browser (logged in as testnotes@test.com):
+  * Notes tab: renders 3 notes correctly, no errors in console, no crash
+  * Screenshot upload: filled the Saisie des trades form, uploaded a test
+    JPG to the context slot, clicked Enregistrer → trade created AND
+    screenshot saved (verified in DB + file on disk + HTTP 200 from
+    /api/screenshots/[filename])
+- Cleaned up test data (deleted the test trade + screenshot file)
+- Lint passes, production build succeeds, new /api/upload route appears in build output
+- Pushed to GitHub: commit 3a27db0 (main)
+
+Stage Summary:
+- Notes tab: error boundary now correctly wraps the inner component, so ANY
+  rendering error is caught and the user sees a friendly retry screen instead
+  of the global "Application error" page. Also hardened date handling.
+- Saisie des trades screenshots: new /api/upload endpoint saves context/entry/exit
+  screenshots to Cloudinary (prod) or local filesystem (dev) and links them to
+  the trade. Works with the existing screenshot viewer UI.
+- Only 3 files changed: notes-tab.tsx (restructure + date guard), new upload
+  route.ts, and .gitignore (one-pattern narrowing). No other functionality touched.
