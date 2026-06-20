@@ -295,11 +295,19 @@ function parseJSON<T>(val: string | null | undefined, fallback: T): T {
 }
 
 function getNoteGroupLabel(date: Date, language: "fr" | "en"): string {
-  if (isToday(date)) return language === "fr" ? "Aujourd'hui" : "Today";
-  if (isYesterday(date)) return language === "fr" ? "Hier" : "Yesterday";
-  if (isThisWeek(date)) return language === "fr" ? "Cette semaine" : "This week";
-  if (isThisMonth(date)) return language === "fr" ? "Ce mois" : "This month";
-  return format(date, "MMMM yyyy", { locale: undefined });
+  // Guard against invalid dates (bad data shouldn't crash the UI)
+  if (!date || isNaN(date.getTime())) {
+    return language === "fr" ? "Date inconnue" : "Unknown date";
+  }
+  try {
+    if (isToday(date)) return language === "fr" ? "Aujourd'hui" : "Today";
+    if (isYesterday(date)) return language === "fr" ? "Hier" : "Yesterday";
+    if (isThisWeek(date)) return language === "fr" ? "Cette semaine" : "This week";
+    if (isThisMonth(date)) return language === "fr" ? "Ce mois" : "This month";
+    return format(date, "MMMM yyyy", { locale: undefined });
+  } catch {
+    return language === "fr" ? "Date inconnue" : "Unknown date";
+  }
 }
 
 // ─── Error Boundary ─────────────────────────────────────
@@ -364,8 +372,21 @@ class NotesErrorBoundary extends React.Component<
 }
 
 // ─── Main Component ──────────────────────────────────────
+// Wrapper that places the ErrorBoundary OUTSIDE the inner component so that
+// errors thrown during rendering (including inside useMemo/useEffect) of the
+// inner component are caught. Previously the boundary was placed inside the
+// JSX return, which meant errors in the component's own hooks bubbled up to
+// the parent and crashed the whole page on Vercel.
 export function NotesTab() {
   const { language } = useAppStore();
+  return (
+    <NotesErrorBoundary language={language}>
+      <NotesTabInner language={language} />
+    </NotesErrorBoundary>
+  );
+}
+
+function NotesTabInner({ language }: { language: "fr" | "en" }) {
   const [activeType, setActiveType] = useState<string>("DAY");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "priority" | "mood">("date");
@@ -551,7 +572,6 @@ export function NotesTab() {
   ];
 
   return (
-    <NotesErrorBoundary language={language}>
     <div className="p-4 md:p-6 space-y-4 max-w-[1600px] mx-auto overflow-x-hidden">
       {/* ─── Header ──────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -874,7 +894,6 @@ export function NotesTab() {
         </DialogContent>
       </Dialog>
     </div>
-    </NotesErrorBoundary>
   );
 }
 

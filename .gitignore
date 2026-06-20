@@ -51,6 +51,6 @@ prompt
 server.log
 # Skills directory
 /skills/
-# Uploaded files
-upload/
+# Uploaded files (top-level only, so src/app/api/upload/ route is tracked)
+/upload/
 ziRvjmoI
