@@ -480,3 +480,72 @@ Stage Summary:
 - SessionsClock moved from Journal tab to Marché tab (placed above the AI analysis).
 - Only 3 files changed: sessions-clock.tsx (tz fix), journal-tab.tsx (removed),
   news-tab.tsx (added). No other functionality touched.
+
+---
+Task ID: 3
+Agent: Z.ai Code (main)
+Task: (1) Retirer "Montant à gagner" du formulaire d'ajout de trade car calculé automatiquement. (2) Setup: garder seulement SETUP A, SETUP B, SETUP C. (3) Onglet Playbook: tout retirer pour intégrer le plan complet Notion.
+
+Work Log:
+- Viewed 2 uploaded screenshots (SAISIE DES TRADES form + Setup dropdown showing
+  SETUP A+, SETUP B, SETUP B+ to remove).
+
+- REQUEST 1 (remove "Montant à gagner" field):
+  * Verified P&L/Reward/Efficiency calculation in trade-detail-dialog.tsx has a
+    PRIMARY path (Method 1: exitPrice + lotSize + contract size) that works
+    WITHOUT amountToWin. amountToWin was only a secondary fallback (Method 2).
+    So removing the field is safe — auto-calculation continues via Method 1.
+  * setup-tab.tsx: removed ONLY the form field UI block (div with Label +
+    Input for amountToWin at lines 1473-1476). Kept amountToWin in form state
+    (sends null on submit) — no backend/schema/trade-detail-dialog changes.
+
+- REQUEST 2 (Setup options: only A, B, C):
+  * setup-tab.tsx line 85: SETUPS array changed from
+    ["SETUP A", "SETUP A+", "SETUP B", "SETUP B+", "SETUP C"] to
+    ["SETUP A", "SETUP B", "SETUP C"]. This constant is used in both the
+    trade form Select and the setup filter, so both update automatically.
+
+- REQUEST 3 (Playbook → Notion integration):
+  * Attempted to read Notion page via page_reader — only got the JS loading
+    shell (content requires auth/JS rendering). Cannot extract content.
+  * Solution: rewrite playbook-tab.tsx as a clean Notion iframe embed.
+  * Completely replaced the 1785-line CRUD component with a ~85-line embed:
+    - Header "Mon Plan Complet" with book icon + gradient text (consistent
+      with app style)
+    - "Ouvrir dans Notion" button (external link fallback)
+    - Amber info note: reminds user to share Notion page publicly
+      ("Partager → Partager sur le web") for the embed to display
+    - Responsive iframe (height calc(100vh - 14rem), minHeight 600px)
+    - Loading spinner with 6s safety timeout (handles cross-origin blocked
+      iframes where onLoad may not fire)
+    - No Node.js imports (Vercel-safe), hydration-safe
+  * Kept export name `PlaybookTab` so main-app.tsx import is unchanged.
+  * Only `PlaybookTab` was imported externally; all internal functions
+    (usePlaybooks, PlaybookCard, PlaybookDetail, PlaybookForm, DeleteDialog)
+    were safely removed.
+
+Verification (Agent Browser, temp admin verifyclock@test.com):
+- Setup tab → SAISIE DES TRADES form: "Montant à gagner" field correctly
+  ABSENT (grep empty). Other fields intact (Prix d'Entrée, Stop Loss,
+  Take Profit, Prix de Sortie, Taille du Lot, Heures). 5 price spinbuttons
+  (was 6 before — confirms amountToWin removed).
+- Setup dropdown opened: shows only SETUP A, SETUP B, SETUP C
+  (SETUP A+ and SETUP B+ correctly removed).
+- Playbook tab: "Mon Plan Complet" heading present, "Ouvrir dans Notion"
+  button present, amber info note present, iframe with correct Notion URL
+  embedded. VLM confirmed layout is professional and clean.
+- Notion iframe content depends on the Notion page being publicly shared
+  (X-Frame-Options). Info note guides the user to enable "Share to web".
+  "Ouvrir dans Notion" button is a reliable fallback.
+- No console errors across all 3 tabs.
+- Lint: zero errors.
+
+Stage Summary:
+- "Montant à gagner" field removed from trade form (P&L still auto-calculates
+  via exitPrice + lotSize primary path).
+- Setup options reduced to SETUP A, SETUP B, SETUP C only.
+- Playbook tab completely replaced by Notion plan embed (iframe + fallback
+  link + info note + loading state).
+- 3 files changed: setup-tab.tsx (field removed + SETUPS trimmed),
+  playbook-tab.tsx (full rewrite as Notion embed). No other functionality
+  touched.

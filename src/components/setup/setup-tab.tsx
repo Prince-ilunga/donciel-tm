@@ -82,7 +82,7 @@ const SESSIONS = ["LONDON", "NEW YORK", "ASIE", "OVERLAP", "MACRO CHER", "MACRO 
 const MARKET_CONDITIONS = ["CONTINUATION", "RETRACEMENT"];
 const TIMEFRAMES_ANALYSIS = ["M15", "M30", "H1", "H4", "D1", "W1"];
 const TIMEFRAMES_ENTRY = ["M1", "M5", "M15", "M30", "H1"];
-const SETUPS = ["SETUP A", "SETUP A+", "SETUP B", "SETUP B+", "SETUP C"];
+const SETUPS = ["SETUP A", "SETUP B", "SETUP C"];
 const STRUCTURES = ["HAUSSIÈRE", "BAISSIÈRE", "RANGE"];
 const ENTRY_MODELS = ["ANGLOBANTE", "LOT À 3 BOUGIES", "MARKET SHIFT"];
 
@@ -1469,10 +1469,6 @@ function TradeFormDialog({
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">{t(language, "lotSize")}</Label>
                   <Input type="number" step="any" placeholder="0.00" value={formData.lotSize} onChange={(e) => updateField("lotSize", e.target.value)} className="h-9 font-mono" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">{t(language, "amountToWin")}</Label>
-                  <Input type="number" step="any" placeholder="0.00" value={formData.amountToWin} onChange={(e) => updateField("amountToWin", e.target.value)} className="h-9 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">{t(language, "entryTime")}</Label>
