@@ -1,0 +1,719 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+     4→     4→import { useAppStore } from "@/stores/app-store";
+     5→     5→import { t } from "@/lib/i18n";
+     6→     6→import { useTrades } from "@/lib/hooks";
+     7→     7→import { cn, getContractSize, calculateDollarAmount } from "@/lib/utils";
+     8→     8→
+     9→     9→import { Button } from "@/components/ui/button";
+    10→    10→import { Badge } from "@/components/ui/badge";
+    11→    11→import { Card } from "@/components/ui/card";
+    12→    12→import { Separator } from "@/components/ui/separator";
+    13→    13→import { ScrollArea } from "@/components/ui/scroll-area";
+    14→    14→import { Skeleton } from "@/components/ui/skeleton";
+    15→    15→import {
+    16→    16→  Dialog,
+    17→    17→  DialogContent,
+    18→    18→  DialogDescription,
+    19→    19→  DialogHeader,
+    20→    20→  DialogTitle,
+    21→    21→} from "@/components/ui/dialog";
+    22→    22→import {
+    23→    23→  ArrowUpRight,
+    24→    24→  ArrowDownRight,
+    25→    25→  TrendingUp,
+    26→    26→  TrendingDown,
+    27→    27→  Minus,
+    28→    28→  Clock,
+    29→    29→  Target,
+    30→    30→  DollarSign,
+    31→    31→  BarChart3,
+    32→    32→  Calculator,
+    33→    33→  Newspaper,
+    34→    34→  AlertTriangle,
+    35→    35→  Lightbulb,
+    36→    36→  Heart,
+    37→    37→  Layers,
+    38→    38→  X,
+    39→    39→  Image as ImageIcon,
+    40→    40→  Eye,
+    41→    41→} from "lucide-react";
+    42→    42→
+    43→    43→interface TradeDetail {
+    44→    44→  id: string;
+    45→    45→  userId: string;
+    46→    46→  date: string;
+    47→    47→  pair: string;
+    48→    48→  direction: string;
+    49→    49→  session: string;
+    50→    50→  marketCondition: string;
+    51→    51→  timeframe: string;
+    52→    52→  setup: string | null;
+    53→    53→  structure: string | null;
+    54→    54→  entryModel: string | null;
+    55→    55→  amountToWin: number | null;
+    56→    56→  entryPrice: number;
+    57→    57→  stopLoss: number;
+    58→    58→  takeProfit: number;
+    59→    59→  exitPrice: number | null;
+    60→    60→  entryTime: string | null;
+    61→    61→  exitTime: string | null;
+    62→    62→  duration: string | null;
+    63→    63→  lotSize: number | null;
+    64→    64→  rr: number | null;
+    65→    65→  pnl: number | null;
+    66→    66→  result: string | null;
+    67→    67→  newsEnabled: boolean;
+    68→    68→  emotions: string | null;
+    69→    69→  confluence: string | null;
+    70→    70→  mistakes: string | null;
+    71→    71→  lessons: string | null;
+    72→    72→  notes: string | null;
+    73→    73→  createdAt: string;
+    74→    74→  screenshots: { id: string; type: string; url: string }[];
+    75→    75→}
+    76→    76→
+    77→    77→export function TradeDetailDialog() {
+    78→    78→  const { selectedTradeId, showTradeDetail, setShowTradeDetail, language, setScreenshotViewerUrl, screenshotViewerUrl } = useAppStore();
+    79→    79→  const { trades: allTrades, refetch: refetchTrades } = useTrades();
+    80→    80→  const [trade, setTrade] = useState<TradeDetail | null>(null);
+    81→    81→  const [loading, setLoading] = useState(false);
+    82→    82→  const [error, setError] = useState<string | null>(null);
+    83→    83→  const prevTradeIdRef = useRef<string | null>(null);
+    84→    84→
+    85→    85→  const fetchTrade = useCallback(async (id: string) => {
+    86→    86→    setLoading(true);
+    87→    87→    setError(null);
+    88→    88→    try {
+    89→    89→      const res = await fetch(`/api/trades/${id}?_t=${Date.now()}`);
+    90→    90→      if (!res.ok) {
+    91→    91→        const data = await res.json();
+    92→    92→        setError(data.error || (language === "fr" ? "Erreur lors du chargement" : "Error loading trade"));
+    93→    93→        setTrade(null);
+    94→    94→        return;
+    95→    95→      }
+    96→    96→      const data = await res.json();
+    97→    97→      if (data.trade && data.trade.entryPrice !== undefined) {
+    98→    98→        setTrade(data.trade);
+    99→    99→      } else {
+   100→   100→        setError(language === "fr" ? "Données du trade invalides" : "Invalid trade data");
+   101→   101→        setTrade(null);
+   102→   102→      }
+   103→   103→    } catch (err) {
+   104→   104→      console.error("Error fetching trade:", err);
+   105→   105→      setError(language === "fr" ? "Erreur de connexion" : "Connection error");
+   106→   106→      setTrade(null);
+   107→   107→    } finally {
+   108→   108→      setLoading(false);
+   109→   109→    }
+   110→   110→  }, [language]);
+   111→   111→
+   112→   112→  const handleOpenChange = useCallback((open: boolean) => {
+   113→   113→    if (!open) {
+   114→   114→      if (screenshotViewerUrl) {
+   115→   115→        // Close screenshot viewer instead of the dialog
+   116→   116→        setScreenshotViewerUrl(null);
+   117→   117→        return;
+   118→   118→      }
+   119→   119→      setShowTradeDetail(false);
+   120→   120→      setTrade(null);
+   121→   121→      setError(null);
+   122→   122→      prevTradeIdRef.current = null;
+   123→   123→    }
+   124→   124→  }, [setShowTradeDetail, screenshotViewerUrl, setScreenshotViewerUrl]);
+   125→   125→
+   126→   126→  useEffect(() => {
+   127→   127→    if (showTradeDetail && selectedTradeId && selectedTradeId !== prevTradeIdRef.current) {
+   128→   128→      prevTradeIdRef.current = selectedTradeId;
+   129→   129→      setTrade(null);
+   130→   130→      fetchTrade(selectedTradeId);
+   131→   131→      // Fetch all trades for chart data and screenshot fallback
+   132→   132→      refetchTrades();
+   133→   133→    }
+   134→   134→    if (!showTradeDetail && prevTradeIdRef.current) {
+   135→   135→      prevTradeIdRef.current = null;
+   136→   136→      setTrade(null);
+   137→   137→      setError(null);
+   138→   138→    }
+   139→   139→  }, [showTradeDetail, selectedTradeId, fetchTrade, refetchTrades]);
+   140→   140→
+   141→   141→  const isLong = trade?.direction === "LONG";
+   142→   142→  const isWin = trade?.result === "WIN";
+   143→   143→  const isLoss = trade?.result === "LOSS";
+   144→   144→
+   145→   145→  // Compute trade statistics
+   146→   146→  const tradeStats = useMemo(() => {
+   147→   147→    if (!trade) return null;
+   148→   148→    const risk = Math.abs(trade.entryPrice - trade.stopLoss);
+   149→   149→    const reward = Math.abs(trade.takeProfit - trade.entryPrice);
+   150→   150→    const rr = risk > 0 ? reward / risk : 0;
+   151→   151→    const riskRewardRatio = risk > 0 ? rr.toFixed(2) : "—";
+   152→   152→
+   153→   153→    // Recalculate P&L FIRST if it's 0/null but we have the data to compute it
+   154→   154→    let pnl = trade.pnl;
+   155→   155→    if ((pnl === null || pnl === 0) && trade.exitPrice != null && trade.lotSize && trade.lotSize > 0) {
+   156→   156→      const priceDiff = trade.direction === 'LONG'
+   157→   157→        ? trade.exitPrice - trade.entryPrice
+   158→   158→        : trade.entryPrice - trade.exitPrice;
+   159→   159→      pnl = calculateDollarAmount(priceDiff, trade.lotSize, trade.pair);
+   160→   160→    }
+   161→   161→
+   162→   162→    // Calculate Risk ($) and Reward ($) using contract size
+   163→   163→    let riskAmount = "—";
+   164→   164→    let rewardAmount = "—";
+   165→   165→    let maxRewardDollar = 0;
+   166→   166→
+   167→   167→    if (trade.amountToWin && trade.amountToWin > 0) {
+   168→   168→      // Use user-entered amountToWin for reward, derive risk from RR
+   169→   169→      rewardAmount = trade.amountToWin.toFixed(2);
+   170→   170→      riskAmount = rr > 0 ? (trade.amountToWin / rr).toFixed(2) : trade.amountToWin.toFixed(2);
+   171→   171→      maxRewardDollar = trade.amountToWin;
+   172→   172→    } else if (trade.lotSize && trade.lotSize > 0) {
+   173→   173→      // Calculate using contract size based on pair
+   174→   174→      const contractSize = getContractSize(trade.pair);
+   175→   175→      const riskDollar = risk * trade.lotSize * contractSize;
+   176→   176→      const rewardDollar = reward * trade.lotSize * contractSize;
+   177→   177→      riskAmount = riskDollar.toFixed(2);
+   178→   178→      rewardAmount = rewardDollar.toFixed(2);
+   179→   179→      maxRewardDollar = rewardDollar;
+   180→   180→    }
+   181→   181→
+   182→   182→    // Efficiency: actual P&L as percentage of max possible reward
+   183→   183→    let efficiency = "—";
+   184→   184→    if (pnl != null && maxRewardDollar > 0) {
+   185→   185→      const eff = (pnl / maxRewardDollar) * 100;
+   186→   186→      efficiency = eff.toFixed(0) + "%";
+   187→   187→    }
+   188→   188→
+   189→   189→    return { riskRewardRatio, riskAmount, rewardAmount, efficiency, pnl };
+   190→   190→  }, [trade]);
+   191→   191→
+   192→   192→  // Get chart data for this trade
+   193→   193→  const chartData = useMemo(() => {
+   194→   194→    if (!trade || !allTrades.length) return { last10RR: [], cumulativeRRLast10: [], totalRRLast10: 0, cumulativeRRUpToTrade: [], totalCumulativeRR: 0 };
+   195→   195→
+   196→   196→    // Sort trades by date then createdAt
+   197→   197→    const sorted = [...allTrades].sort((a, b) => {
+   198→   198→      const dateA = new Date(a.date).getTime();
+   199→   199→      const dateB = new Date(b.date).getTime();
+   200→   200→      if (dateA !== dateB) return dateA - dateB;
+   201→   201→      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+   202→   202→    });
+   203→   203→
+   204→   204→    // Find the index of current trade
+   205→   205→    const currentIdx = sorted.findIndex(t => t.id === trade.id);
+   206→   206→
+   207→   207→    // ─── RR PAR TRADE: Last 10 trades ending at this trade ───
+   208→   208→    const startIdx = Math.max(0, (currentIdx >= 0 ? currentIdx : sorted.length - 1) - 9);
+   209→   209→    const endIdx = currentIdx >= 0 ? currentIdx + 1 : sorted.length;
+   210→   210→    const last10 = sorted.slice(startIdx, endIdx);
+   211→   211→
+   212→   212→    const last10RR = last10.map((t, i) => ({
+   213→   213→      index: startIdx + i + 1,
+   214→   214→      rr: t.rr ?? 0,
+   215→   215→      result: t.result,
+   216→   216→    }));
+   217→   217→
+   218→   218→    // ─── CUMULE RR ISOLÉ: Cumulative RR of last 10 trades ───
+   219→   219→    let cumRRLast10 = 0;
+   220→   220→    const cumulativeRRLast10 = last10.map((t, i) => {
+   221→   221→      cumRRLast10 += (t.rr ?? 0);
+   222→   222→      return { index: i + 1, cumulativeRR: cumRRLast10 };
+   223→   223→    });
+   224→   224→    const totalRRLast10 = cumRRLast10;
+   225→   225→
+   226→   226→    // ─── CUMULE TOTAL DE RR: Cumulative RR from first trade up to this trade ───
+   227→   227→    const upToCurrentIdx = currentIdx >= 0 ? currentIdx + 1 : sorted.length;
+   228→   228→    const tradesUpToCurrent = sorted.slice(0, upToCurrentIdx);
+   229→   229→
+   230→   230→    let cumRR = 0;
+   231→   231→    const cumulativeRRUpToTrade = tradesUpToCurrent.map((t, i) => {
+   232→   232→      cumRR += (t.rr ?? 0);
+   233→   233→      return { index: i + 1, cumulativeRR: cumRR };
+   234→   234→    });
+   235→   235→
+   236→   236→    const totalCumulativeRR = cumRR;
+   237→   237→
+   238→   238→    return { last10RR, cumulativeRRLast10, totalRRLast10, cumulativeRRUpToTrade, totalCumulativeRR };
+   239→   239→  }, [trade, allTrades]);
+   240→   240→
+   241→   241→  // Chart dimensions
+   242→   242→  const CHART_W = 300;
+   243→   243→  const CHART_H = 120;
+   244→   244→  const CHART_PAD = 20;
+   245→   245→
+   246→   246→  // Bar chart data for RR PAR TRADE
+   247→   247→  const rrBarChart = useMemo(() => {
+   248→   248→    const data = chartData.last10RR;
+   249→   249→    if (!data.length) return null;
+   250→   250→    const maxRR = Math.max(...data.map(d => Math.abs(d.rr)), 1);
+   251→   251→    const barW = Math.max(4, (CHART_W - CHART_PAD * 2) / data.length - 4);
+   252→   252→    const zeroY = CHART_H / 2;
+   253→   253→
+   254→   254→    return (
+   255→   255→      <svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="overflow-visible">
+   256→   256→        {/* Zero line */}
+   257→   257→        <line x1={CHART_PAD} y1={zeroY} x2={CHART_W - CHART_PAD} y2={zeroY} stroke="currentColor" strokeOpacity={0.15} strokeDasharray="3,3" />
+   258→   258→        {data.map((d, i) => {
+   259→   259→          const x = CHART_PAD + i * ((CHART_W - CHART_PAD * 2) / data.length) + 2;
+   260→   260→          const barHeight = (Math.abs(d.rr) / maxRR) * (zeroY - CHART_PAD);
+   261→   261→          const y = d.rr >= 0 ? zeroY - barHeight : zeroY;
+   262→   262→          const color = d.result === "WIN" ? "#22c55e" : d.result === "LOSS" ? "#ef4444" : "#eab308";
+   263→   263→          return (
+   264→   264→            <g key={i}>
+   265→   265→              <rect x={x} y={y} width={barW} height={barHeight} fill={color} rx={2} opacity={0.8} />
+   266→   266→              <text x={x + barW / 2} y={CHART_H - 2} textAnchor="middle" fontSize={8} fill="currentColor" opacity={0.4}>{d.index}</text>
+   267→   267→            </g>
+   268→   268→          );
+   269→   269→        })}
+   270→   270→      </svg>
+   271→   271→    );
+   272→   272→  }, [chartData.last10RR]);
+   273→   273→
+   274→   274→  // Line chart for CUMULE RR ISOLÉ (last 10 trades)
+   275→   275→  const cumulativeLineChart = useMemo(() => {
+   276→   276→    const data = chartData.cumulativeRRLast10;
+   277→   277→    if (!data.length) return null;
+   278→   278→    const values = data.map(d => d.cumulativeRR);
+   279→   279→    const minVal = Math.min(...values, 0);
+   280→   280→    const maxVal = Math.max(...values, 0);
+   281→   281→    const range = maxVal - minVal || 1;
+   282→   282→
+   283→   283→    const chartWidth = CHART_W - CHART_PAD * 2;
+   284→   284→    const chartHeight = CHART_H - CHART_PAD * 2;
+   285→   285→
+   286→   286→    const points = data.map((d, i) => ({
+   287→   287→      x: CHART_PAD + (data.length === 1 ? chartWidth / 2 : i * (chartWidth / (data.length - 1))),
+   288→   288→      y: CHART_H - CHART_PAD - ((d.cumulativeRR - minVal) / range) * chartHeight,
+   289→   289→    }));
+   290→   290→
+   291→   291→    const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+   292→   292→    const areaD = data.length > 1
+   293→   293→      ? `${pathD} L ${points[points.length - 1].x} ${CHART_H - CHART_PAD} L ${points[0].x} ${CHART_H - CHART_PAD} Z`
+   294→   294→      : `M ${points[0].x} ${CHART_H - CHART_PAD} L ${points[0].x} ${points[0].y} Z`;
+   295→   295→
+   296→   296→    // Zero line Y
+   297→   297→    const zeroY = CHART_H - CHART_PAD - ((0 - minVal) / range) * chartHeight;
+   298→   298→
+   299→   299→    // Determine color based on final cumulative RR
+   300→   300→    const finalRR = values[values.length - 1];
+   301→   301→    const lineColor = finalRR >= 0 ? "#22c55e" : "#ef4444";
+   302→   302→
+   303→   303→    // Total RR for display
+   304→   304→    const totalRR = chartData.totalRRLast10;
+   305→   305→    const totalRRColor = totalRR >= 0 ? "#22c55e" : "#ef4444";
+   306→   306→
+   307→   307→    return (
+   308→   308→      <svg width="100%" height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="overflow-visible">
+   309→   309→        {zeroY > CHART_PAD && zeroY < CHART_H - CHART_PAD && (
+   310→   310→          <line x1={CHART_PAD} y1={zeroY} x2={CHART_W - CHART_PAD} y2={zeroY} stroke="currentColor" strokeOpacity={0.15} strokeDasharray="3,3" />
+   311→   311→        )}
+   312→   312→        <path d={areaD} fill={lineColor} opacity={0.1} />
+   313→   313→        {data.length > 1 && (
+   314→   314→          <path d={pathD} fill="none" stroke={lineColor} strokeWidth={2} />
+   315→   315→        )}
+   316→   316→        {points.map((p, i) => (
+   317→   317→          <circle key={i} cx={p.x} cy={p.y} r={3} fill={lineColor} />
+   318→   318→        ))}
+   319→   319→        {/* Total RR display at top-right corner */}
+   320→   320→        <text
+   321→   321→          x={CHART_W - CHART_PAD}
+   322→   322→          y={CHART_PAD - 4}
+   323→   323→          textAnchor="end"
+   324→   324→          fontSize={11}
+   325→   325→          fontWeight="bold"
+   326→   326→          fill={totalRRColor}
+   327→   327→        >
+   328→   328→          {totalRR >= 0 ? "+" : ""}{totalRR.toFixed(2)} RR
+   329→   329→        </text>
+   330→   330→      </svg>
+   331→   331→    );
+   332→   332→  }, [chartData.cumulativeRRLast10, chartData.totalRRLast10]);
+   333→   333→
+   334→   334→  // Resolve screenshot URL - handles all possible URL formats
+   335→   335→  const resolveScreenshotUrl = useCallback((url: string): string => {
+   336→   336→    if (!url) return '';
+   337→   337→    // Full URLs (Cloudinary, etc.) used directly
+   338→   338→    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+   339→   339→    // Local paths get converted to API route
+   340→   340→    if (url.startsWith('upload/screenshots/')) {
+   341→   341→      return `/api/screenshots/${url.replace('upload/screenshots/', '')}`;
+   342→   342→    }
+   343→   343→    // Any other path - try as API route
+   344→   344→    return `/api/screenshots/${url.split('/').pop()}`;
+   345→   345→  }, []);
+   346→   346→
+   347→   347→  // Detect if a URL is a video (Cloudinary video URL or video file extension)
+   348→   348→  const isVideoUrl = useCallback((url: string): boolean => {
+   349→   349→    if (!url) return false;
+   350→   350→    // Cloudinary video URLs contain /video/upload/
+   351→   351→    if (url.includes('/video/upload/')) return true;
+   352→   352→    // Check video file extensions
+   353→   353→    const videoExts = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v'];
+   354→   354→    const lowerUrl = url.toLowerCase();
+   355→   355→    return videoExts.some(ext => lowerUrl.endsWith(ext));
+   356→   356→  }, []);
+   357→   357→
+   358→   358→  // Get screenshots - check both trade API and allTrades for maximum reliability
+   359→   359→  const tradeScreenshots = useMemo(() => {
+   360→   360→    if (!trade) return [];
+   361→   361→    // Try allTrades first (freshly refetched when dialog opens, includes screenshots)
+   362→   362→    const fromAllTrades = allTrades.find(t => t.id === trade.id)?.screenshots;
+   363→   363→    if (fromAllTrades && fromAllTrades.length > 0) return fromAllTrades;
+   364→   364→    // Fallback: trade API data
+   365→   365→    if (trade.screenshots && trade.screenshots.length > 0) return trade.screenshots;
+   366→   366→    return [];
+   367→   367→  }, [trade, allTrades]);
+   368→   368→
+   369→   369→  return (
+   370→   370→    <Dialog open={showTradeDetail} onOpenChange={handleOpenChange}>
+   371→   371→      <DialogContent className="sm:max-w-5xl max-h-[90vh] p-0 gap-0 overflow-hidden">
+   372→   372→        {/* Header */}
+   373→   373→        {loading ? (
+   374→   374→          <div className="p-6 space-y-4">
+   375→   375→            <DialogHeader>
+   376→   376→              <DialogTitle className="sr-only">{language === "fr" ? "Chargement du trade..." : "Loading trade..."}</DialogTitle>
+   377→   377→              <DialogDescription className="sr-only">{language === "fr" ? "Chargement en cours" : "Loading"}</DialogDescription>
+   378→   378→            </DialogHeader>
+   379→   379→            <Skeleton className="h-8 w-48" />
+   380→   380→            <Skeleton className="h-4 w-64" />
+   381→   381→          </div>
+   382→   382→        ) : error ? (
+   383→   383→          <div className="p-6">
+   384→   384→            <DialogHeader>
+   385→   385→              <DialogTitle className="sr-only">{language === "fr" ? "Erreur" : "Error"}</DialogTitle>
+   386→   386→              <DialogDescription className="sr-only">{error}</DialogDescription>
+   387→   387→            </DialogHeader>
+   388→   388→            <div className="flex flex-col items-center justify-center py-12 text-center">
+   389→   389→              <AlertTriangle className="w-12 h-12 text-loss/50 mb-4" />
+   390→   390→              <p className="text-muted-foreground text-sm">{error}</p>
+   391→   391→              <Button variant="outline" size="sm" className="mt-4" onClick={() => handleOpenChange(false)}>
+   392→   392→                {language === "fr" ? "Fermer" : "Close"}
+   393→   393→              </Button>
+   394→   394→            </div>
+   395→   395→          </div>
+   396→   396→        ) : trade ? (
+   397→   397→          <>
+   398→   398→            {/* Trade Header */}
+   399→   399→            <div className="p-6 border-b border-border bg-muted/30">
+   400→   400→              <DialogHeader>
+   401→   401→                <DialogTitle className="flex items-center gap-3 text-xl">
+   402→   402→                  <div className={cn(
+   403→   403→                    "w-10 h-10 rounded-xl flex items-center justify-center",
+   404→   404→                    isLong ? "bg-profit/10 text-profit" : "bg-loss/10 text-loss"
+   405→   405→                  )}>
+   406→   406→                    {isLong ? <ArrowUpRight className="w-5 h-5" /> : <ArrowDownRight className="w-5 h-5" />}
+   407→   407→                  </div>
+   408→   408→                  <div className="flex items-center gap-2 flex-wrap">
+   409→   409→                    <span className="font-mono font-bold text-lg">{trade.pair}</span>
+   410→   410→                    <DialogDescription className="sr-only">{trade.pair} {trade.direction} - {trade.date}</DialogDescription>
+   411→   411→                    <Badge className={cn(
+   412→   412→                      "text-xs font-semibold",
+   413→   413→                      isLong ? "bg-profit/15 text-profit border-profit/20" : "bg-loss/15 text-loss border-loss/20"
+   414→   414→                    )}>
+   415→   415→                      {trade.direction}
+   416→   416→                    </Badge>
+   417→   417→                    {trade.result && (
+   418→   418→                      <Badge className={cn(
+   419→   419→                        "text-xs font-semibold",
+   420→   420→                        trade.result === "WIN" && "bg-profit/15 text-profit border-profit/20",
+   421→   421→                        trade.result === "LOSS" && "bg-loss/15 text-loss border-loss/20",
+   422→   422→                        trade.result === "BE" && "bg-gold/15 text-gold border-gold/20"
+   423→   423→                      )}>
+   424→   424→                        {trade.result}
+   425→   425→                      </Badge>
+   426→   426→                    )}
+   427→   427→                    {trade.setup && (
+   428→   428→                      <Badge variant="outline" className="text-xs font-mono">{trade.setup}</Badge>
+   429→   429→                    )}
+   430→   430→                    {trade.structure && (
+   431→   431→                      <Badge variant="outline" className="text-xs">{trade.structure}</Badge>
+   432→   432→                    )}
+   433→   433→                    {trade.entryModel && (
+   434→   434→                      <Badge variant="outline" className="text-xs">{trade.entryModel}</Badge>
+   435→   435→                    )}
+   436→   436→                  </div>
+   437→   437→                </DialogTitle>
+   438→   438→              </DialogHeader>
+   439→   439→              <div className="flex items-center gap-3 mt-3 flex-wrap">
+   440→   440→                <Badge variant="outline" className="text-xs">{trade.date}</Badge>
+   441→   441→                <Badge variant="outline" className="text-xs">{trade.session}</Badge>
+   442→   442→                <Badge variant="outline" className="text-xs">{trade.marketCondition}</Badge>
+   443→   443→                <Badge variant="outline" className="text-xs font-mono">{trade.timeframe}</Badge>
+   444→   444→                {trade.newsEnabled && (
+   445→   445→                  <Badge className="text-xs bg-gold/15 text-gold border-gold/20 gap-1"><Newspaper className="w-3 h-3" />News</Badge>
+   446→   446→                )}
+   447→   447→              </div>
+   448→   448→            </div>
+   449→   449→
+   450→   450→            <ScrollArea className="max-h-[60vh]">
+   451→   451→              <div className="p-6 space-y-6">
+   452→   452→                {/* Key Metrics Row */}
+   453→   453→                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+   454→   454→                  {/* RR */}
+   455→   455→                  <div className="rounded-xl border border-border p-3 text-center">
+   456→   456→                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><Target className="w-3 h-3" />RR</div>
+   457→   457→                    <div className={cn("text-2xl font-bold font-mono", trade.rr != null && trade.rr >= 1 && "text-profit", trade.rr != null && trade.rr < 1 && "text-loss")}>
+   458→   458→                      {trade.rr != null ? trade.rr.toFixed(2) : "—"}
+   459→   459→                    </div>
+   460→   460→                  </div>
+   461→   461→                  {/* P&L */}
+   462→   462→                  <div className="rounded-xl border border-border p-3 text-center">
+   463→   463→                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><DollarSign className="w-3 h-3" />P&L</div>
+   464→   464→                    {(() => {
+   465→   465→                      const pnl = tradeStats?.pnl ?? trade.pnl;
+   466→   466→                      if (pnl == null) return <span className="text-2xl font-bold font-mono text-muted-foreground">—</span>;
+   467→   467→                      return (
+   468→   468→                        <div className={cn("text-2xl font-bold font-mono", pnl > 0 && "text-profit", pnl < 0 && "text-loss", pnl === 0 && "text-gold")}>
+   469→   469→                          {pnl >= 0 ? "+" : ""}{pnl.toFixed(2)}
+   470→   470→                        </div>
+   471→   471→                      );
+   472→   472→                    })()}
+   473→   473→                  </div>
+   474→   474→                  {/* Result */}
+   475→   475→                  <div className="rounded-xl border border-border p-3 text-center">
+   476→   476→                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><BarChart3 className="w-3 h-3" />{t(language, "result")}</div>
+   477→   477→                    <div className="flex justify-center mt-1">
+   478→   478→                      {trade.result ? (
+   479→   479→                        <Badge className={cn("text-sm font-bold px-3 py-1", trade.result === "WIN" && "bg-profit/15 text-profit border-profit/20", trade.result === "LOSS" && "bg-loss/15 text-loss border-loss/20", trade.result === "BE" && "bg-gold/15 text-gold border-gold/20")}>{trade.result}</Badge>
+   480→   480→                      ) : <span className="text-muted-foreground">—</span>}
+   481→   481→                    </div>
+   482→   482→                  </div>
+   483→   483→                  {/* Duration */}
+   484→   484→                  <div className="rounded-xl border border-border p-3 text-center">
+   485→   485→                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-center gap-1"><Clock className="w-3 h-3" />{t(language, "duration")}</div>
+   486→   486→                    <div className="text-lg font-bold font-mono">{trade.duration || "—"}</div>
+   487→   487→                  </div>
+   488→   488→
+   489→   489→                </div>
+   490→   490→
+   491→   491→                {/* ─── Charts Section ──────────────── */}
+   492→   492→                <div className="space-y-3">
+   493→   493→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   494→   494→                    {language === "fr" ? "Graphiques" : "Charts"}
+   495→   495→                  </h4>
+   496→   496→                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   497→   497→                    {/* RR PAR TRADE - Bar Chart (10 derniers trades) */}
+   498→   498→                    <Card className="p-4">
+   499→   499→                      <div className="flex items-center justify-between mb-3">
+   500→   500→                        <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
+   501→   501→                          {t(language, "rrParTrade")}
+   502→   502→                        </span>
+   503→   503→                        <Badge variant="outline" className="text-[9px]">{t(language, "derniersTrades")}</Badge>
+   504→   504→                      </div>
+   505→   505→                      {rrBarChart || (
+   506→   506→                        <div className="h-[120px] flex items-center justify-center text-muted-foreground text-sm">
+   507→   507→                          {t(language, "noData")}
+   508→   508→                        </div>
+   509→   509→                      )}
+   510→   510→                    </Card>
+   511→   511→
+   512→   512→                    {/* CUMULE RR ISOLÉ - Curve Chart (last 10 trades) */}
+   513→   513→                    <Card className="p-4">
+   514→   514→                      <div className="flex items-center justify-between mb-3">
+   515→   515→                        <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
+   516→   516→                          {t(language, "cumuleRRIsole")}
+   517→   517→                        </span>
+   518→   518→                        <Badge variant="outline" className="text-[9px]">{t(language, "derniersTrades")}</Badge>
+   519→   519→                      </div>
+   520→   520→                      {cumulativeLineChart || (
+   521→   521→                        <div className="h-[120px] flex items-center justify-center text-muted-foreground text-sm">
+   522→   522→                          {t(language, "noData")}
+   523→   523→                        </div>
+   524→   524→                      )}
+   525→   525→                    </Card>
+   526→   526→                  </div>
+   527→   527→
+   528→   528→                  {/* CUMULE TOTAL DE RR */}
+   529→   529→                  <Card className="p-4">
+   530→   530→                    <div className="flex items-center justify-between">
+   531→   531→                      <span className="text-[10px] uppercase tracking-wider font-semibold text-primary">
+   532→   532→                        {t(language, "cumuleTotalRR")}
+   533→   533→                      </span>
+   534→   534→                      <span className="text-xs text-muted-foreground">{t(language, "depuisPremierTrade")}</span>
+   535→   535→                    </div>
+   536→   536→                    <div className={cn(
+   537→   537→                      "text-3xl font-bold font-mono mt-2",
+   538→   538→                      chartData.totalCumulativeRR >= 0 ? "text-profit" : "text-loss"
+   539→   539→                    )}>
+   540→   540→                      {chartData.totalCumulativeRR >= 0 ? "+" : ""}{chartData.totalCumulativeRR.toFixed(2)} RR
+   541→   541→                    </div>
+   542→   542→                  </Card>
+   543→   543→                </div>
+   544→   544→
+   545→   545→                {/* Price Parameters */}
+   546→   546→                <div className="space-y-3">
+   547→   547→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   548→   548→                    {language === "fr" ? "Paramètres de Prix" : "Price Parameters"}
+   549→   549→                  </h4>
+   550→   550→                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+   551→   551→                    <ParamCard label={t(language, "entryPrice")} value={trade.entryPrice.toString()} mono />
+   552→   552→                    <ParamCard label={t(language, "stopLoss")} value={trade.stopLoss.toString()} mono valueClass="text-loss" />
+   553→   553→                    <ParamCard label={t(language, "takeProfit")} value={trade.takeProfit.toString()} mono valueClass="text-profit" />
+   554→   554→                    {trade.exitPrice != null && <ParamCard label={t(language, "exitPrice")} value={trade.exitPrice.toString()} mono />}
+   555→   555→                    {trade.lotSize != null && <ParamCard label={t(language, "lotSize")} value={trade.lotSize.toString()} mono />}
+   556→   556→
+   557→   557→                    {trade.entryTime && <ParamCard label={t(language, "entryTime")} value={trade.entryTime} mono />}
+   558→   558→                    {trade.exitTime && <ParamCard label={t(language, "exitTime")} value={trade.exitTime} mono />}
+   559→   559→                  </div>
+   560→   560→                </div>
+   561→   561→
+   562→   562→                {/* Trade Context - Structure & Entry Model */}
+   563→   563→                {(trade.structure || trade.entryModel) && (
+   564→   564→                  <div className="space-y-3">
+   565→   565→                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   566→   566→                      {language === "fr" ? "Contexte du Trade" : "Trade Context"}
+   567→   567→                    </h4>
+   568→   568→                    <div className="grid grid-cols-2 gap-3">
+   569→   569→                      {trade.structure && <ParamCard label={t(language, "structureField")} value={trade.structure} />}
+   570→   570→                      {trade.entryModel && <ParamCard label={t(language, "entryModelField")} value={trade.entryModel} />}
+   571→   571→                    </div>
+   572→   572→                  </div>
+   573→   573→                )}
+   574→   574→
+   575→   575→                {/* Trade Statistics */}
+   576→   576→                {tradeStats && (
+   577→   577→                  <div className="space-y-3">
+   578→   578→                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   579→   579→                      {language === "fr" ? "Statistiques du Trade" : "Trade Statistics"}
+   580→   580→                    </h4>
+   581→   581→                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   582→   582→                      <StatCard label={language === "fr" ? "Ratio Risk/Reward" : "Risk/Reward Ratio"} value={tradeStats.riskRewardRatio} />
+   583→   583→                      <StatCard label={language === "fr" ? "Risque ($)" : "Risk ($)"} value={tradeStats.riskAmount} valueClass="text-loss" />
+   584→   584→                      <StatCard label={language === "fr" ? "Récompense ($)" : "Reward ($)"} value={tradeStats.rewardAmount} valueClass="text-profit" />
+   585→   585→                      <StatCard label={language === "fr" ? "Efficacité" : "Efficiency"} value={tradeStats.efficiency} />
+   586→   586→                    </div>
+   587→   587→                  </div>
+   588→   588→                )}
+   589→   589→
+   590→   590→                {/* Qualitative Data */}
+   591→   591→                {(trade.emotions || trade.confluence || trade.mistakes || trade.lessons) && (
+   592→   592→                  <div className="space-y-3">
+   593→   593→                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   594→   594→                      {language === "fr" ? "Données Qualitatives" : "Qualitative Data"}
+   595→   595→                    </h4>
+   596→   596→                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   597→   597→                      {trade.emotions && <QualCard icon={Heart} label={t(language, "emotions")} value={trade.emotions} color="text-pink-400" />}
+   598→   598→                      {trade.confluence && <QualCard icon={Layers} label={t(language, "confluence")} value={trade.confluence} color="text-foreground" />}
+   599→   599→                      {trade.mistakes && <QualCard icon={AlertTriangle} label={t(language, "mistakes")} value={trade.mistakes} color="text-loss" />}
+   600→   600→                      {trade.lessons && <QualCard icon={Lightbulb} label={t(language, "lessons")} value={trade.lessons} color="text-gold" />}
+   601→   601→                    </div>
+   602→   602→                  </div>
+   603→   603→                )}
+   604→   604→
+   605→   605→                {/* Notes */}
+   606→   606→                {trade.notes && (
+   607→   607→                  <div className="rounded-xl bg-muted/30 p-4">
+   608→   608→                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{t(language, "notes")}</div>
+   609→   609→                    <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{trade.notes}</p>
+   610→   610→                  </div>
+   611→   611→                )}
+   612→   612→
+   613→   613→                {/* Screenshots & Videos */}
+   614→   614→                <div className="space-y-3">
+   615→   615→                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+   616→   616→                    {language === "fr" ? "Captures d'écran" : "Screenshots"}
+   617→   617→                    {tradeScreenshots.length > 0 && <span className="ml-1 text-[10px]">({tradeScreenshots.length})</span>}
+   618→   618→                  </h4>
+   619→   619→                  {tradeScreenshots.length > 0 ? (
+   620→   620→                    <div className="space-y-3">
+   621→   621→                      {tradeScreenshots.map((screenshot) => {
+   622→   622→                        const mediaSrc = resolveScreenshotUrl(screenshot.url);
+   623→   623→                        if (!mediaSrc) return null;
+   624→   624→                        const isVideo = isVideoUrl(screenshot.url);
+   625→   625→                        const typeLabel = (screenshot.type === "context" || screenshot.type === "analysis")
+   626→   626→                          ? t(language, "contextScreenshot")
+   627→   627→                          : screenshot.type === "entry"
+   628→   628→                            ? t(language, "entryScreenshot")
+   629→   629→                            : t(language, "exitScreenshot");
+   630→   630→
+   631→   631→                        return (
+   632→   632→                          <button
+   633→   633→                            key={screenshot.id}
+   634→   634→                            onClick={(e) => { e.stopPropagation(); setScreenshotViewerUrl(mediaSrc); }}
+   635→   635→                            className="group relative w-full aspect-video rounded-xl overflow-hidden border border-border hover:border-foreground/30 transition-all duration-200"
+   636→   636→                          >
+   637→   637→                            {isVideo ? (
+   638→   638→                              <video
+   639→   639→                                src={mediaSrc}
+   640→   640→                                className="w-full h-full object-cover"
+   641→   641→                                muted
+   642→   642→                                playsInline
+   643→   643→                                preload="metadata"
+   644→   644→                              />
+   645→   645→                            ) : (
+   646→   646→                              <img
+   647→   647→                                src={mediaSrc}
+   648→   648→                                alt={`${screenshot.type} screenshot`}
+   649→   649→                                className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+   650→   650→                              />
+   651→   651→                            )}
+   652→   652→                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+   653→   653→                              <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+   654→   654→                            </div>
+   655→   655→                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 flex items-center justify-between">
+   656→   656→                              <span className="text-xs text-white font-medium uppercase tracking-wider">
+   657→   657→                                {typeLabel}
+   658→   658→                              </span>
+   659→   659→                              {isVideo && (
+   660→   660→                                <span className="text-[9px] text-white/70 bg-white/20 rounded px-1">VID</span>
+   661→   661→                              )}
+   662→   662→                            </div>
+   663→   663→                          </button>
+   664→   664→                        );
+   665→   665→                      })}
+   666→   666→                    </div>
+   667→   667→                  ) : (
+   668→   668→                    <div className="text-xs text-muted-foreground/60 italic">
+   669→   669→                      {language === "fr" ? "Aucune capture d'écran" : "No screenshots"}
+   670→   670→                    </div>
+   671→   671→                  )}
+   672→   672→                </div>
+   673→   673→              </div>
+   674→   674→            </ScrollArea>
+   675→   675→          </>
+   676→   676→        ) : (
+   677→   677→          <div className="p-12 text-center">
+   678→   678→            <DialogHeader>
+   679→   679→              <DialogTitle className="sr-only">{language === "fr" ? "Aucune donnée" : "No data"}</DialogTitle>
+   680→   680→            </DialogHeader>
+   681→   681→            <p className="text-muted-foreground">{t(language, "noData")}</p>
+   682→   682→          </div>
+   683→   683→        )}
+   684→   684→      </DialogContent>
+   685→   685→    </Dialog>
+   686→   686→  );
+   687→   687→}
+   688→   688→
+   689→   689→// ─── Sub-components ──────────────────────────────────────────
+   690→   690→function ParamCard({ label, value, mono, valueClass }: { label: string; value: string; mono?: boolean; valueClass?: string }) {
+   691→   691→  return (
+   692→   692→    <div className="rounded-lg bg-muted/30 p-3">
+   693→   693→      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
+   694→   694→      <div className={cn("text-sm font-semibold", mono && "font-mono", valueClass)}>{value}</div>
+   695→   695→    </div>
+   696→   696→  );
+   697→   697→}
+   698→   698→
+   699→   699→function StatCard({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+   700→   700→  return (
+   701→   701→    <div className="rounded-lg border border-border p-3 text-center">
+   702→   702→      <div className="text-[9px] uppercase tracking-wider text-muted-foreground mb-1">{label}</div>
+   703→   703→      <div className={cn("text-lg font-bold font-mono", valueClass)}>{value}</div>
+   704→   704→    </div>
+   705→   705→  );
+   706→   706→}
+   707→   707→
+   708→   708→function QualCard({ icon: Icon, label, value, color }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; color: string }) {
+   709→   709→  return (
+   710→   710→    <div className="rounded-lg bg-muted/30 p-3">
+   711→   711→      <div className="flex items-center gap-1.5 mb-2">
+   712→   712→        <Icon className={cn("w-3.5 h-3.5", color)} />
+   713→   713→        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{label}</span>
+   714→   714→      </div>
+   715→   715→      <p className="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed">{value}</p>
+   716→   716→    </div>
+   717→   717→  );
+   718→   718→}
+   719→   719→
