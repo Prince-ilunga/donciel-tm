@@ -472,6 +472,18 @@ function NoteFormDialog({
   const [createdNoteId, setCreatedNoteId] = useState<string | null>(note?.id || null);
   const savedRef = useRef(false);
 
+  // Pending screenshots for a brand-new note (uploaded after the note is created)
+  const [pendingFiles, setPendingFiles] = useState<
+    { id: string; file: File; previewUrl: string }[]
+  >([]);
+  const pendingFilesRef = useRef(pendingFiles);
+  pendingFilesRef.current = pendingFiles;
+  useEffect(() => {
+    return () => {
+      pendingFilesRef.current.forEach((pf) => URL.revokeObjectURL(pf.previewUrl));
+    };
+  }, []);
+
   const handleSave = async () => {
     if (!title.trim()) {
       toast.error(fr ? "Le titre est requis" : "Title is required");
@@ -503,15 +515,60 @@ function NoteFormDialog({
 
       if (!res.ok) throw new Error("save failed");
       const data = await res.json();
-      setCreatedNoteId(data.note.id);
+      const noteId = data.note.id;
+      setCreatedNoteId(noteId);
       savedRef.current = true;
-      toast.success(fr ? "Note enregistrée" : "Note saved");
+
+      // Upload any screenshots queued while the note was being created
+      if (pendingFiles.length > 0) {
+        setUploading(true);
+        let uploaded = 0;
+        for (const pf of pendingFiles) {
+          try {
+            const fd = new FormData();
+            fd.append("noteId", noteId);
+            fd.append("file", pf.file);
+            const upRes = await fetch("/api/notes/screenshots", { method: "POST", body: fd });
+            if (upRes.ok) {
+              const upData = await upRes.json();
+              setScreenshots((prev) => [...prev, upData.screenshot]);
+              uploaded++;
+            }
+          } catch {
+            // best effort — continue with remaining files
+          } finally {
+            URL.revokeObjectURL(pf.previewUrl);
+          }
+        }
+        setPendingFiles([]);
+        setUploading(false);
+        toast.success(
+          uploaded > 0
+            ? fr
+              ? `Note enregistrée avec ${uploaded} capture(s)`
+              : `Note saved with ${uploaded} screenshot(s)`
+            : fr
+              ? "Note enregistrée"
+              : "Note saved"
+        );
+      } else {
+        toast.success(fr ? "Note enregistrée" : "Note saved");
+      }
+
       onSaved();
     } catch {
       toast.error(fr ? "Erreur lors de l'enregistrement" : "Error saving note");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleRemovePending = (pendingId: string) => {
+    setPendingFiles((prev) => {
+      const target = prev.find((p) => p.id === pendingId);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((p) => p.id !== pendingId);
+    });
   };
 
   const handleUploadScreenshot = async (file: File) => {
@@ -621,10 +678,24 @@ function NoteFormDialog({
               ref={fileInputRef}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
               onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleUploadScreenshot(f);
+                const files = Array.from(e.target.files || []);
+                if (files.length === 0) return;
+                const noteId = createdNoteId || note?.id;
+                if (noteId) {
+                  // Existing / already-saved note — upload immediately (unchanged behavior)
+                  files.forEach((f) => handleUploadScreenshot(f));
+                } else {
+                  // New note — queue locally, upload automatically on save
+                  const pending = files.map((f) => ({
+                    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                    file: f,
+                    previewUrl: URL.createObjectURL(f),
+                  }));
+                  setPendingFiles((prev) => [...prev, ...pending]);
+                }
                 e.target.value = "";
               }}
             />
@@ -634,7 +705,7 @@ function NoteFormDialog({
               size="sm"
               className="gap-2 w-full"
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploading || !createdNoteId && !note}
+              disabled={uploading}
             >
               {uploading ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -645,13 +716,37 @@ function NoteFormDialog({
                 ? (fr ? "Upload..." : "Uploading...")
                 : (fr ? "Joindre une capture" : "Attach screenshot")}
             </Button>
-            {!createdNoteId && !note && (
+            {pendingFiles.length > 0 && (
               <p className="text-[11px] text-muted-foreground">
-                {fr ? "Enregistrez la note pour pouvoir joindre des captures." : "Save the note first to attach screenshots."}
+                {fr
+                  ? `${pendingFiles.length} capture(s) seront ajoutées à l'enregistrement.`
+                  : `${pendingFiles.length} screenshot(s) will be added on save.`}
               </p>
             )}
-            {screenshots.length > 0 && (
+            {(screenshots.length > 0 || pendingFiles.length > 0) && (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {pendingFiles.map((pf) => (
+                  <div
+                    key={pf.id}
+                    className="relative aspect-square rounded-lg overflow-hidden border border-dashed border-amber-400/60 group"
+                  >
+                    <img
+                      src={pf.previewUrl}
+                      alt={fr ? "Capture" : "Screenshot"}
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute bottom-0 inset-x-0 bg-amber-500/80 text-white text-[9px] text-center py-0.5">
+                      {fr ? "En attente" : "Pending"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePending(pf.id)}
+                      className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
                 {screenshots.map((s) => (
                   <div
                     key={s.id}
