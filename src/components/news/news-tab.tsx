@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { SessionsClock } from "@/components/journal/sessions-clock";
 import {
   Brain,
   RefreshCw,
@@ -2901,6 +2902,9 @@ export function NewsTab() {
       )}
 
       <Separator />
+
+      {/* Real-time Trading Sessions Clock (Lubumbashi, RDC) */}
+      <SessionsClock language={language} />
 
       {/* Sub-tab content */}
       {subTab === "analysis" && <AnalysisSubTab key={`analysis-${refreshKey}`} language={language} />}

@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 import { Clock, Globe2, Activity } from "lucide-react";
 
 // ─── Configuration ───────────────────────────────────────────
-// Lubumbashi, RDC uses Central Africa Time (CAT) = UTC+2 year-round (no DST).
-const LUBUMBASHI_TZ = "Africa/Lubumbashi";
-const UTC_OFFSET = 2;
+// Lubumbashi, RDC — local time UTC+1 (WAT), matches Africa/Kinshasa zone.
+const LUBUMBASHI_TZ = "Africa/Kinshasa";
+const UTC_OFFSET = 1;
 
 interface TradingSession {
   id: string;
@@ -217,8 +217,8 @@ export function SessionsClock({ language }: { language: "fr" | "en" }) {
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
                 {language === "fr"
-                  ? "Lubumbashi, RDC · UTC+2 (CAT)"
-                  : "Lubumbashi, DRC · UTC+2 (CAT)"}
+                  ? "Lubumbashi, RDC · UTC+1 (WAT)"
+                  : "Lubumbashi, DRC · UTC+1 (WAT)"}
               </p>
             </div>
           </div>

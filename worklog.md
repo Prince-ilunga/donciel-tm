@@ -436,3 +436,47 @@ Stage Summary:
 - Calculates time directly, ticks every second, shows all 4 forex sessions with live
   status + countdowns + 24h timeline. Responsive + hydration-safe + Vercel-safe.
 - Only 2 files changed. Other functionality untouched.
+
+---
+Task ID: 2
+Agent: Z.ai Code (main)
+Task: Rectifications — (1) heure locale affiche 15h au lieu de 14h (mauvais fuseau), (2) déplacer l'Horloge des Sessions de l'onglet Journal vers l'onglet Marché.
+
+Work Log:
+- ISSUE 1 (wrong timezone): Previous SessionsClock used "Africa/Lubumbashi" (UTC+2/CAT).
+  User reported real local time is 14h but clock showed 15h → clock was 1h ahead.
+  User's IM timezone = "Africa/Kinshasa" (UTC+1/WAT). Fix in sessions-clock.tsx:
+  * LUBUMBASHI_TZ: "Africa/Lubumbashi" → "Africa/Kinshasa"
+  * UTC_OFFSET: 2 → 1
+  * Label: "Lubumbashi, RDC · UTC+2 (CAT)" → "Lubumbashi, RDC · UTC+1 (WAT)"
+  * Updated configuration comment accordingly
+
+- ISSUE 2 (move clock Journal → Marché):
+  * journal-tab.tsx: removed `import { SessionsClock }` + removed
+    <SessionsClock language={language} /> render + its comment/spacing. Restored
+    the original flex container (gap-4 md:gap-6, no mt-4). Calendar intact.
+  * news-tab.tsx: added `import { SessionsClock }` after Separator import.
+    Inserted <SessionsClock language={language} /> in NewsTab return, between
+    <Separator /> and the sub-tab content (AnalysisSubTab). LiveTickerBanner,
+    MARCHÉ header, refresh button, and AI analysis all untouched.
+
+Verification (Agent Browser, temp admin verifyclock@test.com):
+- Journal tab: "HORLOGE DES SESSIONS" correctly ABSENT (grep empty). Calendar
+  "Juin 2026" still renders. Journal heading intact.
+- Marché tab: "HORLOGE DES SESSIONS" heading present. Label shows
+  "Lubumbashi, RDC · UTC+1 (WAT)". All 4 session cards present
+  (Sydney FERMÉ, Tokyo FERMÉ, Londres OUVERT, New York) — statuses correct
+  for 13:20 local time. AI analysis ("IA Financière Spécialisée — XAUUSD",
+  "Actualités de la Semaine") still renders below the clock.
+- Time correctness: UTC was 12:19:53 → expected UTC+1 = 13:19:53.
+  Main clock displayed 13:20:07 ✓ (correct UTC+1, previously would have
+  shown ~14:20 with old UTC+2).
+- No console errors / page errors.
+- Lint: zero errors.
+
+Stage Summary:
+- Timezone fixed: UTC+1 (WAT / Africa/Kinshasa) — clock now matches user's real
+  local time (14h, not 15h).
+- SessionsClock moved from Journal tab to Marché tab (placed above the AI analysis).
+- Only 3 files changed: sessions-clock.tsx (tz fix), journal-tab.tsx (removed),
+  news-tab.tsx (added). No other functionality touched.
