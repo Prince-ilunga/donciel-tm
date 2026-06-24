@@ -386,3 +386,53 @@ Stage Summary:
 - Notes tab: completely rewritten as simple note+screenshot. Root cause (new Notification())
   eliminated. No more crashes.
 - Marché tab: only Analyse IA remains. 4 sub-tabs cleanly removed.
+
+---
+Task ID: 1
+Agent: Z.ai Code (main)
+Task: Dans l'onglet Journal, créer une HORLOGE DES SESSIONS professionnelle qui tourne en temps réel, pour Lubumbashi RDC (UTC+2), calculant directement le temps.
+
+Work Log:
+- Read existing /home/z/my-project/src/components/journal/journal-tab.tsx to understand structure
+  (main return at line 413: container div -> flex(calendar + trade-detail) -> delete dialog)
+- Created new component /home/z/my-project/src/components/journal/sessions-clock.tsx:
+  * Self-contained "use client" component, no API/DB/Node-only imports (safe for Vercel)
+  * Real-time clock ticking every 1s via setInterval (first tick deferred via
+    requestAnimationFrame to avoid synchronous setState in effect + SSR hydration mismatch)
+  * Displays current Lubumbashi local time (HH:MM:SS) + full date using
+    toLocaleTimeString/toLocaleDateString with timeZone "Africa/Lubumbashi" (UTC+2 / CAT)
+  * 24h horizontal timeline bar with 4 colored session segments (local time) + grid lines
+    (00/06/12/18/24) + a live "now" marker (vertical primary line with glowing dot)
+  * 4 session cards (Sydney, Tokyo, Londres, New York) each showing: flag, city,
+    OUVERT/FERMÉ status with pulsing dot, local open/close hours, live countdown
+    (HH:MM:SS) until next open or close
+  * Session open/closed logic computed from current UTC minutes, correctly handling
+    sessions that cross midnight (Sydney 22:00-07:00 UTC)
+  * "N sessions ouvertes" indicator with ping animation
+  * High-volatility overlap badge (Londres + New York both open)
+  * Fully responsive: 2-col card grid on mobile, 4-col on desktop
+  * Hydration-safe: initial state null -> renders "--:--:--" on server, updates on client
+- Wired into JournalTab: added import + <SessionsClock language={language} /> at the top of
+  the main return (above the calendar/trade-detail flex row, with mt-4/mt-6 spacing)
+- ONLY 2 files touched: new sessions-clock.tsx + 2-line edit to journal-tab.tsx.
+  No other functionality modified.
+
+Verification (Agent Browser, logged in as temp admin verifyclock@test.com):
+- Journal tab renders "HORLOGE DES SESSIONS" heading + full clock widget at top
+- VLM confirmed: real-time clock shows correct Lubumbashi time (13:36:48 = UTC 11:36 + 2),
+  24h timeline with colored segments + now marker, 4 session cards with correct status
+  (Londres OUVERT at 13:36 local since London 10:00-19:00 local; others FERMÉ) and
+  accurate countdowns (New York opens in ~1:23:12 -> 15:00 local)
+- Verified real-time ticking: read clock text twice 3s apart -> 13:37:58 then 13:38:01
+  (exactly +3 seconds, confirming the clock runs in real-time)
+- Mobile (390px) screenshot verified by VLM: responsive, no overflow, 2-col card grid,
+  no cut-off elements
+- No console errors / page errors
+- Calendar below the clock still renders correctly (Juin 2026) - no disturbance
+- Lint: zero errors
+
+Stage Summary:
+- New professional real-time Sessions Clock added to Journal tab (Lubumbashi UTC+2).
+- Calculates time directly, ticks every second, shows all 4 forex sessions with live
+  status + countdowns + 24h timeline. Responsive + hydration-safe + Vercel-safe.
+- Only 2 files changed. Other functionality untouched.

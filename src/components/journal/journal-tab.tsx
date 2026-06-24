@@ -6,6 +6,7 @@ import { t } from "@/lib/i18n";
 import { useTrades } from "@/lib/hooks";
 import { useTimeFilter } from "@/lib/use-time-filter";
 import { TimeFilterBar } from "@/components/shared/time-filter-bar";
+import { SessionsClock } from "@/components/journal/sessions-clock";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -412,7 +413,10 @@ export function JournalTab() {
 
   return (
     <div className="p-4 md:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
-      <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+      {/* Real-time Trading Sessions Clock (Lubumbashi, RDC - UTC+2) */}
+      <SessionsClock language={language} />
+
+      <div className="flex flex-col lg:flex-row gap-4 md:gap-6 mt-4 md:mt-6">
         {/* Calendar Section (Left - 60%) */}
         <div className="flex-1 lg:flex-[3]">
           <Card className="overflow-hidden">
