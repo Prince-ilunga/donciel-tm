@@ -1,34 +1,50 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, ExternalLink, Loader2, Info } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { BookOpen, ExternalLink, RefreshCw, AlertTriangle } from "lucide-react";
 
-// ─── Notion Plan URL ────────────────────────────────────────
-// The user's complete trading plan hosted on Notion.
-const NOTION_PLAN_URL =
-  "https://www.notion.so/LES-VARIABLES-DE-MON-PLAN-35f7944acd6580228856fbfb9e2179a9";
-
-// ─── Playbook Tab (Notion Embed) ────────────────────────────
-// The entire previous playbook CRUD interface has been replaced by a
-// clean embed of the user's complete Notion trading plan.
+// ─── Playbook Tab (Notion Plan Integration) ────────────────
+// Fetches the user's complete Notion trading plan via our backend API
+// (which uses notion-client to read the public page) and renders it as
+// native, styled HTML. Images are proxied through /api/playbook/image.
 export function PlaybookTab() {
   const { language } = useAppStore();
-  const [loaded, setLoaded] = useState(false);
   const isFr = language === "fr";
+  const [html, setHtml] = useState<string>("");
+  const [title, setTitle] = useState<string>("");
+  const [notionUrl, setNotionUrl] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Safety: hide the loading spinner after 6s even if onLoad doesn't fire
-  // (happens when the iframe is cross-origin / blocked by X-Frame-Options).
+  const fetchPlan = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/playbook/plan", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to load plan");
+      }
+      setHtml(data.html);
+      setTitle(data.title);
+      setNotionUrl(data.notionUrl);
+    } catch (err: any) {
+      setError(err?.message || "Erreur de chargement");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    if (loaded) return;
-    const t = setTimeout(() => setLoaded(true), 6000);
-    return () => clearTimeout(t);
-  }, [loaded]);
+    fetchPlan();
+  }, [fetchPlan]);
 
   return (
-    <div className="p-4 md:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
+    <div className="p-4 md:p-6 max-w-[1100px] mx-auto overflow-x-hidden">
       {/* ─── Header ──────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
         <div>
@@ -38,53 +54,71 @@ export function PlaybookTab() {
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
             {isFr
-              ? "Les variables de mon plan — intégré depuis Notion"
-              : "My plan variables — integrated from Notion"}
+              ? "Les variables de mon plan — synchronisé depuis Notion"
+              : "My plan variables — synced from Notion"}
           </p>
         </div>
-        <Button asChild variant="outline" className="gap-2">
-          <a
-            href={NOTION_PLAN_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={fetchPlan}
+            disabled={loading}
           >
-            <ExternalLink className="w-4 h-4" />
-            {isFr ? "Ouvrir dans Notion" : "Open in Notion"}
-          </a>
-        </Button>
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">
+              {isFr ? "Actualiser" : "Refresh"}
+            </span>
+          </Button>
+          {notionUrl && (
+            <Button asChild variant="outline" size="sm" className="gap-1.5">
+              <a href={notionUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="w-4 h-4" />
+                <span className="hidden sm:inline">
+                  {isFr ? "Notion" : "Notion"}
+                </span>
+              </a>
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* ─── Info note (Notion page must be shared publicly) ─── */}
-      <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 mb-4">
-        <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          {isFr
-            ? "Si le plan ne s'affiche pas ci-dessous, assurez-vous que la page Notion est partagée publiquement (« Partager → Partager sur le web »). Vous pouvez aussi cliquer sur « Ouvrir dans Notion » pour la consulter directement."
-            : "If the plan doesn't display below, make sure the Notion page is shared publicly (« Share → Share to web »). You can also click « Open in Notion » to view it directly."}
-        </p>
-      </div>
-
-      {/* ─── Notion Embed ────────────────────────────── */}
-      <Card className="overflow-hidden border-border relative">
-        {/* Loading overlay shown until the iframe finishes loading */}
-        {!loaded && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-            <p className="text-sm text-muted-foreground">
-              {isFr ? "Chargement du plan…" : "Loading plan…"}
-            </p>
-          </div>
-        )}
-        <iframe
-          src={NOTION_PLAN_URL}
-          title={isFr ? "Mon Plan de Trading" : "My Trading Plan"}
-          className="w-full"
-          style={{ height: "calc(100vh - 14rem)", minHeight: "600px" }}
-          onLoad={() => setLoaded(true)}
-          loading="lazy"
-          allowFullScreen
-        />
-      </Card>
+      {/* ─── Content ─────────────────────────────────── */}
+      {loading ? (
+        <Card className="p-6 space-y-4">
+          <Skeleton className="h-8 w-2/3" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-4/6" />
+          <Skeleton className="h-32 w-full" />
+        </Card>
+      ) : error ? (
+        <Card className="p-6 flex flex-col items-center gap-3 text-center">
+          <AlertTriangle className="w-10 h-10 text-amber-500" />
+          <p className="text-sm font-medium text-foreground">
+            {isFr
+              ? "Impossible de charger le plan."
+              : "Could not load the plan."}
+          </p>
+          <p className="text-xs text-muted-foreground max-w-md">{error}</p>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={fetchPlan}>
+            <RefreshCw className="w-4 h-4" />
+            {isFr ? "Réessayer" : "Retry"}
+          </Button>
+        </Card>
+      ) : (
+        <Card className="p-5 md:p-8">
+          <article
+            className="notion-plan-content"
+            // HTML is generated server-side from the user's own Notion page
+            // (trusted source) with all text escaped. Safe to inject.
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        </Card>
+      )}
     </div>
   );
 }

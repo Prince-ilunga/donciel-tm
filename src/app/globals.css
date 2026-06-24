@@ -206,3 +206,146 @@
 .tab-indicator {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* ─── Notion Plan content (Playbook tab) ──────────────────── */
+.notion-plan-content {
+  color: var(--foreground);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+.notion-plan-content > *:first-child { margin-top: 0; }
+.notion-plan-content > *:last-child { margin-bottom: 0; }
+
+.notion-plan-content .nt-h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 1.75rem 0 0.75rem;
+  color: var(--foreground);
+  letter-spacing: -0.01em;
+}
+.notion-plan-content .nt-h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 1.5rem 0 0.5rem;
+  color: var(--foreground);
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  list-style: none;
+}
+.notion-plan-content .nt-h3::-webkit-details-marker { display: none; }
+.notion-plan-content .nt-h3::before {
+  content: "▸ ";
+  color: var(--primary);
+  font-size: 0.85em;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+.notion-plan-content details.nt-toggle[open] > .nt-h3::before {
+  content: "▾ ";
+}
+.notion-plan-content .nt-h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+  color: var(--foreground);
+}
+.notion-plan-content .nt-p {
+  margin: 0.5rem 0;
+  color: var(--foreground);
+}
+.notion-plan-content .nt-toggle {
+  margin: 0.5rem 0;
+  border-left: 2px solid var(--border);
+  padding-left: 1rem;
+}
+.notion-plan-content .nt-toggle-body {
+  padding-top: 0.25rem;
+}
+.notion-plan-content .nt-quote {
+  border-left: 3px solid var(--primary);
+  padding: 0.625rem 1rem;
+  margin: 1rem 0;
+  background: color-mix(in oklch, var(--primary) 6%, transparent);
+  border-radius: 0 0.5rem 0.5rem 0;
+  font-style: italic;
+  color: var(--foreground);
+}
+.notion-plan-content .nt-hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5rem 0;
+}
+.notion-plan-content .nt-ul,
+.notion-plan-content .nt-ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+.notion-plan-content .nt-ul { list-style: disc; }
+.notion-plan-content .nt-ol { list-style: decimal; }
+.notion-plan-content .nt-li {
+  margin: 0.3rem 0;
+  color: var(--foreground);
+}
+.notion-plan-content .nt-li .nt-ul,
+.notion-plan-content .nt-li .nt-ol {
+  margin: 0.3rem 0 0.3rem 0.5rem;
+}
+.notion-plan-content .nt-callout {
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  background: color-mix(in oklch, var(--primary) 8%, transparent);
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--primary) 20%, transparent);
+}
+.notion-plan-content .nt-columns {
+  display: flex;
+  gap: 1rem;
+  margin: 0.75rem 0;
+  flex-wrap: wrap;
+}
+.notion-plan-content .nt-column {
+  min-width: 200px;
+}
+.notion-plan-content .nt-fig {
+  margin: 1rem 0;
+  text-align: center;
+}
+.notion-plan-content .nt-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  display: inline-block;
+}
+.notion-plan-content .nt-img-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 120px;
+  background: var(--muted);
+  border-radius: 0.5rem;
+  font-size: 2rem;
+}
+.notion-plan-content .nt-figcap {
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+  margin-top: 0.4rem;
+  font-style: italic;
+}
+.notion-plan-content code {
+  background: var(--muted);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+  font-family: var(--font-mono);
+}
+.notion-plan-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.notion-plan-content a:hover {
+  opacity: 0.8;
+}
+.notion-plan-content strong { font-weight: 700; }

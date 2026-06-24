@@ -549,3 +549,84 @@ Stage Summary:
 - 3 files changed: setup-tab.tsx (field removed + SETUPS trimmed),
   playbook-tab.tsx (full rewrite as Notion embed). No other functionality
   touched.
+
+---
+Task ID: 4
+Agent: Z.ai Code (main)
+Task: Intégrer le plan complet Notion dans l'onglet Playbook (URL publique notion.site fournie).
+
+Work Log:
+- Previous turn used an iframe embed, but Notion blocks all third-party iframe
+  embedding via X-Frame-Options: SAMEORIGIN (even for public .notion.site pages).
+  The iframe showed blank. User then provided the public notion.site URL.
+
+- Investigated fetching the Notion content:
+  * page_reader only got the JS loading shell (content is SPA-rendered).
+  * Notion internal /api/v3/loadPageChunk returned ValidationError (needs session).
+  * Installed `notion-client` library (designed for public pages) — SUCCESS:
+    fetched 182 blocks (page, headers, sub_headers, 46 text, 90 bulleted_list,
+    8 numbered_list, 25 images, quote, divider, column_list, column).
+  * notion-client v7.10 uses double-nesting: recordMap.block[id].value.value.
+
+- Discovered page structure: 9 direct children, mostly TOGGLEABLE sub_headers
+  (format.toggleable=true) each containing nested content (bullets + images).
+  Images use attachment: sources resolved via recordMap.signed_urls map to
+  file.notion.so URLs — but those return 403 without auth cookies.
+
+- Built a proper server-side integration (3 new files + 2 edits):
+
+  1. src/lib/notion-plan.ts (NEW):
+     - fetchPlanRecordMap(): calls NotionAPI.getPage(), caches in memory 10 min
+     - renderPlanHtml(): renders blocks to clean HTML
+     - Handles: page, header, sub_header (toggleable → open <details>), text,
+       bulleted_list, numbered_list, quote, divider, callout, toggle,
+       column_list, column, image
+     - renderChildren(): groups consecutive bullets/numbered into <ul>/<ol>
+     - Inline text formatting: bold, italic, underline, strikethrough, code, links
+     - All user text HTML-escaped (safe for dangerouslySetInnerHTML)
+     - getImageSignedUrl(): resolves image block → signed URL
+
+  2. src/app/api/playbook/plan/route.ts (NEW):
+     - GET → fetches recordMap, renders HTML, returns {ok, title, html, notionUrl}
+     - force-dynamic (fresh content)
+
+  3. src/app/api/playbook/image/route.ts (NEW):
+     - GET ?blockId=X → proxies image bytes from Notion's signed URL
+     - Fetches server-side with browser UA + Referer (bypasses 403)
+     - Infers proper content-type from URL extension (Notion/S3 returns generic
+       "image" — fixed to image/jpeg, image/png, etc.)
+     - 10-min browser cache
+
+  4. src/components/playbook/playbook-tab.tsx (REWRITTEN):
+     - Fetches /api/playbook/plan on mount
+     - Renders HTML via dangerouslySetInnerHTML in styled <article>
+     - Loading skeleton, error state with retry, refresh button, "Notion" link
+     - max-w-[1100px] for comfortable reading width
+
+  5. src/app/globals.css (APPENDED):
+     - .notion-plan-content styles: headings, toggles (▸/▾ markers), quotes,
+       bullets, numbered lists, callouts, columns, images (rounded, bordered),
+       captions, code, links, responsive
+
+Verification (Agent Browser + VLM, temp admin verifyclock@test.com):
+- Playbook tab: "Mon Plan Complet" heading, "synchronisé depuis Notion" subtitle,
+  Actualiser + Notion buttons.
+- Content renders natively: objective quote, Étape 1-6 expandable sections
+  (DisclosureTriangle expanded=true), bullet lists (EURUSD, GBPUSD, Gold, US30,
+  US100, VOLATILITÉ 75, etc.), all readable.
+- Images: 25 images load via /api/playbook/image proxy. Verified first 5 have
+  naturalWidth > 0 (1915, 1916, 1786, 1782, 1782) and complete=true. VLM
+  confirmed a trading chart screenshot with French annotations
+  ("1. structure de marché", "à la cassure d'un plus haut...") displays correctly.
+- Toggles interactive: clicked first <details> → open changed true→false (collapsed).
+- Mobile (390px): responsive, no overflow, readable, touch-sized buttons.
+- No console errors.
+- Lint: zero errors.
+
+Stage Summary:
+- Playbook tab now displays the user's COMPLETE Notion plan natively (text +
+  images + interactive toggles), synced via notion-client + image proxy.
+- Not an iframe — actual content renders in-app, fully styled, responsive.
+- 3 new files (notion-plan.ts, plan/route.ts, image/route.ts), 2 edited
+  (playbook-tab.tsx, globals.css). No other functionality touched.
+- Added dependency: notion-client.
