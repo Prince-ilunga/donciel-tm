@@ -224,10 +224,6 @@ function getImpactedPairs(title: string): string[] {
 
 const ASSET_PAIR_MAP: Record<string, string[]> = {
   'XAUUSD': ['XAU/USD'],
-  'EURUSD': ['EUR/USD'],
-  'GBPUSD': ['GBP/USD'],
-  'US30': ['US30'],
-  'US100': ['US100'],
 };
 
 function filterEventsForAsset(events: any[], asset: string): any[] {

@@ -20,26 +20,6 @@ const ASSET_KEYWORD_MAP: Record<string, { bullish: string[]; bearish: string[]; 
     bearish: ['gold drop', 'gold fall', 'gold decline', 'gold selloff', 'gold bearish', 'dollar strength', 'rate hike', 'higher rates', 'gold plunge'],
     keywords: ['gold', 'xau', 'fed', 'inflation', 'dollar', 'rate', 'safe haven', 'treasury', 'yields'],
   },
-  EURUSD: {
-    bullish: ['euro rally', 'euro surge', 'euro rise', 'ecb hawkish', 'euro strength', 'dollar weak', 'eur bullish'],
-    bearish: ['euro drop', 'euro fall', 'euro decline', 'ecb dovish', 'dollar strength', 'euro zone crisis', 'eur bearish'],
-    keywords: ['euro', 'ecb', 'dollar', 'eur', 'fed', 'rate', 'inflation', 'germany', 'eu'],
-  },
-  GBPUSD: {
-    bullish: ['pound rally', 'pound surge', 'pound rise', 'boe hawkish', 'uk growth', 'pound strength', 'gbp bullish'],
-    bearish: ['pound drop', 'pound fall', 'pound decline', 'boe dovish', 'uk recession', 'brexit', 'gbp bearish'],
-    keywords: ['pound', 'boe', 'bank of england', 'uk', 'britain', 'sterling', 'gbp', 'rate'],
-  },
-  US30: {
-    bullish: ['dow rally', 'dow surge', 'dow rise', 'stock rally', 'earnings beat', 'bull market', 'dow record', 'blue chip rally'],
-    bearish: ['dow drop', 'dow fall', 'stock selloff', 'earnings miss', 'bear market', 'dow decline', 'recession', 'crash'],
-    keywords: ['dow', 'stock', 'earnings', 'fed', 'rate', 'blue chip', 'industrial', 'market'],
-  },
-  US100: {
-    bullish: ['nasdaq rally', 'nasdaq surge', 'tech rally', 'ai boom', 'tech earnings beat', 'nasdaq record', 'growth stock rally'],
-    bearish: ['nasdaq drop', 'nasdaq fall', 'tech selloff', 'ai bubble', 'tech earnings miss', 'growth stock decline', 'nasdaq decline'],
-    keywords: ['nasdaq', 'tech', 'ai ', 'semiconductor', 'growth', 'fed', 'rate', 'earnings'],
-  },
 };
 
 function computeAssetSentiment(text: string, asset: string, lang: string): {

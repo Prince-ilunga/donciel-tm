@@ -58,10 +58,6 @@ import {
 
 const ASSETS = [
   { id: "XAUUSD", emoji: "🥇", label_fr: "Or / Dollar", label_en: "Gold / Dollar", color: "from-amber-500/10 to-yellow-500/10" },
-  { id: "EURUSD", emoji: "🇪🇺", label_fr: "Euro / Dollar", label_en: "Euro / Dollar", color: "from-blue-500/10 to-indigo-500/10" },
-  { id: "GBPUSD", emoji: "🇬🇧", label_fr: "Livre / Dollar", label_en: "Pound / Dollar", color: "from-red-500/10 to-rose-500/10" },
-  { id: "US30", emoji: "🏭", label_fr: "Dow Jones 30", label_en: "Dow Jones 30", color: "from-emerald-500/10 to-green-500/10" },
-  { id: "US100", emoji: "💻", label_fr: "Nasdaq 100", label_en: "Nasdaq 100", color: "from-purple-500/10 to-violet-500/10" },
 ] as const;
 
 const DAYS_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -729,7 +725,7 @@ function CalendarSubTab({ language }: { language: string }) {
       <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
 
       {/* Asset Selector */}
-      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
         <button
           onClick={() => setActiveAsset(null)}
           className={cn(
@@ -1183,7 +1179,7 @@ function AnalysisSubTab({ language }: { language: string }) {
   return (
     <div className="space-y-4">
       {/* Asset Selector */}
-      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+      <div className="grid grid-cols-1 gap-2 sm:gap-3">
         {ASSETS.map((asset) => {
           const isActive = activeAsset === asset.id;
           return (
@@ -1739,7 +1735,7 @@ function SentimentSubTab({ language }: { language: string }) {
       )}
 
       {/* Asset Selector */}
-      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
         <button
           onClick={() => setActiveAsset(null)}
           className={cn(
@@ -2158,7 +2154,7 @@ function AlertsSubTab({ language }: { language: string }) {
       )}
 
       {/* Asset Selector */}
-      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
         <button
           onClick={() => setActiveAsset(null)}
           className={cn(

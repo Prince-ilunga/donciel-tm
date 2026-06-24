@@ -2,15 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { XMLParser } from 'fast-xml-parser';
 
-const ASSETS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'US30', 'US100'] as const;
+const ASSETS = ['XAUUSD'] as const;
 type Asset = (typeof ASSETS)[number];
 
 const ASSET_LABELS: Record<Asset, { fr: string; en: string; emoji: string }> = {
   XAUUSD: { fr: 'Or / Dollar', en: 'Gold / Dollar', emoji: '🥇' },
-  EURUSD: { fr: 'Euro / Dollar', en: 'Euro / Dollar', emoji: '🇪🇺' },
-  GBPUSD: { fr: 'Livre / Dollar', en: 'Pound / Dollar', emoji: '🇬🇧' },
-  US30: { fr: 'Dow Jones 30', en: 'Dow Jones 30', emoji: '🏭' },
-  US100: { fr: 'Nasdaq 100', en: 'Nasdaq 100', emoji: '💻' },
 };
 
 // Asset-specific context for AI analysis
@@ -20,26 +16,6 @@ const ASSET_CONTEXT: Record<Asset, { sectors: string; drivers: string; correlati
     drivers: 'Fed interest rates, US dollar strength, inflation data (CPI/PCE), geopolitical risk, central bank gold reserves, real yields',
     correlations: 'inversely correlated with US Dollar Index (DXY) and real yields; positively with inflation expectations and risk aversion',
   },
-  EURUSD: {
-    sectors: 'Eurozone sovereign bonds, European equities, FX',
-    drivers: 'ECB monetary policy, Fed policy differential, Eurozone inflation/GDP, German manufacturing PMI, energy prices, Italian spread',
-    correlations: 'positively with risk appetite and Eurozone growth; inversely with DXY and energy prices',
-  },
-  GBPUSD: {
-    sectors: 'UK gilts, FTSE 100, FX',
-    drivers: 'Bank of England policy, UK inflation (CPI/RPI), Brexit-related trade data, UK employment, housing market, services PMI',
-    correlations: 'positively with risk sentiment and UK data surprises; inversely with DXY',
-  },
-  US30: {
-    sectors: 'US large-cap equities, Dow Jones Industrial Average',
-    drivers: 'Fed policy, US employment (NFP), corporate earnings, consumer confidence, ISM manufacturing, trade policy, Treasury yields',
-    correlations: 'inversely with real yields and VIX; positively with earnings growth and risk appetite',
-  },
-  US100: {
-    sectors: 'US technology equities, Nasdaq 100, growth stocks',
-    drivers: 'Fed policy (especially rate outlook), AI/semiconductor cycle, mega-cap tech earnings, venture funding, regulatory risk, Treasury yields',
-    correlations: 'inversely with real yields and regulatory risk; positively with AI capex cycle, risk appetite, and earnings revisions',
-  },
 };
 
 // RSS feeds - each asset maps to multiple feed IDs
@@ -48,30 +24,6 @@ const ASSET_RSS: Record<Asset, { feeds: { id: number; keywords: string[] }[] }> 
     feeds: [
       { id: 11, keywords: ['gold', 'xau', 'precious', 'commodit', 'fed', 'inflation', 'dollar', 'oil', 'energy', 'mining', 'metal', 'rate'] },
       { id: 1, keywords: ['gold', 'dollar', 'fed', 'inflation', 'rate', 'cpi', 'jobs', 'gdp'] },
-    ],
-  },
-  EURUSD: {
-    feeds: [
-      { id: 1, keywords: ['euro', 'eur', 'ecb', 'eurozone', 'dollar', 'fed', 'rate', 'inflation', 'german'] },
-      { id: 14, keywords: ['ecb', 'eurozone', 'europe', 'rate', 'inflation', 'pound', 'boe'] },
-    ],
-  },
-  GBPUSD: {
-    feeds: [
-      { id: 1, keywords: ['pound', 'sterling', 'gbp', 'boe', 'uk', 'britain', 'dollar', 'fed', 'rate'] },
-      { id: 14, keywords: ['boe', 'uk', 'britain', 'rate', 'inflation', 'euro', 'ecb'] },
-    ],
-  },
-  US30: {
-    feeds: [
-      { id: 25, keywords: ['dow', 'us30', 'wall street', 'stock', 'market', 'fed', 'jobs', 'inflation', 'rate', 'nasdaq', 's&p', 'earnings'] },
-      { id: 14, keywords: ['fed', 'us economy', 'jobs', 'gdp', 'inflation', 'rate', 'treasury'] },
-    ],
-  },
-  US100: {
-    feeds: [
-      { id: 25, keywords: ['nasdaq', 'us100', 'tech', 'ai', 'chip', 'semiconductor', 'stock', 'magnificent', 'earnings'] },
-      { id: 14, keywords: ['fed', 'tech', 'ai', 'rate', 'inflation', 'treasury'] },
     ],
   },
 };
@@ -272,10 +224,6 @@ async function searchLatestMarketData(asset: Asset, language: string): Promise<a
 
     const searchQueries: Record<Asset, string> = {
       XAUUSD: 'gold price today XAUUSD market analysis',
-      EURUSD: 'EURUSD exchange rate today euro dollar analysis',
-      GBPUSD: 'GBPUSD exchange rate today pound dollar analysis',
-      US30: 'Dow Jones US30 index today market analysis',
-      US100: 'Nasdaq 100 US100 index today tech market analysis',
     };
 
     const results = await zai.functions.invoke('web_search', {
@@ -359,34 +307,6 @@ function generateUpcomingEvents(asset: Asset, language: string): any[] {
       { title_fr: 'Discours du Président de la Fed', title_en: 'Fed Chair Speech', impact: 'MEDIUM' },
       { title_fr: 'Emploi non-agricole US (NFP)', title_en: 'US Non-Farm Payrolls', impact: 'HIGH' },
       { title_fr: 'Revendications chômage US', title_en: 'US Jobless Claims', impact: 'MEDIUM' },
-    ],
-    EURUSD: [
-      { title_fr: 'Décision de taux de la BCE', title_en: 'ECB Rate Decision', impact: 'HIGH' },
-      { title_fr: 'Conférence de presse BCE', title_en: 'ECB Press Conference', impact: 'HIGH' },
-      { title_fr: 'PMI Manufacturing Eurozone', title_en: 'Eurozone Manufacturing PMI', impact: 'MEDIUM' },
-      { title_fr: 'IPC Zone Euro', title_en: 'Eurozone CPI', impact: 'HIGH' },
-      { title_fr: 'PIB Zone Euro', title_en: 'Eurozone GDP', impact: 'MEDIUM' },
-    ],
-    GBPUSD: [
-      { title_fr: 'Décision de taux de la BoE', title_en: 'BoE Rate Decision', impact: 'HIGH' },
-      { title_fr: 'IPC Royaume-Uni', title_en: 'UK CPI', impact: 'HIGH' },
-      { title_fr: 'PMI Manufacturing UK', title_en: 'UK Manufacturing PMI', impact: 'MEDIUM' },
-      { title_fr: 'Emploi UK', title_en: 'UK Employment', impact: 'MEDIUM' },
-      { title_fr: 'PIB Royaume-Uni', title_en: 'UK GDP', impact: 'MEDIUM' },
-    ],
-    US30: [
-      { title_fr: 'Emploi non-agricole US (NFP)', title_en: 'US Non-Farm Payrolls', impact: 'HIGH' },
-      { title_fr: 'Décision de la FED sur les taux', title_en: 'FOMC Rate Decision', impact: 'HIGH' },
-      { title_fr: 'Résultats entreprises Dow Jones', title_en: 'Dow Jones Earnings Reports', impact: 'MEDIUM' },
-      { title_fr: 'IPC US', title_en: 'US CPI', impact: 'HIGH' },
-      { title_fr: 'Confiance des consommateurs US', title_en: 'US Consumer Confidence', impact: 'MEDIUM' },
-    ],
-    US100: [
-      { title_fr: 'Résultats entreprises Tech', title_en: 'Tech Earnings Reports', impact: 'HIGH' },
-      { title_fr: 'Décision de la FED sur les taux', title_en: 'FOMC Rate Decision', impact: 'HIGH' },
-      { title_fr: 'IPC US', title_en: 'US CPI', impact: 'HIGH' },
-      { title_fr: 'Emploi non-agricole US (NFP)', title_en: 'US Non-Farm Payrolls', impact: 'MEDIUM' },
-      { title_fr: 'Ventes au détail US', title_en: 'US Retail Sales', impact: 'MEDIUM' },
     ],
   };
 

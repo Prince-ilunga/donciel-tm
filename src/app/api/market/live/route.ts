@@ -291,10 +291,6 @@ export async function GET(request: NextRequest) {
     // Filter by asset if specified
     const ASSET_CURRENCIES: Record<string, string[]> = {
       'XAUUSD': ['USD', 'XAU'],
-      'EURUSD': ['EUR', 'USD'],
-      'GBPUSD': ['GBP', 'USD'],
-      'US30': ['USD'],
-      'US100': ['USD'],
     };
 
     let filteredInProgress = inProgressEvents;

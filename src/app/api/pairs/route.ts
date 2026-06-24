@@ -4,10 +4,6 @@ import { getAuthUser } from '@/lib/auth';
 
 const DEFAULT_PAIRS = [
   'XAUUSD',
-  'US30',
-  'US100',
-  'EURUSD',
-  'GBPUSD',
 ];
 
 export async function GET() {

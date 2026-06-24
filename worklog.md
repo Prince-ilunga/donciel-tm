@@ -630,3 +630,36 @@ Stage Summary:
 - 3 new files (notion-plan.ts, plan/route.ts, image/route.ts), 2 edited
   (playbook-tab.tsx, globals.css). No other functionality touched.
 - Added dependency: notion-client.
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Enable screenshot upload in the "Ajouter une Note" form (Notes de Préparation tab)
+
+Work Log:
+- Read previous worklog to understand context (Tasks 1-3: Sessions Clock, setup A/B/C, Playbook Notion embed)
+- Analyzed user screenshot with VLM: the "Ajouter une Note" form showed the "Captures d'écran" section with a disabled "Joindre une capture" button and text "Enregistrez la note pour pouvoir joindre des captures."
+- Root cause: the upload API (/api/notes/screenshots) requires an existing noteId, so the form disabled the button for new (unsaved) notes
+- Inspected src/components/notes/notes-tab.tsx -> NoteFormDialog: button was `disabled={uploading || !createdNoteId && !note}` for new notes
+- Surgical fix (only NoteFormDialog touched, no API/schema changes):
+  - Added `pendingFiles` state queue + preview object URLs (with unmount cleanup via ref+useEffect)
+  - File input now routes: existing note -> immediate upload (unchanged); new note -> queue locally with preview + "En attente" badge
+  - Added `multiple` attribute to allow selecting several files at once
+  - handleSave now: creates note -> uploads all pending files to the new noteId -> toast confirms count
+  - Removed the disabled condition and the "save first" message; button is now always enabled (only disabled while uploading)
+- Lint: clean (no errors/warnings)
+- Verified with Agent Browser end-to-end:
+  - Logged in as admin (doncielkabwe@gmail.com, reset via /api/auth/setup)
+  - Opened Notes de Préparation tab -> "Ajouter une Note"
+  - Confirmed "Joindre une capture" button is enabled (disabled=false) for a NEW note
+  - Uploaded a test image -> pending preview (blob URL) + "En attente" badge + "1 capture(s) seront ajoutées à l'enregistrement." text all rendered
+  - Filled title + content, clicked "Enregistrer" -> note created AND screenshot attached (verified via GET /api/notes: screenshots array contained the uploaded file)
+  - Deleted the test note to keep user data clean
+- Committed (859f84e) and pushed to origin/main successfully
+
+Stage Summary:
+- Issue resolved: users can now attach screenshots directly when creating a new note, before saving
+- Edit-mode behavior unchanged (immediate upload)
+- Only file modified: src/components/notes/notes-tab.tsx (+103/-8)
+- No API, database schema, or other components touched
+- Pushed to https://github.com/Prince-ilunga/donciel-tm (commit 859f84e)
