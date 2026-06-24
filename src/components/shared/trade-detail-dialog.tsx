@@ -150,33 +150,44 @@ export function TradeDetailDialog() {
     const rr = risk > 0 ? reward / risk : 0;
     const riskRewardRatio = risk > 0 ? rr.toFixed(2) : "—";
 
-    // Recalculate P&L FIRST if it's 0/null but we have the data to compute it
-    let pnl = trade.pnl;
-    if ((pnl === null || pnl === 0) && trade.exitPrice != null && trade.lotSize && trade.lotSize > 0) {
-      const priceDiff = trade.direction === 'LONG'
-        ? trade.exitPrice - trade.entryPrice
-        : trade.entryPrice - trade.exitPrice;
-      pnl = calculateDollarAmount(priceDiff, trade.lotSize, trade.pair);
-    }
-
     // Calculate Risk ($) and Reward ($) using contract size
     let riskAmount = "—";
     let rewardAmount = "—";
     let maxRewardDollar = 0;
+    let riskDollar = 0;
 
     if (trade.amountToWin && trade.amountToWin > 0) {
       // Use user-entered amountToWin for reward, derive risk from RR
       rewardAmount = trade.amountToWin.toFixed(2);
       riskAmount = rr > 0 ? (trade.amountToWin / rr).toFixed(2) : trade.amountToWin.toFixed(2);
       maxRewardDollar = trade.amountToWin;
+      riskDollar = rr > 0 ? trade.amountToWin / rr : trade.amountToWin;
     } else if (trade.lotSize && trade.lotSize > 0) {
       // Calculate using contract size based on pair
       const contractSize = getContractSize(trade.pair);
-      const riskDollar = risk * trade.lotSize * contractSize;
+      riskDollar = risk * trade.lotSize * contractSize;
       const rewardDollar = reward * trade.lotSize * contractSize;
       riskAmount = riskDollar.toFixed(2);
       rewardAmount = rewardDollar.toFixed(2);
       maxRewardDollar = rewardDollar;
+    }
+
+    // Recalculate P&L if it's 0/null but we have the data to compute it
+    let pnl = trade.pnl;
+    // Method 1: from exitPrice + lotSize (precise)
+    if ((pnl === null || pnl === 0) && trade.exitPrice != null && trade.lotSize && trade.lotSize > 0) {
+      const priceDiff = trade.direction === 'LONG'
+        ? trade.exitPrice - trade.entryPrice
+        : trade.entryPrice - trade.exitPrice;
+      pnl = calculateDollarAmount(priceDiff, trade.lotSize, trade.pair);
+    }
+    // Method 2: derive from amountToWin + result (when exitPrice/lotSize unavailable)
+    if ((pnl === null || pnl === 0) && trade.amountToWin && trade.amountToWin > 0 && trade.result) {
+      if (trade.result === 'WIN') {
+        pnl = parseFloat(trade.amountToWin.toFixed(2));
+      } else if (trade.result === 'LOSS') {
+        pnl = parseFloat((-riskDollar).toFixed(2));
+      }
     }
 
     // Efficiency: actual P&L as percentage of max possible reward

@@ -195,6 +195,7 @@ interface TradeFormData {
   setup: string;
   structure: string;
   entryModel: string;
+  amountToWin: string;
   entryPrice: string;
   stopLoss: string;
   takeProfit: string;
@@ -225,6 +226,7 @@ const initialFormData: TradeFormData = {
   setup: "",
   structure: "",
   entryModel: "",
+  amountToWin: "",
   entryPrice: "",
   stopLoss: "",
   takeProfit: "",
@@ -1189,6 +1191,7 @@ function TradeFormDialog({
         setup: setupValue,
         structure: formData.structure || null,
         entryModel: formData.entryModel || null,
+        amountToWin: formData.amountToWin ? parseFloat(formData.amountToWin) : null,
         entryPrice: parseFloat(formData.entryPrice),
         stopLoss: parseFloat(formData.stopLoss),
         takeProfit: parseFloat(formData.takeProfit),
@@ -1466,6 +1469,10 @@ function TradeFormDialog({
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">{t(language, "lotSize")}</Label>
                   <Input type="number" step="any" placeholder="0.00" value={formData.lotSize} onChange={(e) => updateField("lotSize", e.target.value)} className="h-9 font-mono" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">{t(language, "amountToWin")}</Label>
+                  <Input type="number" step="any" placeholder="0.00" value={formData.amountToWin} onChange={(e) => updateField("amountToWin", e.target.value)} className="h-9 font-mono" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium">{t(language, "entryTime")}</Label>

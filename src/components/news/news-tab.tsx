@@ -2839,7 +2839,7 @@ function StatisticsSubTab({ language }: { language: string }) {
 
 export function NewsTab() {
   const { language } = useAppStore();
-  const [subTab, setSubTab] = useState<SubTab>("calendar");
+  const [subTab, setSubTab] = useState<SubTab>("analysis");
   const [refreshKey, setRefreshKey] = useState(0);
   const isFr = language === "fr";
 
@@ -2848,11 +2848,7 @@ export function NewsTab() {
   };
 
   const SUB_TABS: { id: SubTab; icon: typeof CalendarClock; label_fr: string; label_en: string }[] = [
-    { id: "calendar", icon: CalendarClock, label_fr: "Calendrier", label_en: "Calendar" },
     { id: "analysis", icon: Brain, label_fr: "Analyse IA", label_en: "AI Analysis" },
-    { id: "sentiment", icon: Radio, label_fr: "Sentiment", label_en: "Sentiment" },
-    { id: "alerts", icon: Timer, label_fr: "Alertes", label_en: "Alerts" },
-    { id: "statistics", icon: BarChart3, label_fr: "Statistiques", label_en: "Statistics" },
   ];
 
   return (
@@ -2883,33 +2879,31 @@ export function NewsTab() {
       </div>
 
       {/* Sub-tab navigation pills */}
-      <div className="flex flex-wrap gap-2">
-        {SUB_TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = subTab === tab.id;
-          return (
-            <Button
-              key={tab.id}
-              variant={isActive ? "default" : "outline"}
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setSubTab(tab.id)}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span className="text-xs">{isFr ? tab.label_fr : tab.label_en}</span>
-            </Button>
-          );
-        })}
-      </div>
+      {SUB_TABS.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {SUB_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = subTab === tab.id;
+            return (
+              <Button
+                key={tab.id}
+                variant={isActive ? "default" : "outline"}
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setSubTab(tab.id)}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                <span className="text-xs">{isFr ? tab.label_fr : tab.label_en}</span>
+              </Button>
+            );
+          })}
+        </div>
+      )}
 
       <Separator />
 
       {/* Sub-tab content */}
-      {subTab === "calendar" && <CalendarSubTab key={`calendar-${refreshKey}`} language={language} />}
       {subTab === "analysis" && <AnalysisSubTab key={`analysis-${refreshKey}`} language={language} />}
-      {subTab === "sentiment" && <SentimentSubTab key={`sentiment-${refreshKey}`} language={language} />}
-      {subTab === "alerts" && <AlertsSubTab key={`alerts-${refreshKey}`} language={language} />}
-      {subTab === "statistics" && <StatisticsSubTab key={`statistics-${refreshKey}`} language={language} />}
     </div>
   );
 }
