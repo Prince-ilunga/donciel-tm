@@ -944,3 +944,32 @@ Stage Summary:
 - Fix: reset input value after change + memoize & revoke object URLs.
 - Files modified (ONLY these two): src/components/dashboard/dashboard-tab.tsx, src/components/setup/setup-tab.tsx.
 - No other behaviour, calculation, or system logic touched (per user instruction).
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Verify/implement "RR = -1R automatically for a losing trade (exit touches SL)"
+
+Work Log:
+- Read the RR calculation logic in all relevant files:
+  - Frontend: src/components/setup/setup-tab.tsx (calculateAuto) + src/components/dashboard/dashboard-tab.tsx (calculateAuto)
+  - Backend: src/app/api/trades/route.ts (POST) + src/app/api/trades/[id]/route.ts (PUT)
+  - Display: src/components/shared/trade-detail-dialog.tsx, src/components/journal/journal-tab.tsx
+  - Stats: src/app/api/stats/route.ts, src/app/api/stats/global/route.ts, src/app/api/stats/bilan/route.ts
+- Found that the "LOSS → rr = -1" rule is ALREADY implemented in all calculation paths:
+  - Frontend calculateAuto: sets result.rr = -1 when resultLabel === "LOSS" (exit touches SL).
+  - Backend POST: finalRR = -1 when calculatedResult === 'LOSS'.
+  - Backend PUT: finalRR = -1 when calculatedResult === 'LOSS'.
+  - All display + stats paths use the stored trade.rr directly (no recalculation).
+- Verified end-to-end with Agent Browser (logged in, opened Setup → SAISIE DES TRADES, created a LONG trade with entry=2000, SL=1990, TP=2020, exit=1990 [touches SL → LOSS]):
+  - Live auto-calc preview: RR = -1.00, P&L = -10.00, Résultat = LOSS ✔
+  - After save, trade list displayed: RR = -1.00 ✔
+  - DB verification: trade stored with rr = -1, result = "LOSS" ✔
+- Checked DB: 2 trades total, both have correct RR (WIN=13, LOSS=-1). No stale/buggy records.
+- The trade-detail-dialog "Ratio Risk/Reward" StatCard shows the PLANNED reward/risk (always positive) — this is a separate metric from the realized RR (trade.rr), and the user confirmed other elements work fine.
+- Cleaned up test data (deleted test trade + test user) to leave the system unperturbed.
+
+Stage Summary:
+- The requested rule ("RR = -1R automatically for a losing trade that touches SL") is ALREADY correctly implemented and working end-to-end (preview → save → DB → display → stats).
+- No code change was needed. Per the user's instruction ("ne modifie rien d'autre"), NO files were modified and NO commit was pushed.
+- The previous screenshot-uploader fix (commit b074143) remains the latest change on main.
