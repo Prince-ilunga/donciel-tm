@@ -1311,6 +1311,13 @@ const FileUpload = React.forwardRef<
     return null;
   }, [file]);
 
+  // Revoke object URL when preview changes or component unmounts to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
   return (
     <div className="relative">
       {preview ? (
@@ -1351,6 +1358,8 @@ const FileUpload = React.forwardRef<
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           onChange(f);
+          // Reset value so selecting the same file again still fires onChange
+          e.target.value = "";
         }}
       />
     </div>
