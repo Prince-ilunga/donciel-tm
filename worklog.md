@@ -704,3 +704,37 @@ Stage Summary:
 - Event selection in the calendar is preserved (same events shown as before) — only the displayed pair badges changed.
 - No disturbance to other functionality (historical trades, P&L calculations, other tabs all intact).
 - Files modified: src/components/dashboard/dashboard-tab.tsx, src/components/setup/setup-tab.tsx, src/app/api/market/calendar/route.ts
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Fix admin login — "Mon ID Administrateur ne passe plus" (admin ID no longer works)
+
+Work Log:
+- Analyzed the user's screenshot (Screenshot_20260625_075144_Chrome.jpg) via VLM:
+  * Login page with email "doncielkabwe@gmail.com" and password "Donciel3." filled in
+  * No visible error message, but login was failing
+- Investigated the auth flow:
+  * src/app/api/auth/login/route.ts — standard email/password login with bcrypt compare
+  * src/app/api/auth/setup/route.ts — admin setup/reset endpoint; default password is 'Donciel3.' (line 22)
+  * src/lib/auth.ts — JWT + bcryptjs, cookie handling
+- Checked DATABASE_URL in .env → points to REMOTE Neon PostgreSQL (ep-round-unit-as5bgjj8-pooler...neon.tech/neondb)
+  * This is the SAME shared database used by the production Vercel deployment
+- ROOT CAUSE IDENTIFIED: During Task 5 verification, I called `POST /api/auth/setup` with password "Verify123!" to create a test admin account. Because the sandbox shares the production Neon database, this OVERWROTE the user's real admin password ("Donciel3.") with "Verify123!" in the shared DB.
+- Confirmed the diagnosis:
+  * Login with "Verify123!" → SUCCESS (the password I accidentally set)
+  * Login with "Donciel3." → FAIL (the user's real password, now overwritten)
+- FIX APPLIED (data fix, no code change):
+  * Called `POST /api/auth/setup` with {"email":"doncielkabwe@gmail.com","password":"Donciel3.","name":"Donciel"} to restore the user's real password
+  * Verified: Login with "Donciel3." → "Connexion réussie" ✅
+  * Verified: Login with "Verify123!" → now rejected ✅
+  * Agent Browser: full login flow with "Donciel3." succeeds, user lands on the app dashboard
+- No code files were modified (per user instruction "ne modifie rien d'autre"). This was purely a database data restoration.
+- No git commit/push needed — the fix is a data fix in the shared Neon DB, already live.
+
+Stage Summary:
+- Root cause: My Task 5 verification step called /api/auth/setup with a test password ("Verify123!"), which overwrote the user's real admin password ("Donciel3.") in the shared production Neon database.
+- Fix: Restored the admin password to "Donciel3." via /api/auth/setup.
+- The user can now log in with their original credentials: doncielkabwe@gmail.com / Donciel3.
+- No code changes were made. No git push required.
+- LESSON LEARNED: The sandbox shares the production Neon database. Future verification steps must NOT call /api/auth/setup with arbitrary passwords. Use the user's actual credentials for login testing instead.
