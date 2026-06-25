@@ -1253,7 +1253,7 @@ function TradeFormDialog({
       // Upload screenshots
       const uploadPromises: Promise<void>[] = [];
       const files: { file: File | null; type: string }[] = [
-        { file: formData.contextFile, type: "context" },
+        { file: formData.contextFile, type: "analysis" },
         { file: formData.entryFile, type: "entry" },
         { file: formData.exitFile, type: "exit" },
       ];
@@ -1537,9 +1537,9 @@ function TradeFormDialog({
                 {language === "fr" ? "Captures & Vidéos" : "Screenshots & Videos"}
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {/* Context Screenshot */}
+                {/* Analyse Screenshot */}
                 <div className="space-y-2">
-                  <Label className="text-xs font-medium">{language === "fr" ? "Contexte" : "Context"}</Label>
+                  <Label className="text-xs font-medium">{language === "fr" ? "Analyse" : "Analysis"}</Label>
                   <input ref={contextRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => { updateField("contextFile", e.target.files?.[0] || null); e.target.value = ""; }} />
                   <Button type="button" variant="outline" className="w-full h-9 gap-2" onClick={() => contextRef.current?.click()}>
                     <Upload className="w-3.5 h-3.5" />
@@ -1550,7 +1550,7 @@ function TradeFormDialog({
                       {formData.contextFile.type.startsWith('video/') ? (
                         <video src={contextUrl} className="w-full h-full object-cover" muted playsInline />
                       ) : (
-                        <img src={contextUrl} alt="Context" className="w-full h-full object-cover" />
+                        <img src={contextUrl} alt="Analyse" className="w-full h-full object-cover" />
                       )}
                       <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80" onClick={() => updateField("contextFile", null)}>
                         <X className="w-3 h-3" />

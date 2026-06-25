@@ -987,7 +987,7 @@ function TradeCard({
                       </div>
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-1 flex items-center justify-between">
                         <span className="text-[8px] text-white font-medium uppercase">
-                          {screenshot.type === "analysis"
+                          {(screenshot.type === "analysis" || screenshot.type === "context")
                             ? t(language, "analysisScreenshot")
                             : screenshot.type === "entry"
                             ? t(language, "entryScreenshot")

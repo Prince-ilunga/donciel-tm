@@ -634,7 +634,7 @@ export function TradeDetailDialog() {
                         if (!mediaSrc) return null;
                         const isVideo = isVideoUrl(screenshot.url);
                         const typeLabel = (screenshot.type === "context" || screenshot.type === "analysis")
-                          ? t(language, "contextScreenshot")
+                          ? t(language, "analysisScreenshot")
                           : screenshot.type === "entry"
                             ? t(language, "entryScreenshot")
                             : t(language, "exitScreenshot");
