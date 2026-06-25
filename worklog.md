@@ -912,3 +912,35 @@ Stage Summary:
 - Data cleanup: Deleted the one incoherent trade that was corrupting stats (LONG with TP=4005 < entry=4982). The user can re-enter it correctly if desired.
 - Files modified: src/components/dashboard/dashboard-tab.tsx (+24 lines), src/components/setup/setup-tab.tsx (+24 lines)
 - No other functionality touched (per user instruction "ne modifie rien d'autre")
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Fix the screenshot uploader bug in the trade-entry form (saisie des trades)
+
+Work Log:
+- Investigated the screenshot uploader in the trade-entry form.
+- Found TWO separate trade-entry forms with screenshot uploaders, both sharing the same bugs:
+  1. src/components/dashboard/dashboard-tab.tsx — `FileUpload` component (analysis/entry/exit).
+  2. src/components/setup/setup-tab.tsx — `TradeFormDialog` (context/entry/exit) — this is the reachable "SAISIE DES TRADES" form (Setup tab → setup card → "SAISIE DES TRADES" button).
+- Root causes (both forms):
+  a) Re-selection bug: `<input type="file">` value was never reset after `onChange`, so selecting the SAME file again (after removing it, or after reopening the form) silently did nothing (browser sees no value change → no change event).
+  b) Object-URL leak: `URL.createObjectURL(file)` was created on every change (dashboard) or inline on every render (setup) and never revoked via `URL.revokeObjectURL`, causing blob-URL accumulation / preview degradation.
+- Fix applied (dashboard-tab.tsx `FileUpload`):
+  - Added `e.target.value = ""` after reading the selected file.
+  - Added a `useEffect` cleanup that revokes the preview object URL when it changes or on unmount.
+- Fix applied (setup-tab.tsx `TradeFormDialog`):
+  - Added `e.target.value = ""` to all three file inputs (context/entry/exit).
+  - Replaced the 6 inline `URL.createObjectURL(formData.xxxFile)` calls (3 video + 3 img) with stable memoized URLs (`contextUrl`/`entryUrl`/`exitUrl`) computed via `useMemo`, each with a `useEffect` cleanup that revokes the URL on change/unmount.
+- Verified end-to-end with Agent Browser (logged in as a test admin user, opened Setup → DONCIEL SETUP → SAISIE DES TRADES):
+  - First upload: preview appears with a stable blob URL. ✔
+  - Remove (X): preview clears, input value resets to empty. ✔
+  - Re-upload the EXACT SAME file: preview reappears (previously this was the failing case — nothing happened). ✔
+  - No console errors; only expected HMR logs. ✔
+- Lint passes (`bun run lint` clean); dev server healthy (HTTP 200).
+
+Stage Summary:
+- Bug: file-input value never reset + object URLs never revoked in the trade-entry screenshot uploader(s).
+- Fix: reset input value after change + memoize & revoke object URLs.
+- Files modified (ONLY these two): src/components/dashboard/dashboard-tab.tsx, src/components/setup/setup-tab.tsx.
+- No other behaviour, calculation, or system logic touched (per user instruction).
