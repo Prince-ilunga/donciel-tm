@@ -663,3 +663,44 @@ Stage Summary:
 - Only file modified: src/components/notes/notes-tab.tsx (+103/-8)
 - No API, database schema, or other components touched
 - Pushed to https://github.com/Prince-ilunga/donciel-tm (commit 859f84e)
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Remove all assets from the system except XAUUSD (user wants to focus on a single asset)
+
+Work Log:
+- Searched the codebase for all asset references (EURUSD, GBPUSD, US30, US100, BTCUSD, USDJPY, etc.)
+- Found the asset definitions and references:
+  * src/lib/utils.ts getContractSize() — calculator function with branches for many pairs (LEFT UNTOUCHED — pure math, doesn't display assets, needed for old trades' P&L)
+  * src/app/api/pairs/route.ts — DEFAULT_PAIRS already only ['XAUUSD'] (LEFT UNTOUCHED — not used by frontend for display)
+  * src/app/api/market/{briefing,sentiment,live,news}/route.ts — already only have XAUUSD in their asset maps (LEFT UNTOUCHED)
+  * src/components/news/news-tab.tsx ASSETS — already only XAUUSD (LEFT UNTOUCHED)
+  * src/components/{dashboard,setup}/*-tab.tsx DEFAULT_PAIRS — already only ["XAUUSD"] but had a "Custom Pair" option allowing users to type ANY pair (EURUSD, US30, etc.) — REMOVED
+  * src/app/api/market/calendar/route.ts getImpactedPairs() — returned EUR/USD, US30, US100, GBP/USD, USD/JPY, EUR/GBP etc. as impacted pairs displayed in the calendar — CLEANED to only return XAU/USD
+- Changes made:
+  1. src/components/dashboard/dashboard-tab.tsx: Removed the "Custom Pair" feature entirely (showCustomPair state, customPair form field, __custom__ SelectItem, custom pair input UI, SelectSeparator import). Pair dropdown now shows only XAUUSD. Simplified handlePairChange, validation, and submit logic.
+  2. src/components/setup/setup-tab.tsx: Same removal of "Custom Pair" feature. Pair dropdown now shows only XAUUSD.
+  3. src/app/api/market/calendar/route.ts: 
+     - Rewrote getImpactedPairs() to only push 'XAU/USD' (preserving the exact same event-selection logic so the same events are shown/filtered as before — no disturbance to calendar behavior).
+     - Updated ZAI prompt examples from ["EUR/USD", "XAU/USD"] to ["XAU/USD"].
+     - Added sanitization of AI-returned impactedPairs to keep only XAU/GOLD-related pairs (falls back to getImpactedPairs if AI returned none).
+- Did NOT touch (to avoid disturbing working functionality):
+  * getContractSize() in utils.ts (math function for old trades)
+  * /api/pairs endpoints (not used by frontend for display)
+  * Database / existing trades (historical data preserved)
+  * Briefing search query (internal, not displayed)
+- Verification:
+  * bun run lint — passed, no errors
+  * Agent Browser: logged in as admin, opened Setup tab → "SAISIE DES TRADES" form → Pair dropdown shows ONLY "XAUUSD" (no "Paire personnalisée" option)
+  * Agent Browser: Marché tab — page contains 6× "XAU/USD" and 0× EUR/USD, US30, GBP/USD, USD/JPY, US100, etc.
+  * API test: GET /api/market/calendar?asset=XAUUSD returns only ['XAU/USD'] in impactedPairs for all events
+  * No console errors
+
+Stage Summary:
+- All assets except XAUUSD removed from the system. Users can now only select/see XAUUSD.
+- The "Custom Pair" option was removed from both trade entry forms (dashboard + setup), so no other asset can be added.
+- The calendar no longer displays EUR/USD, US30, US100, GBP/USD, USD/JPY etc. as impacted pairs — only XAU/USD.
+- Event selection in the calendar is preserved (same events shown as before) — only the displayed pair badges changed.
+- No disturbance to other functionality (historical trades, P&L calculations, other tabs all intact).
+- Files modified: src/components/dashboard/dashboard-tab.tsx, src/components/setup/setup-tab.tsx, src/app/api/market/calendar/route.ts

@@ -181,38 +181,26 @@ function getImpactedPairs(title: string): string[] {
   const t = title.toLowerCase();
   const pairs: string[] = [];
 
-  // Currency-based
+  // The system only supports XAUUSD — only XAU/USD is returned as an impacted pair.
+  // XAU/USD is impacted by USD macro events, gold/commodities, and broad risk themes.
   if (t.includes('usd') || t.includes('dollar') || t.includes('fed') || t.includes('fomc') || t.includes('nfp') || t.includes('non-farm') || t.includes('nonfarm') || t.includes('cpi') || t.includes('consumer price') || t.includes('gdp') || t.includes('rate decision') || t.includes('interest rate') || t.includes('jobless') || t.includes('claims') || t.includes('ppi') || t.includes('retail sales') || t.includes('consumer confidence') || t.includes('ism')) {
-    pairs.push('EUR/USD', 'XAU/USD');
-    if (t.includes('stock') || t.includes('fomc') || t.includes('rate') || t.includes('fed')) {
-      pairs.push('US30', 'US100');
-    }
-  }
-  if (t.includes('eur') || t.includes('euro') || t.includes('ecb') || t.includes('bce')) {
-    if (!pairs.includes('EUR/USD')) pairs.push('EUR/USD');
-    pairs.push('EUR/GBP');
-  }
-  if (t.includes('gbp') || t.includes('pound') || t.includes('boe') || t.includes('bda') || t.includes('bank of england')) {
-    if (!pairs.includes('GBP/USD')) pairs.push('GBP/USD');
-    pairs.push('EUR/GBP');
-  }
-  if (t.includes('jpy') || t.includes('yen') || t.includes('boj') || t.includes('japan') || t.includes('nikkei')) {
-    pairs.push('USD/JPY');
+    pairs.push('XAU/USD');
   }
   if (t.includes('gold') || t.includes('xau') || t.includes('oil') || t.includes('crude') || t.includes('commodit')) {
     if (!pairs.includes('XAU/USD')) pairs.push('XAU/USD');
   }
-  if (t.includes('stock') || t.includes('dow') || t.includes('sp ') || t.includes('s&p') || t.includes('earnings')) {
-    if (!pairs.includes('US30')) pairs.push('US30');
-    if (!pairs.includes('US100')) pairs.push('US100');
-  }
-  if (t.includes('nasdaq') || t.includes('tech') || t.includes('ai ')) {
-    if (!pairs.includes('US100')) pairs.push('US100');
-  }
 
-  // If nothing matched, default to major USD pairs
+  // Pure non-USD currency / equity index events (no USD or gold context) are not
+  // relevant to XAUUSD and are left empty so they get filtered out when asset=XAUUSD.
   if (pairs.length === 0) {
-    pairs.push('EUR/USD', 'XAU/USD');
+    const isPureOther = t.includes('eur') || t.includes('euro') || t.includes('ecb') || t.includes('bce') ||
+      t.includes('gbp') || t.includes('pound') || t.includes('boe') || t.includes('bda') || t.includes('bank of england') ||
+      t.includes('jpy') || t.includes('yen') || t.includes('boj') || t.includes('japan') || t.includes('nikkei') ||
+      t.includes('stock') || t.includes('dow') || t.includes('sp ') || t.includes('s&p') || t.includes('earnings') ||
+      t.includes('nasdaq') || t.includes('tech') || t.includes('ai ');
+    if (!isPureOther) {
+      pairs.push('XAU/USD');
+    }
   }
 
   return [...new Set(pairs)]; // Deduplicate
@@ -588,7 +576,7 @@ Réponds au format JSON suivant:
       "country": "🇺🇸",
       "interpretation": "Explication de l'impact de cet événement sur les marchés",
       "direction": "HAUSSIER|BAISSIER|NEUTRE",
-      "impactedPairs": ["EUR/USD", "XAU/USD"]
+      "impactedPairs": ["XAU/USD"]
     }
   ],
   "highImpactCount": nombre,
@@ -619,7 +607,7 @@ Respond in the following JSON format:
       "country": "🇺🇸",
       "interpretation": "Explanation of this event's market impact",
       "direction": "HAUSSIER|BAISSIER|NEUTRE",
-      "impactedPairs": ["EUR/USD", "XAU/USD"]
+      "impactedPairs": ["XAU/USD"]
     }
   ],
   "highImpactCount": number,
@@ -640,15 +628,18 @@ Respond in the following JSON format:
       }
     } catch {}
 
-    // Ensure each event has interpretation, direction, impactedPairs
-    events = events.map((e: any) => ({
-      ...e,
-      interpretation: e.interpretation || getEventInterpretation(e.event || '', lang),
-      direction: e.direction || getEventDirection(e.event || ''),
-      impactedPairs: Array.isArray(e.impactedPairs) && e.impactedPairs.length > 0
-        ? e.impactedPairs
-        : getImpactedPairs(e.event || ''),
-    }));
+    // Ensure each event has interpretation, direction, impactedPairs.
+    // The system only supports XAUUSD — sanitize AI-returned pairs to keep only XAU/USD.
+    events = events.map((e: any) => {
+      const rawPairs: string[] = Array.isArray(e.impactedPairs) ? e.impactedPairs : [];
+      const filtered = rawPairs.filter((p: string) => /XAU|GOLD/i.test(p));
+      return {
+        ...e,
+        interpretation: e.interpretation || getEventInterpretation(e.event || '', lang),
+        direction: e.direction || getEventDirection(e.event || ''),
+        impactedPairs: filtered.length > 0 ? filtered : getImpactedPairs(e.event || ''),
+      };
+    });
 
     const highImpactEvents = events.filter((e: any) => (e.impact || '').toLowerCase() === 'high');
     const highImpactCount = highImpactEvents.length;

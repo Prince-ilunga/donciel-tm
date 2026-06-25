@@ -29,7 +29,6 @@ import {
   Select,
   SelectContent,
   SelectItem,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -81,7 +80,6 @@ const SETUPS = ["SETUP A", "SETUP A+", "SETUP B", "SETUP B+", "SETUP C"];
 interface TradeFormData {
   date: string;
   pair: string;
-  customPair: string;
   direction: "LONG" | "SHORT";
   session: string;
   marketCondition: string;
@@ -115,7 +113,6 @@ const ENTRY_MODELS = ["ANGLOBANTE", "LOT À 3 BOUGIES", "MARKET SHIFT"];
 const initialFormData: TradeFormData = {
   date: format(new Date(), "yyyy-MM-dd"),
   pair: "",
-  customPair: "",
   direction: "LONG",
   session: "",
   marketCondition: "",
@@ -551,7 +548,6 @@ function TradeFormDialog({
 }) {
   const [formData, setFormData] = useState<TradeFormData>(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showCustomPair, setShowCustomPair] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const analysisRef = useRef<HTMLInputElement>(null);
   const entryFileRef = useRef<HTMLInputElement>(null);
@@ -567,7 +563,6 @@ function TradeFormDialog({
         ...initialFormData,
         date: format(new Date(), "yyyy-MM-dd"),
       });
-      setShowCustomPair(false);
     }
   }, [open]);
 
@@ -576,13 +571,7 @@ function TradeFormDialog({
   }, []);
 
   const handlePairChange = useCallback((value: string) => {
-    if (value === "__custom__") {
-      setShowCustomPair(true);
-      updateField("pair", "");
-    } else {
-      setShowCustomPair(false);
-      updateField("pair", value);
-    }
+    updateField("pair", value);
   }, [updateField]);
 
   const handleFileChange = useCallback((key: "analysisFile" | "entryFile" | "exitFile", file: File | null) => {
@@ -595,7 +584,7 @@ function TradeFormDialog({
       toast.error(language === "fr" ? "La date est requise" : "Date is required");
       return;
     }
-    if (!formData.pair && !formData.customPair) {
+    if (!formData.pair) {
       toast.error(language === "fr" ? "La paire est requise" : "Pair is required");
       return;
     }
@@ -635,7 +624,7 @@ function TradeFormDialog({
     setIsSubmitting(true);
 
     try {
-      const pair = showCustomPair ? formData.customPair.toUpperCase() : formData.pair;
+      const pair = formData.pair;
       const exitPrice = formData.exitPrice !== "" ? parseFloat(formData.exitPrice) : null;
       const lotSize = formData.lotSize !== "" ? parseFloat(formData.lotSize) : null;
 
@@ -832,44 +821,18 @@ function TradeFormDialog({
                 {/* Pair */}
                 <div className="space-y-1.5 trade-field">
                   <Label className="text-xs font-medium">{t(language, "pair")} *</Label>
-                  {!showCustomPair ? (
-                    <Select value={formData.pair} onValueChange={handlePairChange}>
-                      <SelectTrigger className="w-full h-9">
-                        <SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DEFAULT_PAIRS.map((p) => (
-                          <SelectItem key={p} value={p}>
-                            <span className="font-mono">{p}</span>
-                          </SelectItem>
-                        ))}
-                        <SelectSeparator />
-                        <SelectItem value="__custom__">
-                          <span className="text-primary text-xs">{t(language, "customPair")}</span>
+                  <Select value={formData.pair} onValueChange={handlePairChange}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue placeholder={language === "fr" ? "Sélectionner" : "Select"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEFAULT_PAIRS.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          <span className="font-mono">{p}</span>
                         </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="EURJPY"
-                        value={formData.customPair}
-                        onChange={(e) => updateField("customPair", e.target.value.toUpperCase())}
-                        className="h-9 font-mono"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setShowCustomPair(false);
-                          updateField("customPair", "");
-                        }}
-                        className="shrink-0 h-9 px-2"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  )}
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Direction */}
