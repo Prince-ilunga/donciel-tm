@@ -1164,6 +1164,30 @@ function TradeFormDialog({
       return;
     }
 
+    // Validate TP/SL coherence with direction (prevents absurd calculations)
+    const _ep = parseFloat(formData.entryPrice);
+    const _sl = parseFloat(formData.stopLoss);
+    const _tp = parseFloat(formData.takeProfit);
+    if (formData.direction === "LONG") {
+      if (_tp <= _ep) {
+        toast.error(language === "fr" ? "Pour un LONG, le Take Profit doit être AU-DESSUS du prix d'entrée" : "For LONG, Take Profit must be ABOVE the entry price");
+        return;
+      }
+      if (_sl >= _ep) {
+        toast.error(language === "fr" ? "Pour un LONG, le Stop Loss doit être EN DESSOUS du prix d'entrée" : "For LONG, Stop Loss must be BELOW the entry price");
+        return;
+      }
+    } else if (formData.direction === "SHORT") {
+      if (_tp >= _ep) {
+        toast.error(language === "fr" ? "Pour un SHORT, le Take Profit doit être EN DESSOUS du prix d'entrée" : "For SHORT, Take Profit must be BELOW the entry price");
+        return;
+      }
+      if (_sl <= _ep) {
+        toast.error(language === "fr" ? "Pour un SHORT, le Stop Loss doit être AU-DESSUS du prix d'entrée" : "For SHORT, Stop Loss must be ABOVE the entry price");
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       const pair = formData.pair;
