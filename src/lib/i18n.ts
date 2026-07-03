@@ -16,6 +16,7 @@ export const translations = {
     newsFundamental: "Marché",
     adminVerification: "Vérification Admin",
     roleManagement: "Gestion des Rôles",
+    moneyManagement: "Money Management",
     
     // Auth
     login: "Connexion",
@@ -315,6 +316,7 @@ export const translations = {
     newsFundamental: "Market",
     adminVerification: "Admin Verification",
     roleManagement: "Role Management",
+    moneyManagement: "Money Management",
     
     // Auth
     login: "Login",
