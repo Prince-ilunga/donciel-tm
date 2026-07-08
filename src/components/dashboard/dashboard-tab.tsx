@@ -69,7 +69,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 
 // ─── Constants ───────────────────────────────────────────────
-const DEFAULT_PAIRS = ["XAUUSD"];
+const DEFAULT_PAIRS = ["XAUUSD", "VOLATILITÉ 75 1S", "VOLATILITE 50 1S"];
 const SESSIONS = ["LONDON", "NEW YORK", "ASIE", "OVERLAP", "MACRO CHER", "MACRO PEU CHER"];
 const MARKET_CONDITIONS = ["CONTINUATION", "RETRACEMENT"];
 const TIMEFRAMES_ANALYSIS = ["M15", "M30", "H1", "H4", "D1", "W1"];

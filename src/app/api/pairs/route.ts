@@ -4,6 +4,8 @@ import { getAuthUser } from '@/lib/auth';
 
 const DEFAULT_PAIRS = [
   'XAUUSD',
+  'VOLATILITÉ 75 1S',
+  'VOLATILITE 50 1S',
 ];
 
 export async function GET() {
