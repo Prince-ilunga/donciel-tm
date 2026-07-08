@@ -1,0 +1,672 @@
+     1→import { NextRequest, NextResponse } from 'next/server';
+     2→import { getAuthUser } from '@/lib/auth';
+     3→import { XMLParser } from 'fast-xml-parser';
+     4→
+     5→// In-memory cache
+     6→interface CacheEntry { data: any; timestamp: number; }
+     7→const cache = new Map<string, CacheEntry>();
+     8→const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+     9→const CACHE_DURATION_WEEK = 15 * 60 * 1000; // 15 minutes for weekly
+    10→
+    11→const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+    12→
+    13→// ──────────────────────────────────────────────────────
+    14→// Asset-specific briefing data
+    15→// ──────────────────────────────────────────────────────
+    16→
+    17→const ASSET_BRIEFING_DATA: Record<string, {
+    18→  keyLevelsFr: string[];
+    19→  keyLevelsEn: string[];
+    20→  bullAdjFr: string;
+    21→  bullAdjEn: string;
+    22→  bearAdjFr: string;
+    23→  bearAdjEn: string;
+    24→  neutralAdjFr: string;
+    25→  neutralAdjEn: string;
+    26→  riskKeywords: string[];
+    27→}> = {
+    28→  XAUUSD: {
+    29→    keyLevelsFr: [
+    30→      'XAU/USD: Support 2 300 / Résistance 2 400',
+    31→      'DXY: Support 104.00 / Résistance 105.50',
+    32→      'Rendements 10 ans US: Support 4.20% / Résistance 4.50%',
+    33→    ],
+    34→    keyLevelsEn: [
+    35→      'XAU/USD: Support 2300 / Resistance 2400',
+    36→      'DXY: Support 104.00 / Resistance 105.50',
+    37→      'US 10Y Yields: Support 4.20% / Resistance 4.50%',
+    38→    ],
+    39→    bullAdjFr: 'L\'or bénéficie de la faiblesse du dollar et des anticipations de baisse de taux.',
+    40→    bullAdjEn: 'Gold benefits from dollar weakness and rate cut expectations.',
+    41→    bearAdjFr: 'L\'or sous pression face à un dollar fort et des rendements élevés.',
+    42→    bearAdjEn: 'Gold under pressure from a strong dollar and elevated yields.',
+    43→    neutralAdjFr: 'L\'or évolue dans un range, en attente de catalyseurs (Fed, inflation).',
+    44→    neutralAdjEn: 'Gold trading in a range, awaiting catalysts (Fed, inflation).',
+    45→    riskKeywords: ['gold', 'xau', 'fed', 'inflation', 'dollar', 'treasury', 'yields', 'safe haven'],
+    46→  },
+    47→  EURUSD: {
+    48→    keyLevelsFr: [
+    49→      'EUR/USD: Support 1.0800 / Résistance 1.0950',
+    50→      'DXY: Support 104.00 / Résistance 105.50',
+    51→      'Spread Bund-OAT: Surveillance risque périphérique',
+    52→    ],
+    53→    keyLevelsEn: [
+    54→      'EUR/USD: Support 1.0800 / Resistance 1.0950',
+    55→      'DXY: Support 104.00 / Resistance 105.50',
+    56→      'Bund-OAT spread: Watch peripheral risk',
+    57→    ],
+    58→    bullAdjFr: 'L\'euro soutenu par des données zone euro solides et/ou un dollar faible.',
+    59→    bullAdjEn: 'Euro supported by solid eurozone data and/or weak dollar.',
+    60→    bearAdjFr: 'L\'euro sous pression face à un dollar fort ou des données EU décevantes.',
+    61→    bearAdjEn: 'Euro under pressure from strong dollar or disappointing EU data.',
+    62→    neutralAdjFr: 'EUR/USD en range, en attente de données US ou de la BCE.',
+    63→    neutralAdjEn: 'EUR/USD ranging, awaiting US data or ECB.',
+    64→    riskKeywords: ['euro', 'ecb', 'eur', 'dollar', 'fed', 'germany', 'eu ', 'bce'],
+    65→  },
+    66→  GBPUSD: {
+    67→    keyLevelsFr: [
+    68→      'GBP/USD: Support 1.2600 / Résistance 1.2800',
+    69→      'EUR/GBP: Support 0.8500 / Résistance 0.8650',
+    70→      'Gilt 10 ans: Surveillance rendements UK',
+    71→    ],
+    72→    keyLevelsEn: [
+    73→      'GBP/USD: Support 1.2600 / Resistance 1.2800',
+    74→      'EUR/GBP: Support 0.8500 / Resistance 0.8650',
+    75→      'UK 10Y Gilt: Watch UK yields',
+    76→    ],
+    77→    bullAdjFr: 'La livre soutenue par le maintien des taux BdA et/ou un dollar faible.',
+    78→    bullAdjEn: 'Pound supported by BoE rate hold and/or weak dollar.',
+    79→    bearAdjFr: 'La livre sous pression face à des signaux BdA accommodants ou un dollar fort.',
+    80→    bearAdjEn: 'Pound under pressure from dovish BoE signals or strong dollar.',
+    81→    neutralAdjFr: 'GBP/USD en consolidation, en attente de décisions BdA.',
+    82→    neutralAdjEn: 'GBP/USD consolidating, awaiting BoE decisions.',
+    83→    riskKeywords: ['pound', 'boe', 'bank of england', 'uk', 'britain', 'sterling', 'gbp'],
+    84→  },
+    85→  US30: {
+    86→    keyLevelsFr: [
+    87→      'US30: Support 38 000 / Résistance 40 000',
+    88→      'VIX: Support 12 / Résistance 20',
+    89→      'Rendements 10 ans US: Surveillance inflation',
+    90→    ],
+    91→    keyLevelsEn: [
+    92→      'US30: Support 38000 / Resistance 40000',
+    93→      'VIX: Support 12 / Resistance 20',
+    94→      'US 10Y Yields: Watch inflation',
+    95→    ],
+    96→    bullAdjFr: 'Le Dow soutenu par de bonnes publications et un contexte de taux accommodant.',
+    97→    bullAdjEn: 'Dow supported by strong earnings and accommodative rate environment.',
+    98→    bearAdjFr: 'Le Dow sous pression face à des risques de récession ou des résultats décevants.',
+    99→    bearAdjEn: 'Dow under pressure from recession risks or disappointing earnings.',
+   100→    neutralAdjFr: 'Le Dow en range, en attente de catalyseurs (résultats, Fed).',
+   101→    neutralAdjEn: 'Dow ranging, awaiting catalysts (earnings, Fed).',
+   102→    riskKeywords: ['dow', 'stock', 'earnings', 'fed', 'rate', 'blue chip', 'market', 'equity'],
+   103→  },
+   104→  US100: {
+   105→    keyLevelsFr: [
+   106→      'US100: Support 17 500 / Résistance 19 000',
+   107→      'VIX: Support 12 / Résistance 20',
+   108→      'Semiconducteurs: Surveillance secteur tech',
+   109→    ],
+   110→    keyLevelsEn: [
+   111→      'US100: Support 17500 / Resistance 19000',
+   112→      'VIX: Support 12 / Resistance 20',
+   113→      'Semiconductors: Watch tech sector',
+   114→    ],
+   115→    bullAdjFr: 'Le Nasdaq soutenu par la dynamique IA et des résultats tech solides.',
+   116→    bullAdjEn: 'Nasdaq supported by AI momentum and strong tech earnings.',
+   117→    bearAdjFr: 'Le Nasdaq sous pression face à des valorisations élevées ou des résultats tech décevants.',
+   118→    bearAdjEn: 'Nasdaq under pressure from elevated valuations or disappointing tech earnings.',
+   119→    neutralAdjFr: 'Le Nasdaq en consolidation, en attente de catalyseurs (IA, résultats).',
+   120→    neutralAdjEn: 'Nasdaq consolidating, awaiting catalysts (AI, earnings).',
+   121→    riskKeywords: ['nasdaq', 'tech', 'ai ', 'semiconductor', 'growth', 'fed', 'rate', 'earnings'],
+   122→  },
+   123→};
+   124→
+   125→function generateAssetBriefing(
+   126→  asset: string,
+   127→  sentiment: 'bullish' | 'bearish' | 'neutral',
+   128→  lang: string,
+   129→  rssItems: { title: string; snippet: string; date: string }[]
+   130→): { keyLevels: string[]; scenarioAdjustment: string; riskEvents: string[] } | null {
+   131→  const isFr = lang === 'fr';
+   132→  const data = ASSET_BRIEFING_DATA[asset.toUpperCase()];
+   133→  if (!data) return null;
+   134→
+   135→  const keyLevels = isFr ? data.keyLevelsFr : data.keyLevelsEn;
+   136→
+   137→  const scenarioAdjustment = sentiment === 'bullish'
+   138→    ? (isFr ? data.bullAdjFr : data.bullAdjEn)
+   139→    : sentiment === 'bearish'
+   140→    ? (isFr ? data.bearAdjFr : data.bearAdjEn)
+   141→    : (isFr ? data.neutralAdjFr : data.neutralAdjEn);
+   142→
+   143→  // Filter risk events relevant to this asset
+   144→  const riskEvents = rssItems
+   145→    .filter(i => {
+   146→      const t = i.title.toLowerCase();
+   147→      return data.riskKeywords.some(kw => t.includes(kw));
+   148→    })
+   149→    .slice(0, 5)
+   150→    .map(i => i.title.length > 80 ? i.title.substring(0, 80) + '...' : i.title);
+   151→
+   152→  if (riskEvents.length === 0) {
+   153→    riskEvents.push(
+   154→      isFr
+   155→        ? `Surveillez les annonces impactant ${asset.toUpperCase()}`
+   156→        : `Watch for announcements impacting ${asset.toUpperCase()}`,
+   157→      isFr
+   158→        ? 'Calendrier économique à suivre'
+   159→        : 'Economic calendar to watch'
+   160→    );
+   161→  }
+   162→
+   163→  return { keyLevels, scenarioAdjustment, riskEvents };
+   164→}
+   165→
+   166→// ──────────────────────────────────────────────────────
+   167→// RSS fallback (works without ZAI SDK)
+   168→// ──────────────────────────────────────────────────────
+   169→
+   170→const BRIEFING_RSS_FEEDS = [
+   171→  { id: 1, name: 'Top News', keywords: ['market', 'fed', 'rate', 'inflation', 'gdp', 'employment', 'stock', 'bond', 'treasury', 'oil', 'gold', 'dollar', 'euro', 'asia', 'nikkei', 'hang seng', 'wall street', 'futures', 'marché', 'taux', 'inflation', 'emploi', 'boursier'] },
+   172→  { id: 14, name: 'Economy', keywords: ['fed', 'ecb', 'boe', 'rate', 'inflation', 'gdp', 'employment', 'consumer', 'manufacturing', 'pmi', 'economy', 'recession', 'growth', 'policy'] },
+   173→  { id: 25, name: 'Stock Market', keywords: ['dow', 'nasdaq', 'sp', 'stock', 'market', 'futures', 'wall street', 'rally', 'selloff', 'earnings', 'tech', 'index', 'asian', 'european'] },
+   174→  { id: 11, name: 'Commodities', keywords: ['gold', 'oil', 'commodit', 'fed', 'dollar', 'inflation', 'rate', 'energy', 'copper', 'silver'] },
+   175→];
+   176→
+   177→function generateBriefingFromRSS(rssItems: { title: string; snippet: string; date: string }[], lang: string, period: string): {
+   178→  summary: string;
+   179→  asia: string;
+   180→  today: string;
+   181→  keyLevels: string[];
+   182→  scenarios: { name: string; probability: number; description: string }[];
+   183→  riskEvents: string[];
+   184→  updatedAt: string;
+   185→} {
+   186→  const isFr = lang === 'fr';
+   187→  const isWeek = period === 'week';
+   188→
+   189→  const titles = rssItems.map(i => i.title.toLowerCase());
+   190→  const text = titles.join(' ');
+   191→
+   192→  // Detect Asian market news
+   193→  const asianKeywords = ['asia', 'asian', 'nikkei', 'hang seng', 'shanghai', 'shenzhen', 'korean', 'kospi', 'japanese', 'yen', 'boj'];
+   194→  const asianItems = rssItems.filter(i => asianKeywords.some(kw => i.title.toLowerCase().includes(kw)));
+   195→
+   196→  // Score sentiment
+   197→  const bullishWords = ['rally', 'surge', 'gain', 'rise', 'bullish', 'recovery', 'optimism', 'boost', 'jump', 'climb', 'strong', 'higher', 'hausse', 'rebond', 'progression'];
+   198→  const bearishWords = ['crash', 'selloff', 'fear', 'decline', 'bearish', 'recession', 'slump', 'tumble', 'plunge', 'drop', 'fall', 'weak', 'lower', 'baisse', 'chute', 'recul'];
+   199→
+   200→  let bullScore = 0;
+   201→  let bearScore = 0;
+   202→  bullishWords.forEach(w => { const matches = text.match(new RegExp(w, 'gi')); if (matches) bullScore += matches.length; });
+   203→  bearishWords.forEach(w => { const matches = text.match(new RegExp(w, 'gi')); if (matches) bearScore += matches.length; });
+   204→
+   205→  const isBullish = bullScore > bearScore * 1.3;
+   206→  const isBearish = bearScore > bullScore * 1.3;
+   207→
+   208→  // Build summary
+   209→  const direction = isBullish
+   210→    ? (isFr ? 'haussière' : 'bullish')
+   211→    : isBearish
+   212→    ? (isFr ? 'baissière' : 'bearish')
+   213→    : (isFr ? 'neutre' : 'neutral');
+   214→
+   215→  const summary = isFr
+   216→    ? `Le marché présente une tendance ${direction} ${isWeek ? 'cette semaine' : "aujourd'hui"}. ${rssItems.length > 0 ? `Basé sur ${rssItems.length} actualités récentes, ${isBullish ? "l'appétit pour le risque domine" : isBearish ? "l'aversion au risque prévaut" : "les signaux sont mitigés"}.` : "Données limitées disponibles."}`
+   217→    : `The market shows a ${direction} trend ${isWeek ? 'this week' : 'today'}. ${rssItems.length > 0 ? `Based on ${rssItems.length} recent news items, ${isBullish ? "risk appetite dominates" : isBearish ? "risk aversion prevails" : "signals are mixed"}.` : "Limited data available."}`;
+   218→
+   219→  // Build Asian session summary
+   220→  const asia = asianItems.length > 0
+   221→    ? isFr
+   222→      ? `Session asiatique : ${asianItems.slice(0, 3).map(i => i.title).join('. ')}.`
+   223→      : `Asian session: ${asianItems.slice(0, 3).map(i => i.title).join('. ')}.`
+   224→    : (isFr ? 'Session asiatique : données limitées disponibles.' : 'Asian session: limited data available.');
+   225→
+   226→  // Today's outlook
+   227→  const today = isFr
+   228→    ? `Événements clés : ${isBullish ? "Dynamique positive sur les marchés" : isBearish ? "Pression vendeuse observée" : "Marché en attente de catalyseurs"}. Surveillez les données économiques et les décisions de politique monétaire.`
+   229→    : `Key events: ${isBullish ? "Positive market dynamics" : isBearish ? "Selling pressure observed" : "Market awaiting catalysts"}. Watch for economic data and monetary policy decisions.`;
+   230→
+   231→  // Key levels (estimated from context) — fully translated
+   232→  const keyLevels = isFr
+   233→    ? [
+   234→        'EUR/USD: Support 1.0800 / Résistance 1.0950',
+   235→        'Or (XAUUSD): Support 2 300 / Résistance 2 400',
+   236→        'S&P 500: Support 5 200 / Résistance 5 400',
+   237→        'DXY: Support 104.00 / Résistance 105.50',
+   238→      ]
+   239→    : [
+   240→        'EUR/USD: Support 1.0800 / Resistance 1.0950',
+   241→        'Gold (XAUUSD): Support 2300 / Resistance 2400',
+   242→        'S&P 500: Support 5200 / Resistance 5400',
+   243→        'DXY: Support 104.00 / Resistance 105.50',
+   244→      ];
+   245→
+   246→  // Scenarios based on sentiment
+   247→  const bullProb = isBullish ? 45 : isBearish ? 25 : 33;
+   248→  const bearProb = isBearish ? 45 : isBullish ? 25 : 33;
+   249→  const neutralProb = 100 - bullProb - bearProb;
+   250→
+   251→  const scenarios = [
+   252→    {
+   253→      name: isFr ? 'Haussier' : 'Bullish',
+   254→      probability: bullProb,
+   255→      description: isFr
+   256→        ? `${isBullish ? "Les données actuelles soutiennent ce scénario" : "Ce scénario nécessite des catalyseurs positifs"}. Dynamique d'achat soutenue par les flux institutionnels.`
+   257→        : `${isBullish ? "Current data supports this scenario" : "This scenario requires positive catalysts"}. Buying dynamics supported by institutional flows.`,
+   258→    },
+   259→    {
+   260→      name: isFr ? 'Neutre' : 'Neutral',
+   261→      probability: neutralProb,
+   262→      description: isFr
+   263→        ? 'Range latéral probable. Les marchés attendent des données ou des annonces pour choisir une direction.'
+   264→        : 'Sideways range likely. Markets await data or announcements for directional cues.',
+   265→    },
+   266→    {
+   267→      name: isFr ? 'Baissier' : 'Bearish',
+   268→      probability: bearProb,
+   269→      description: isFr
+   270→        ? `${isBearish ? "La pression vendeuse domine actuellement" : "Risque de correction si les données déçoivent"}. Prudence recommandée sur les positions longues.`
+   271→        : `${isBearish ? "Selling pressure currently dominates" : "Correction risk if data disappoints"}. Caution recommended on long positions.`,
+   272→    },
+   273→  ];
+   274→
+   275→  // Risk events from news — ensure French when lang=fr
+   276→  const riskEvents = rssItems
+   277→    .filter(i => {
+   278→      const t = i.title.toLowerCase();
+   279→      return ['fed', 'ecb', 'boe', 'rate', 'cpi', 'nfp', 'gdp', 'pmi', 'decision', 'speech', 'jobs', 'employment'].some(kw => t.includes(kw));
+   280→    })
+   281→    .slice(0, 5)
+   282→    .map(i => {
+   283→      let title = i.title;
+   284→      if (title.length > 80) title = title.substring(0, 80) + '...';
+   285→      return title;
+   286→    });
+   287→
+   288→  if (riskEvents.length === 0) {
+   289→    riskEvents.push(
+   290→      isFr ? 'Surveillez les annonces de la Fed et les données économiques US' : 'Watch for Fed announcements and US economic data',
+   291→      isFr ? 'Calendrier économique : IPC, emploi, PIB' : 'Economic calendar: CPI, employment, GDP'
+   292→    );
+   293→  }
+   294→
+   295→  return {
+   296→    summary,
+   297→    asia,
+   298→    today,
+   299→    keyLevels,
+   300→    scenarios,
+   301→    riskEvents,
+   302→    updatedAt: new Date().toISOString(),
+   303→  };
+   304→}
+   305→
+   306→async function fetchBriefingRSS(): Promise<{ title: string; snippet: string; date: string }[]> {
+   307→  const items: { title: string; snippet: string; date: string }[] = [];
+   308→
+   309→  const feedResults = await Promise.allSettled(
+   310→    BRIEFING_RSS_FEEDS.map(feed =>
+   311→      fetch(`https://www.investing.com/rss/news_${feed.id}.rss`, {
+   312→        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DONCIEL-TM/1.0)' },
+   313→        signal: AbortSignal.timeout(10000),
+   314→      }).then(res => {
+   315→        if (!res.ok) return [];
+   316→        return res.text().then(xml => {
+   317→          const parsed = parser.parse(xml);
+   318→          const feedItems = parsed?.rss?.channel?.item;
+   319→          const list = Array.isArray(feedItems) ? feedItems : feedItems ? [feedItems] : [];
+   320→          return list
+   321→            .filter((item: any) => {
+   322→              const title = (item.title || '').toLowerCase();
+   323→              return feed.keywords.some(kw => title.includes(kw));
+   324→            })
+   325→            .map((item: any) => ({
+   326→              title: item.title || '',
+   327→              snippet: item.title || '',
+   328→              date: item.pubDate || '',
+   329→            }));
+   330→        });
+   331→      }).catch(() => [])
+   332→    )
+   333→  );
+   334→
+   335→  for (const result of feedResults) {
+   336→    if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+   337→      items.push(...result.value);
+   338→    }
+   339→  }
+   340→
+   341→  // Deduplicate by title
+   342→  const seen = new Set<string>();
+   343→  return items.filter(item => {
+   344→    const key = item.title.toLowerCase().substring(0, 50);
+   345→    if (seen.has(key)) return false;
+   346→    seen.add(key);
+   347→    return true;
+   348→  });
+   349→}
+   350→
+   351→// ──────────────────────────────────────────────────────
+   352→// ZAI SDK-powered fetch (primary)
+   353→// ──────────────────────────────────────────────────────
+   354→
+   355→const BRIEFING_SYSTEM_PROMPT_FR = `Tu es DONCIEL-AI™, un analyste de marché matinal expert. Tu génères des briefings matinaux complets pour les traders avec des scénarios probabilistes.
+   356→
+   357→RÈGLES STRICTES :
+   358→1. Le briefing doit couvrir la session asiatique, le résumé overnight, et les attentes pour la journée
+   359→2. Les scénarios doivent être réalistes et basés sur les données factuelles
+   360→3. Les probabilités des 3 scénarios doivent totaliser 100%
+   361→4. Les niveaux clés doivent inclure des niveaux de support/résistance concrets
+   362→5. Les événements à risque doivent lister les événements économiques du jour avec heure
+   363→6. Le style doit être professionnel, concis et actionnable
+   364→7. Inclure des données chiffrées quand disponibles
+   365→8. TOUS les textes doivent être en français
+   366→
+   367→Tu réponds TOUJOURS au format JSON demandé, sans texte additionnel.`;
+   368→
+   369→const BRIEFING_SYSTEM_PROMPT_EN = `You are DONCIEL-AI™, an expert morning market analyst. You generate comprehensive morning briefings for traders with probabilistic scenarios.
+   370→
+   371→STRICT RULES:
+   372→1. The briefing must cover the Asian session, overnight summary, and expectations for the day
+   373→2. Scenarios must be realistic and based on factual data
+   374→3. The probabilities of the 3 scenarios must total 100%
+   375→4. Key levels must include concrete support/resistance levels
+   376→5. Risk events must list the day's economic events with times
+   377→6. The style must be professional, concise and actionable
+   378→7. Include numerical data when available
+   379→
+   380→You ALWAYS respond in the requested JSON format, with no additional text.`;
+   381→
+   382→async function fetchBriefingWithZAI(lang: string, period: string): Promise<{
+   383→  summary: string;
+   384→  asia: string;
+   385→  today: string;
+   386→  keyLevels: string[];
+   387→  scenarios: { name: string; probability: number; description: string }[];
+   388→  riskEvents: string[];
+   389→  updatedAt: string;
+   390→  error?: string;
+   391→} | null> {
+   392→  const isFr = lang === 'fr';
+   393→
+   394→  const fallbackResult = {
+   395→    summary: isFr ? 'Données temporairement indisponibles.' : 'Data temporarily unavailable.',
+   396→    asia: isFr ? 'Session asiatique : données non disponibles.' : 'Asian session: data unavailable.',
+   397→    today: isFr ? 'Événements : données non disponibles.' : 'Events: data unavailable.',
+   398→    keyLevels: [],
+   399→    scenarios: [
+   400→      { name: isFr ? 'Haussier' : 'Bullish', probability: 33, description: isFr ? 'Données insuffisantes' : 'Insufficient data' },
+   401→      { name: 'Neutre', probability: 34, description: isFr ? 'Données insuffisantes' : 'Insufficient data' },
+   402→      { name: isFr ? 'Baissier' : 'Bearish', probability: 33, description: isFr ? 'Données insuffisantes' : 'Insufficient data' },
+   403→    ],
+   404→    riskEvents: [],
+   405→    updatedAt: new Date().toISOString(),
+   406→  };
+   407→
+   408→  try {
+   409→    const { getZAI } = await import('@/lib/zai');
+   410→    const zai = await getZAI();
+   411→
+   412→    const isWeek = period === 'week';
+   413→    const recencyDays = isWeek ? 7 : 1;
+   414→
+   415→    const [overnightResult, outlookResult, technicalResult] = await Promise.allSettled([
+   416→      zai.functions.invoke('web_search', {
+   417→        query: isFr
+   418→          ? (isWeek ? 'marchés asiatiques cette semaine Nikkei Hang Seng Shanghai' : "marchés asiatiques aujourd'hui Nikkei Hang Seng overnight Wall Street futures")
+   419→          : (isWeek ? 'Asian markets this week Nikkei Hang Seng Shanghai' : 'Asian markets today Nikkei Hang Seng overnight Wall Street futures'),
+   420→        num: 6,
+   421→        recency_days: recencyDays,
+   422→      }).catch(() => null),
+   423→
+   424→      zai.functions.invoke('web_search', {
+   425→        query: isFr
+   426→          ? (isWeek ? 'prévisions marché cette semaine forex indices' : "prévisions marché aujourd'hui forex indices événements")
+   427→          : (isWeek ? 'market outlook this week forex indices' : 'market outlook today forex indices economic events'),
+   428→        num: 6,
+   429→        recency_days: recencyDays,
+   430→      }).catch(() => null),
+   431→
+   432→      zai.functions.invoke('web_search', {
+   433→        query: isFr
+   434→          ? (isWeek ? 'niveaux clés support résistance EURUSD gold S&P 500 cette semaine' : "niveaux clés support résistance EURUSD gold S&P 500 aujourd'hui")
+   435→          : (isWeek ? 'key support resistance levels EURUSD gold S&P 500 this week' : 'key support resistance levels EURUSD gold S&P 500 today'),
+   436→        num: 5,
+   437→        recency_days: recencyDays,
+   438→      }).catch(() => null),
+   439→    ]);
+   440→
+   441→    const extractData = (result: PromiseSettledResult<any>) => {
+   442→      if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
+   443→        return result.value
+   444→          .map((r: any) => `${r.title || ''}: ${r.snippet || r.description || ''}`)
+   445→          .join('\n');
+   446→      }
+   447→      return '';
+   448→    };
+   449→
+   450→    const overnightData = extractData(overnightResult);
+   451→    const outlookData = extractData(outlookResult);
+   452→    const technicalData = extractData(technicalResult);
+   453→
+   454→    const allData = [overnightData, outlookData, technicalData].filter(Boolean);
+   455→    if (allData.length === 0) {
+   456→      return null; // Trigger fallback
+   457→    }
+   458→
+   459→    const systemPrompt = isFr ? BRIEFING_SYSTEM_PROMPT_FR : BRIEFING_SYSTEM_PROMPT_EN;
+   460→    const combinedData = [
+   461→      overnightData ? `=== SESSION ASIATIQUE / OVERNIGHT ===\n${overnightData}` : '',
+   462→      outlookData ? `=== PRÉVISIONS / ÉVÉNEMENTS DU JOUR ===\n${outlookData}` : '',
+   463→      technicalData ? `=== NIVEAUX CLÉS / TECHNIQUE ===\n${technicalData}` : '',
+   464→    ].filter(Boolean).join('\n\n');
+   465→
+   466→    const todayDate = new Date();
+   467→    const dayNames = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+   468→    const dayNamesEn = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+   469→    const dayName = isFr ? dayNames[todayDate.getDay()] : dayNamesEn[todayDate.getDay()];
+   470→
+   471→    const completion = await zai.chat.completions.create({
+   472→      messages: [
+   473→        { role: 'assistant', content: systemPrompt },
+   474→        {
+   475→          role: 'user',
+   476→          content: isFr
+   477→            ? `Génère le briefing${isWeek ? ' hebdomadaire' : ' matinal'} DONCIEL™ pour ${dayName} ${todayDate.toLocaleDateString('fr-FR')}.
+   478→
+   479→DONNÉES COLLECTÉES:
+   480→${combinedData}
+   481→
+   482→Réponds au format JSON suivant:
+   483→{
+   484→  "summary": "Résumé en 3-4 phrases avec données chiffrées",
+   485→  "asia": "Résumé session asiatique en 2-3 phrases",
+   486→  "today": "Événements clés attendus en 2-3 phrases",
+   487→  "keyLevels": ["EUR/USD: Support / Résistance", "Or: Support / Résistance", "S&P 500: Support / Résistance"],
+   488→  "scenarios": [
+   489→    { "name": "Haussier", "probability": pourcentage, "description": "Conditions en 2 phrases" },
+   490→    { "name": "Neutre", "probability": pourcentage, "description": "Conditions en 2 phrases" },
+   491→    { "name": "Baissier", "probability": pourcentage, "description": "Conditions en 2 phrases" }
+   492→  ],
+   493→  "riskEvents": ["Événement économique avec heure", "..."]
+   494→}`
+   495→            : `Generate the ${isWeek ? 'weekly' : 'morning'} DONCIEL™ briefing for ${dayName} ${todayDate.toLocaleDateString('en-US')}.
+   496→
+   497→COLLECTED DATA:
+   498→${combinedData}
+   499→
+   500→Respond in the following JSON format:
+   501→{
+   502→  "summary": "3-4 sentence summary with numerical data",
+   503→  "asia": "2-3 sentence Asian session summary",
+   504→  "today": "2-3 sentence key events expected",
+   505→  "keyLevels": ["EUR/USD: Support / Resistance", "Gold: Support / Resistance", "S&P 500: Support / Resistance"],
+   506→  "scenarios": [
+   507→    { "name": "Bullish", "probability": percentage, "description": "Conditions in 2 sentences" },
+   508→    { "name": "Neutral", "probability": percentage, "description": "Conditions in 2 sentences" },
+   509→    { "name": "Bearish", "probability": percentage, "description": "Conditions in 2 sentences" }
+   510→  ],
+   511→  "riskEvents": ["Economic event with time", "..."]
+   512→}`,
+   513→        },
+   514→      ],
+   515→      thinking: { type: 'disabled' },
+   516→    });
+   517→
+   518→    const content = completion.choices[0]?.message?.content || '';
+   519→    try {
+   520→      const jsonMatch = content.match(/\{[\s\S]*\}/);
+   521→      if (jsonMatch) {
+   522→        const parsed = JSON.parse(jsonMatch[0]);
+   523→        return {
+   524→          summary: parsed.summary || fallbackResult.summary,
+   525→          asia: parsed.asia || fallbackResult.asia,
+   526→          today: parsed.today || fallbackResult.today,
+   527→          keyLevels: Array.isArray(parsed.keyLevels) ? parsed.keyLevels : [],
+   528→          scenarios: Array.isArray(parsed.scenarios) ? parsed.scenarios : fallbackResult.scenarios,
+   529→          riskEvents: Array.isArray(parsed.riskEvents) ? parsed.riskEvents : [],
+   530→          updatedAt: new Date().toISOString(),
+   531→        };
+   532→      }
+   533→    } catch {}
+   534→
+   535→    return fallbackResult;
+   536→  } catch (error) {
+   537→    console.error('Briefing ZAI error:', error instanceof Error ? error.message : 'Unknown error');
+   538→    return null; // Trigger fallback
+   539→  }
+   540→}
+   541→
+   542→// ──────────────────────────────────────────────────────
+   543→// Main fetch with fallback chain: ZAI SDK → RSS
+   544→// ──────────────────────────────────────────────────────
+   545→
+   546→async function fetchBriefingData(lang: string, period: string = 'today', asset?: string): Promise<{
+   547→  summary: string;
+   548→  asia: string;
+   549→  today: string;
+   550→  keyLevels: string[];
+   551→  scenarios: { name: string; probability: number; description: string }[];
+   552→  riskEvents: string[];
+   553→  assetBriefing?: { keyLevels: string[]; scenarioAdjustment: string; riskEvents: string[] };
+   554→  updatedAt: string;
+   555→  error?: string;
+   556→}> {
+   557→  const isFr = lang === 'fr';
+   558→
+   559→  const fallbackResult = {
+   560→    summary: isFr ? 'Données de briefing temporairement indisponibles.' : 'Briefing data temporarily unavailable.',
+   561→    asia: isFr ? 'Session asiatique : données non disponibles.' : 'Asian session: data unavailable.',
+   562→    today: isFr ? 'Événements du jour : données non disponibles.' : "Today's events: data unavailable.",
+   563→    keyLevels: [],
+   564→    scenarios: [
+   565→      { name: isFr ? 'Haussier' : 'Bullish', probability: 33, description: isFr ? 'Données insuffisantes' : 'Insufficient data' },
+   566→      { name: 'Neutre', probability: 34, description: isFr ? 'Données insuffisantes' : 'Insufficient data' },
+   567→      { name: isFr ? 'Baissier' : 'Bearish', probability: 33, description: isFr ? 'Données insuffisantes' : 'Insufficient data' },
+   568→    ],
+   569→    riskEvents: [],
+   570→    updatedAt: new Date().toISOString(),
+   571→  };
+   572→
+   573→  // Helper to determine sentiment for asset briefing
+   574→  const getSentiment = (data: any): 'bullish' | 'bearish' | 'neutral' => {
+   575→    if (data.overallSentiment === 'RISK-ON') return 'bullish';
+   576→    if (data.overallSentiment === 'RISK-OFF') return 'bearish';
+   577→    return 'neutral';
+   578→  };
+   579→
+   580→  // 1. Try ZAI SDK first
+   581→  const zaiResult = await fetchBriefingWithZAI(lang, period);
+   582→  if (zaiResult) {
+   583→    const result: any = { ...zaiResult };
+   584→    // Add asset-specific briefing if requested
+   585→    if (asset) {
+   586→      try {
+   587→        const rssItems = await fetchBriefingRSS();
+   588→        const sentiment = getSentiment(zaiResult);
+   589→        result.assetBriefing = generateAssetBriefing(asset, sentiment, lang, rssItems);
+   590→      } catch {}
+   591→    }
+   592→    return result;
+   593→  }
+   594→
+   595→  // 2. Fallback: RSS feeds + keyword analysis
+   596→  console.log('Briefing: ZAI SDK unavailable, falling back to RSS');
+   597→  try {
+   598→    const rssItems = await fetchBriefingRSS();
+   599→    if (rssItems.length > 0) {
+   600→      const result: any = generateBriefingFromRSS(rssItems, lang, period);
+   601→      // Add asset-specific briefing if requested
+   602→      if (asset) {
+   603→        const text = rssItems.map(i => i.title.toLowerCase()).join(' ');
+   604→        const bullWords = ['rally', 'surge', 'gain', 'rise', 'bullish', 'recovery', 'optimism', 'boost'];
+   605→        const bearWords = ['crash', 'selloff', 'fear', 'decline', 'bearish', 'recession', 'slump', 'plunge'];
+   606→        let bs = 0;
+   607→        let brs = 0;
+   608→        bullWords.forEach(w => { const m = text.match(new RegExp(w, 'gi')); if (m) bs += m.length; });
+   609→        bearWords.forEach(w => { const m = text.match(new RegExp(w, 'gi')); if (m) brs += m.length; });
+   610→        const sentiment: 'bullish' | 'bearish' | 'neutral' = bs > brs * 1.3 ? 'bullish' : brs > bs * 1.3 ? 'bearish' : 'neutral';
+   611→        result.assetBriefing = generateAssetBriefing(asset, sentiment, lang, rssItems);
+   612→      }
+   613→      return result;
+   614→    }
+   615→  } catch (error) {
+   616→    console.error('Briefing RSS fallback error:', error instanceof Error ? error.message : 'Unknown error');
+   617→  }
+   618→
+   619→  // 3. Both failed
+   620→  const failResult: any = { ...fallbackResult, error: isFr ? 'Aucune donnée de marché disponible' : 'No market data available' };
+   621→  if (asset) {
+   622→    failResult.assetBriefing = generateAssetBriefing(asset, 'neutral', lang, []);
+   623→  }
+   624→  return failResult;
+   625→}
+   626→
+   627→export async function GET(request: NextRequest) {
+   628→  try {
+   629→    const result = await getAuthUser();
+   630→    if (result.error) {
+   631→      return NextResponse.json({ error: result.error }, { status: 401 });
+   632→    }
+   633→
+   634→    const { searchParams } = new URL(request.url);
+   635→    const lang = searchParams.get('lang') === 'en' ? 'en' : 'fr';
+   636→    const period = searchParams.get('period') === 'week' ? 'week' : 'today';
+   637→    const asset = searchParams.get('asset') || undefined;
+   638→
+   639→    // Check cache
+   640→    const cacheKey = `briefing-${lang}-${period}${asset ? `-${asset}` : ''}`;
+   641→    const cached = cache.get(cacheKey);
+   642→    const cacheDuration = period === 'week' ? CACHE_DURATION_WEEK : CACHE_DURATION;
+   643→    if (cached && Date.now() - cached.timestamp < cacheDuration) {
+   644→      return NextResponse.json(cached.data);
+   645→    }
+   646→
+   647→    const data = await fetchBriefingData(lang, period, asset);
+   648→
+   649→    cache.set(cacheKey, { data, timestamp: Date.now() });
+   650→    return NextResponse.json(data);
+   651→  } catch (error) {
+   652→    console.error('Briefing route error:', error);
+   653→    return NextResponse.json(
+   654→      {
+   655→        error: 'Erreur lors de la récupération du briefing',
+   656→        summary: 'Briefing temporairement indisponible.',
+   657→        asia: 'Données non disponibles.',
+   658→        today: 'Données non disponibles.',
+   659→        keyLevels: [],
+   660→        scenarios: [
+   661→          { name: 'Haussier', probability: 33, description: 'Données insuffisantes' },
+   662→          { name: 'Neutre', probability: 34, description: 'Données insuffisantes' },
+   663→          { name: 'Baissier', probability: 33, description: 'Données insuffisantes' },
+   664→        ],
+   665→        riskEvents: [],
+   666→        updatedAt: new Date().toISOString(),
+   667→      },
+   668→      { status: 500 }
+   669→    );
+   670→  }
+   671→}
+   672→
