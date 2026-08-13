@@ -281,8 +281,8 @@ export const translations = {
     maxSetupsReached: "Nombre maximum de setups atteint",
 
     // Playbook
-    playbook: "Playbook",
-    playbookDescription: "Vos stratégies documentées et testées",
+    playbook: "Plan",
+    playbookDescription: "Mon plan de trading complet",
     addPlaybook: "Nouveau Setup",
     editPlaybook: "Modifier le Setup",
     deletePlaybook: "Supprimer le Setup",
@@ -581,8 +581,8 @@ export const translations = {
     maxSetupsReached: "Maximum number of setups reached",
 
     // Playbook
-    playbook: "Playbook",
-    playbookDescription: "Your documented and tested strategies",
+    playbook: "Plan",
+    playbookDescription: "My complete trading plan",
     addPlaybook: "New Setup",
     editPlaybook: "Edit Setup",
     deletePlaybook: "Delete Setup",

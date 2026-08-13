@@ -349,3 +349,37 @@
   opacity: 0.8;
 }
 .notion-plan-content strong { font-weight: 700; }
+
+/* ─── Plan editor (self-contained, replaces Notion) ─────── */
+[contenteditable][data-placeholder]:empty:before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  pointer-events: none;
+  opacity: 0.7;
+}
+[contenteditable] { outline: none; }
+[contenteditable] a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+[contenteditable] code {
+  background: var(--muted);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+[contenteditable] mark {
+  background-color: #fef08a;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+/* Numbered list counter for plan blocks */
+[data-plan-text][data-n]:before {
+  content: attr(data-n);
+}
+/* Hide TradingView attribution overflow */
+.tradingview-widget-container { line-height: 0; }
+

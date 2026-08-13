@@ -23,6 +23,7 @@ model User {
   videos        Video[]
   alerts        Alert[]
   playbooks     Playbook[]
+  planDocument  PlanDocument?
 }
 
 model Trade {
@@ -191,3 +192,16 @@ model UploadSession {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
+
+// ─── Plan Document (self-contained plan editor, replaces Notion) ──
+// One document per user. `blocks` is a JSON-encoded array of editor blocks.
+model PlanDocument {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String   @default("Mon Plan de Trading")
+  blocks    String   @default("[]") // JSON array of blocks
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
