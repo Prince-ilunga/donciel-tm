@@ -24,14 +24,14 @@ export function LandingNav() {
 
   return (
     <header
-      className={`fixed top-0 inset-x-0 z-50 border-b bg-[#060505]/75 backdrop-blur-xl transition-colors duration-300 ${
+      className={`fixed top-0 inset-x-0 z-50 border-b bg-[#05070a]/75 backdrop-blur-xl transition-colors duration-300 ${
         scrolled ? "border-white/[0.09]" : "border-white/[0.05]"
       }`}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 group">
           <span className="text-xl font-bold tracking-tight text-white">
-            DONCIEL<span className="dct-text-gold">™</span>
+            DONCIEL<span className="dct-text-sapphire">™</span>
           </span>
         </Link>
 
@@ -46,7 +46,7 @@ export function LandingNav() {
           {authed === null ? (
             <div className="h-9 w-24 rounded-md bg-white/5 animate-pulse" />
           ) : authed ? (
-            <Button asChild className="dct-btn-glow bg-gradient-to-b from-amber-300 to-amber-500 text-black hover:from-amber-200 hover:to-amber-400 font-semibold h-9 border-0">
+            <Button asChild className="dct-btn-glow bg-gradient-to-b from-sky-400 to-blue-600 text-white hover:from-sky-300 hover:to-blue-500 font-semibold h-9 border-0">
               <Link href="/app">Ouvrir l&apos;application</Link>
             </Button>
           ) : (
@@ -54,7 +54,7 @@ export function LandingNav() {
               <Button asChild variant="ghost" className="text-neutral-300 hover:text-white hover:bg-white/[0.06] h-9 px-2 sm:px-4">
                 <Link href="/login">Se connecter</Link>
               </Button>
-              <Button asChild className="dct-btn-glow bg-gradient-to-b from-amber-300 to-amber-500 text-black hover:from-amber-200 hover:to-amber-400 font-semibold h-9 border-0">
+              <Button asChild className="dct-btn-glow bg-gradient-to-b from-sky-400 to-blue-600 text-white hover:from-sky-300 hover:to-blue-500 font-semibold h-9 border-0">
                 <Link href="/register">
                   <span className="hidden sm:inline">Commencer gratuitement</span>
                   <span className="sm:hidden">Commencer</span>
