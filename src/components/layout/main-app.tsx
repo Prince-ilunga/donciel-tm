@@ -32,7 +32,8 @@ import {
   Wallet,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { ExecutionTab } from "@/components/execution/execution-tab";
@@ -68,10 +69,12 @@ const navItems: { id: TabId; icon: typeof LayoutDashboard; key: string; adminOnl
 export function MainApp() {
   const { user, activeTab, setActiveTab, language, setLanguage, logout: storeLogout } = useAppStore();
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const mountedRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -83,6 +86,20 @@ export function MainApp() {
     }
   }, []);
   const isAdmin = user?.role === "admin";
+
+  // Fetch current plan for the header badge
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/billing/subscription")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.plan) setCurrentPlan(data.plan as string);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ─── Export PDF ────────────────────────────────────────────
   const handleExportPDF = useCallback(async () => {
@@ -325,6 +342,17 @@ export function MainApp() {
             >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">PDF</span>
+            </Button>
+            {/* Plan / Abonnement */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-8 text-xs border-amber-400/40 text-amber-400 hover:bg-amber-400/10 bg-transparent"
+              onClick={() => router.push("/abonnement")}
+              title={language === "fr" ? "Gérer mon abonnement" : "Manage subscription"}
+            >
+              <Crown className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline font-semibold">{currentPlan || "Plan"}</span>
             </Button>
             {isAdmin && (
               <Badge className="text-xs bg-primary">

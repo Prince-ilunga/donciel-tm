@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { hashPassword, createToken, setAuthCookie, ADMIN_EMAIL, isSecureRequest } from '@/lib/auth';
+import { sendWelcomeEmail } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password, name } = body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return NextResponse.json(
         { error: 'Email et mot de passe requis' },
         { status: 400 }
@@ -21,7 +23,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existingUser = await db.user.findUnique({ where: { email } });
+    const existingUser = await db.user.findUnique({ where: { email: normalizedEmail } });
     if (existingUser) {
       return NextResponse.json(
         { error: 'Cet email est déjà utilisé' },
@@ -30,19 +32,26 @@ export async function POST(request: NextRequest) {
     }
 
     const hashedPassword = await hashPassword(password);
-    const isAdminEmail = email === ADMIN_EMAIL;
+    const isAdminEmail = normalizedEmail === ADMIN_EMAIL;
+
+    // SaaS self-service: approve by default unless manual approval is enabled.
+    const autoApprove = process.env.AUTO_APPROVE_REGISTRATIONS !== 'false';
+    const status = isAdminEmail || autoApprove ? 'approved' : 'pending';
 
     const user = await db.user.create({
       data: {
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
         name: name || null,
         role: isAdminEmail ? 'admin' : 'user',
-        status: isAdminEmail ? 'approved' : 'pending',
+        status,
       },
     });
 
-    if (isAdminEmail) {
+    // Welcome email (non-blocking failure)
+    sendWelcomeEmail(user.email, user.name).catch(() => {});
+
+    if (status === 'approved') {
       const token = await createToken({
         id: user.id,
         email: user.email,

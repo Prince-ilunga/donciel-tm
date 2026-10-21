@@ -15,6 +15,16 @@ model User {
   role          String   @default("user") // "admin" or "user"
   status        String   @default("pending") // "pending", "approved", "rejected"
   language      String   @default("fr") // "fr" or "en"
+
+  // ─── SaaS billing (Stripe) ─────────────────────────────────
+  plan                String    @default("FREE")   // FREE, PRO, ELITE
+  planStatus          String    @default("active") // active, trialing, past_due, canceled
+  stripeCustomerId    String?   @unique
+  stripeSubscriptionId String?  @unique
+  stripePriceId       String?
+  planInterval        String?   // monthly, yearly
+  currentPeriodEnd    DateTime?
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   trades        Trade[]
@@ -24,6 +34,33 @@ model User {
   alerts        Alert[]
   playbooks     Playbook[]
   planDocument  PlanDocument?
+  resetTokens   PasswordResetToken[]
+  usageCounters UsageCounter[]
+}
+
+// Password reset tokens (hashed at rest, single-use, short-lived)
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Generic usage counters for plan limits (e.g. coach AI calls per month)
+model UsageCounter {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key    String   // e.g. "coach_ai"
+  period String   // YYYY-MM
+  count  Int    @default(0)
+
+  @@unique([userId, key, period])
 }
 
 model Trade {

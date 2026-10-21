@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
+import { checkCoachQuota, limitErrorResponse } from '@/lib/plan-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -248,6 +249,12 @@ export async function POST(request: NextRequest) {
     const result = await getAuthUser();
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 401 });
+    }
+
+    // ─── Plan gating : quota mensuel du Coach IA ───
+    const quotaCheck = await checkCoachQuota(result.user.id);
+    if (!quotaCheck.allowed) {
+      return limitErrorResponse(quotaCheck);
     }
 
     const { message, history, language } = await request.json();
