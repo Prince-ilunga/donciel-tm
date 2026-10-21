@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
+import { checkExportPermission, limitErrorResponse } from '@/lib/plan-limits';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -13,6 +14,12 @@ export async function GET(request: NextRequest) {
     const result = await getAuthUser();
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 401 });
+    }
+
+    // ─── Plan gating : export réservé aux plans payants ───
+    const exportCheck = await checkExportPermission(result.user.id);
+    if (!exportCheck.allowed) {
+      return limitErrorResponse(exportCheck);
     }
 
     const { searchParams } = new URL(request.url);

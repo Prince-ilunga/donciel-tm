@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
+import { checkPlaybookLimit, limitErrorResponse } from '@/lib/plan-limits';
 
 function parseJsonField(value: unknown): string | null {
   if (value === undefined || value === null) return null;
@@ -67,6 +68,12 @@ export async function POST(request: NextRequest) {
     const result = await getAuthUser();
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 401 });
+    }
+
+    // ─── Plan gating : limite de playbooks ───
+    const limitCheck = await checkPlaybookLimit(result.user.id);
+    if (!limitCheck.allowed) {
+      return limitErrorResponse(limitCheck);
     }
 
     const body = await request.json();

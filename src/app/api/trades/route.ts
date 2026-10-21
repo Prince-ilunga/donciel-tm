@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import { getContractSize } from '@/lib/utils';
+import { checkTradeLimit, limitErrorResponse } from '@/lib/plan-limits';
 
 export async function GET(request: NextRequest) {
   try {
@@ -58,6 +59,12 @@ export async function POST(request: NextRequest) {
     const result = await getAuthUser();
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 401 });
+    }
+
+    // ─── Plan gating : limite mensuelle de trades ───
+    const limitCheck = await checkTradeLimit(result.user.id);
+    if (!limitCheck.allowed) {
+      return limitErrorResponse(limitCheck);
     }
 
     const body = await request.json();

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAppStore } from "@/stores/app-store";
 import { t } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
@@ -12,9 +14,14 @@ import { Eye, EyeOff, BarChart3, Shield, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { DoncielLogo } from "@/components/shared/donciel-logo";
 
-export function AuthScreen() {
+interface AuthScreenProps {
+  defaultMode?: "login" | "register";
+}
+
+export function AuthScreen({ defaultMode = "login" }: AuthScreenProps) {
   const { setUser, authStatus, setAuthStatus } = useAppStore();
-  const [isLogin, setIsLogin] = useState(true);
+  const router = useRouter();
+  const [isLogin, setIsLogin] = useState(defaultMode === "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -35,6 +42,7 @@ export function AuthScreen() {
       if (res.ok) {
         setUser(data.user);
         toast.success(t(language, "login") + " ✓");
+        router.push("/app");
       } else {
         toast.error(data.error || t(language, "invalidCredentials"));
       }
@@ -58,6 +66,7 @@ export function AuthScreen() {
         if (data.user.status === "approved") {
           setUser(data.user);
           toast.success(t(language, "success"));
+          router.push("/app");
         } else {
           setAuthStatus("pending");
           toast.success(t(language, "pendingApproval"));
@@ -263,29 +272,41 @@ export function AuthScreen() {
                   t(language, "registerButton")
                 )}
               </Button>
+              {isLogin && (
+                <div className="text-center">
+                  <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary hover:underline">
+                    Mot de passe oublié ?
+                  </Link>
+                </div>
+              )}
             </form>
             <div className="mt-4 text-center text-sm">
               {isLogin ? (
                 <p className="text-muted-foreground">
                   {t(language, "noAccount")}{" "}
-                  <button
-                    onClick={() => setIsLogin(false)}
+                  <Link
+                    href="/register"
                     className="text-primary hover:underline font-medium"
                   >
                     {t(language, "register")}
-                  </button>
+                  </Link>
                 </p>
               ) : (
                 <p className="text-muted-foreground">
                   {t(language, "hasAccount")}{" "}
-                  <button
-                    onClick={() => setIsLogin(true)}
+                  <Link
+                    href="/login"
                     className="text-primary hover:underline font-medium"
                   >
                     {t(language, "login")}
-                  </button>
+                  </Link>
                 </p>
               )}
+              <p className="mt-3">
+                <Link href="/" className="text-xs text-muted-foreground hover:text-foreground hover:underline">
+                  ← Retour à l'accueil
+                </Link>
+              </p>
             </div>
           </CardContent>
         </Card>
