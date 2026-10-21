@@ -78,3 +78,17 @@ export function sendWelcomeEmail(to: string, name?: string | null): Promise<{ se
     `),
   });
 }
+
+export function sendPlanActivatedEmail(to: string, plan: string, months: number): Promise<{ sent: boolean }> {
+  return sendEmail({
+    to,
+    subject: `Ton plan ${plan} est activé ✅ — DONCIEL TM`,
+    html: emailShell(`
+      <h2 style="margin:0 0 12px;">Paiement confirmé 🎉</h2>
+      <p style="color:#d4d4d4; line-height:1.6;">Ton plan <strong>${plan}</strong> est maintenant actif pour <strong>${months} mois</strong>. Merci pour ta confiance !</p>
+      <p style="text-align:center; margin: 24px 0;">
+        <a href="${process.env.NEXT_PUBLIC_APP_URL || ''}/app" style="background:#d4af37; color:#0a0a0a; padding: 12px 28px; border-radius: 8px; text-decoration:none; font-weight:700;">Profiter de mon plan ${plan}</a>
+      </p>
+    `),
+  });
+}

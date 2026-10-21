@@ -16,12 +16,15 @@ model User {
   status        String   @default("pending") // "pending", "approved", "rejected"
   language      String   @default("fr") // "fr" or "en"
 
-  // ─── SaaS billing (Stripe) ─────────────────────────────────
+  // ─── SaaS billing (Stripe / Paddle / manuel) ────────────────
   plan                String    @default("FREE")   // FREE, PRO, ELITE
   planStatus          String    @default("active") // active, trialing, past_due, canceled
   stripeCustomerId    String?   @unique
   stripeSubscriptionId String?  @unique
   stripePriceId       String?
+  paddleCustomerId    String?   @unique
+  paddleSubscriptionId String?  @unique
+  paddlePriceId       String?
   planInterval        String?   // monthly, yearly
   currentPeriodEnd    DateTime?
 
@@ -36,6 +39,30 @@ model User {
   planDocument  PlanDocument?
   resetTokens   PasswordResetToken[]
   usageCounters UsageCounter[]
+  paymentRequests PaymentRequest[]
+}
+
+// Demandes de paiement mobile money (M-Pesa / Airtel / Orange)
+// validées manuellement par un administrateur.
+model PaymentRequest {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan       String    // PRO, ELITE
+  interval   String    // monthly, yearly
+  method     String    // MPESA, AIRTEL, ORANGE
+  amount     Float
+  currency   String    @default("USD")
+  reference  String    // ID de transaction fourni par l'opérateur
+  phone      String    // Numéro de l'expéditeur
+  status     String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  adminNote  String?
+  reviewedAt DateTime?
+  reviewedBy String?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([status])
 }
 
 // Password reset tokens (hashed at rest, single-use, short-lived)
