@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -35,27 +35,29 @@ export default function AbonnementPage() {
   const [pendingPlan, setPendingPlan] = useState<string | null>(null);
   const [interval, setInterval] = useState<PlanInterval>("monthly");
 
-  const load = useCallback(async () => {
-    try {
-      const res = await fetch("/api/billing/subscription");
-      if (res.status === 401) {
-        window.location.href = "/login";
-        return;
-      }
-      const data = await res.json();
-      setInfo(data);
-    } catch {
-      toast.error("Impossible de charger ton abonnement");
-    }
-    setLoading(false);
-  }, []);
-
   useEffect(() => {
-    load();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/billing/subscription");
+        if (res.status === 401) {
+          window.location.assign("/login");
+          return;
+        }
+        const data = await res.json();
+        if (!cancelled) setInfo(data);
+      } catch {
+        if (!cancelled) toast.error("Impossible de charger ton abonnement");
+      }
+      if (!cancelled) setLoading(false);
+    })();
     if (searchParams.get("canceled") === "1") {
       toast.info("Paiement annulé — aucun prélèvement effectué.");
     }
-  }, [load, searchParams]);
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   const handleUpgrade = async (plan: PlanId) => {
     setPendingPlan(plan);
@@ -67,7 +69,7 @@ export default function AbonnementPage() {
       });
       const data = await res.json();
       if (res.ok && data.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
         return;
       }
       toast.error(data.error || "Erreur lors de la création du paiement");
@@ -83,7 +85,7 @@ export default function AbonnementPage() {
       const res = await fetch("/api/billing/portal", { method: "POST" });
       const data = await res.json();
       if (res.ok && data.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
         return;
       }
       toast.error(data.error || "Erreur lors de l'ouverture du portail");
