@@ -135,7 +135,7 @@ function SectionHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: 
   return (
     <div className="text-center max-w-2xl mx-auto mb-14">
       <div className="relative inline-block mb-5">
-        <Badge variant="outline" className="relative overflow-hidden border-amber-300/30 bg-amber-300/[0.06] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-amber-200/90">
+        <Badge variant="outline" className="relative overflow-hidden border-sky-300/30 bg-sky-300/[0.06] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-sky-200/90">
           <span className="absolute inset-0 dct-anim-shimmer motion-reduce:animate-none" aria-hidden />
           {eyebrow}
         </Badge>
@@ -152,13 +152,13 @@ function EquityCurve() {
     <svg viewBox="0 0 420 150" className="w-full h-full" preserveAspectRatio="none" aria-hidden>
       <defs>
         <linearGradient id="dct-eq-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#e9c879" stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#e9c879" stopOpacity="0" />
+          <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="dct-eq-line" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="#d4a53c" />
-          <stop offset="55%" stopColor="#f0d68e" />
-          <stop offset="100%" stopColor="#e9c879" />
+          <stop offset="0%" stopColor="#3b82f6" />
+          <stop offset="55%" stopColor="#7dd3fc" />
+          <stop offset="100%" stopColor="#38bdf8" />
         </linearGradient>
       </defs>
       {[30, 65, 100, 135].map((y) => (
@@ -175,8 +175,8 @@ function EquityCurve() {
         strokeWidth="2.5"
         strokeLinecap="round"
       />
-      <circle cx="420" cy="18" r="4" fill="#f0d68e" />
-      <circle cx="420" cy="18" r="8" fill="#f0d68e" opacity="0.25" className="dct-anim-ping motion-reduce:animate-none" />
+      <circle cx="420" cy="18" r="4" fill="#7dd3fc" />
+      <circle cx="420" cy="18" r="8" fill="#7dd3fc" opacity="0.25" className="dct-anim-ping motion-reduce:animate-none" />
     </svg>
   );
 }
@@ -186,17 +186,17 @@ function DashboardMock() {
   return (
     <div className="relative mt-16 sm:mt-20 max-w-4xl mx-auto">
       {/* Halo sous la vitrine */}
-      <div className="absolute -inset-x-8 top-10 bottom-0 bg-[radial-gradient(ellipse_at_center,rgba(212,165,60,0.16),transparent_65%)] blur-2xl" aria-hidden />
+      <div className="absolute -inset-x-8 top-10 bottom-0 bg-[radial-gradient(ellipse_at_center,rgba(56,189,248,0.16),transparent_65%)] blur-2xl" aria-hidden />
 
-      <div className="relative dct-border-gold rounded-[22px] motion-reduce:animate-none">
+      <div className="relative dct-border-sapphire rounded-[22px] motion-reduce:animate-none">
         <div className="rounded-[21px] bg-[#0b0a08]/95 backdrop-blur-xl overflow-hidden">
           {/* Barre de fenêtre */}
           <div className="flex items-center gap-2 px-5 h-11 border-b border-white/[0.06] bg-white/[0.02]">
             <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
             <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-400/60" />
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-400/60" />
             <div className="ml-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-neutral-500">
-              DONCIEL<span className="text-amber-400/80">™</span>
+              DONCIEL<span className="text-sky-400/80">™</span>
               <span className="text-neutral-700">·</span>
               <span className="text-neutral-400">Session New York</span>
             </div>
@@ -225,8 +225,8 @@ function DashboardMock() {
             <div className="grid grid-cols-2 md:grid-cols-1 gap-3 content-start">
               {[
                 { label: "Win rate", value: "61.2 %", tone: "text-emerald-400" },
-                { label: "Facteur de profit", value: "2.14", tone: "text-amber-300" },
-                { label: "Expectancy", value: "0.42R", tone: "text-amber-300" },
+                { label: "Facteur de profit", value: "2.14", tone: "text-sky-300" },
+                { label: "Expectancy", value: "0.42R", tone: "text-sky-300" },
                 { label: "Palier capital", value: "6 / 10", tone: "text-white" },
               ].map((s) => (
                 <div key={s.label} className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
@@ -241,10 +241,10 @@ function DashboardMock() {
 
       {/* Chip flottante — Coach IA */}
       <div className="absolute -top-6 -right-3 sm:right-[-2.5rem] dct-anim-float motion-reduce:animate-none hidden sm:block">
-        <div className="dct-border-gold rounded-2xl">
+        <div className="dct-border-sapphire rounded-2xl">
           <div className="flex items-center gap-3 rounded-2xl bg-[#0b0a08] px-4 py-3 backdrop-blur-xl">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-300/25 to-amber-600/10 border border-amber-300/25 flex items-center justify-center">
-              <Brain className="w-4.5 h-4.5 text-amber-300" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-300/25 to-blue-600/10 border border-sky-300/25 flex items-center justify-center">
+              <Brain className="w-4.5 h-4.5 text-sky-300" />
             </div>
             <div>
               <div className="text-[11px] font-semibold text-white">Coach IA</div>
@@ -281,25 +281,25 @@ export default function LandingPage() {
   const elite = PLANS.ELITE;
 
   return (
-    <div className="min-h-screen bg-[#050504] text-neutral-200 flex flex-col overflow-x-clip">
+    <div className="min-h-screen bg-[#04060a] text-neutral-200 flex flex-col overflow-x-clip">
       <LandingNav />
 
       {/* ═══ HERO ═══ */}
       <section className="relative pt-36 pb-28 px-4 sm:px-6 overflow-hidden">
         {/* Lueurs d'ambiance */}
         <div className="absolute inset-0" aria-hidden>
-          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[520px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(212,165,60,0.13),transparent_60%)] dct-anim-aurora motion-reduce:animate-none" />
+          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[520px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(56,189,248,0.13),transparent_60%)] dct-anim-aurora motion-reduce:animate-none" />
           <div className="absolute top-[420px] -left-40 w-[560px] h-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05),transparent_65%)] dct-anim-aurora-slow motion-reduce:animate-none" />
-          <div className="absolute top-[220px] -right-52 w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle_at_center,rgba(212,165,60,0.06),transparent_65%)] dct-anim-aurora motion-reduce:animate-none" />
+          <div className="absolute top-[220px] -right-52 w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.06),transparent_65%)] dct-anim-aurora motion-reduce:animate-none" />
         </div>
         <div className="absolute inset-0 dct-grid" aria-hidden />
         <div className="absolute inset-0 dct-noise pointer-events-none" aria-hidden />
 
         <div className="relative max-w-4xl mx-auto text-center">
           <div className="relative inline-block mb-7">
-            <Badge className="relative overflow-hidden bg-amber-300/[0.07] text-amber-200 border border-amber-300/25 px-4 py-1.5 text-xs tracking-wide hover:bg-amber-300/[0.12]">
+            <Badge className="relative overflow-hidden bg-sky-300/[0.07] text-sky-200 border border-sky-300/25 px-4 py-1.5 text-xs tracking-wide hover:bg-sky-300/[0.12]">
               <span className="absolute inset-0 dct-anim-shimmer motion-reduce:animate-none" aria-hidden />
-              <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
+              <Sparkles className="w-3.5 h-3.5 mr-1.5 text-sky-300" />
               Journal de trading nouvelle génération
             </Badge>
           </div>
@@ -307,7 +307,7 @@ export default function LandingPage() {
           <h1 className="text-[2.6rem] leading-[1.05] sm:text-6xl lg:text-7xl font-bold tracking-tight text-white">
             Ton edge existe.
             <br />
-            <span className="font-display italic font-semibold dct-text-gold pb-2">
+            <span className="font-display italic font-semibold dct-text-sapphire pb-2">
               Ton journal va le prouver.
             </span>
           </h1>
@@ -322,7 +322,7 @@ export default function LandingPage() {
             <Button
               asChild
               size="lg"
-              className="dct-btn-glow bg-gradient-to-b from-amber-300 to-amber-500 text-black hover:from-amber-200 hover:to-amber-400 font-bold h-[52px] px-9 text-base border-0 transition-transform hover:-translate-y-0.5"
+              className="dct-btn-glow bg-gradient-to-b from-sky-400 to-blue-600 text-white hover:from-sky-300 hover:to-blue-500 font-bold h-[52px] px-9 text-base border-0 transition-transform hover:-translate-y-0.5"
             >
               <Link href="/register" className="flex items-center gap-2">
                 Créer mon compte gratuit
@@ -352,7 +352,7 @@ export default function LandingPage() {
             <div key={s.label} className="dct-border-hairline rounded-2xl">
               <div className="rounded-2xl bg-white/[0.03] backdrop-blur-sm p-5 text-center h-full">
                 <div className="text-2xl sm:text-3xl font-bold tabular-nums">
-                  <span className="dct-text-gold">{s.value}</span>
+                  <span className="dct-text-sapphire">{s.value}</span>
                 </div>
                 <div className="mt-1 text-xs sm:text-sm text-neutral-400">{s.label}</div>
               </div>
@@ -371,7 +371,7 @@ export default function LandingPage() {
                   <span className="px-7 text-xs uppercase tracking-[0.3em] text-neutral-500 whitespace-nowrap">
                     {ins}
                   </span>
-                  <span className="w-1 h-1 rotate-45 bg-amber-400/40" />
+                  <span className="w-1 h-1 rotate-45 bg-sky-400/40" />
                 </div>
               ))}
             </div>
@@ -384,18 +384,18 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <SectionHeading
             eyebrow="La méthode"
-            title={<>Trois rituels pour arrêter de <span className="font-display italic font-semibold dct-text-gold">deviner</span></>}
+            title={<>Trois rituels pour arrêter de <span className="font-display italic font-semibold dct-text-sapphire">deviner</span></>}
             subtitle="La discipline n'est pas un talent : c'est un système. DONCIEL™ l'installe pour toi."
           />
           <div className="relative grid md:grid-cols-3 gap-5">
             {/* Ligne de liaison */}
-            <div className="hidden md:block absolute top-[52px] left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-amber-400/25 to-transparent" aria-hidden />
+            <div className="hidden md:block absolute top-[52px] left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-sky-400/25 to-transparent" aria-hidden />
             {STEPS.map((s) => (
               <div key={s.n} className="relative dct-border-hairline rounded-3xl group">
-                <div className="rounded-3xl bg-[#0a0908] p-8 h-full transition-colors group-hover:bg-[#0c0b09]">
+                <div className="rounded-3xl bg-[#070a0f] p-8 h-full transition-colors group-hover:bg-[#090d12]">
                   <div className="flex items-start justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-300/20 to-amber-600/[0.06] border border-amber-300/20 flex items-center justify-center group-hover:scale-105 transition-transform">
-                      <s.icon className="w-5 h-5 text-amber-300" />
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-300/20 to-blue-600/[0.06] border border-sky-300/20 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <s.icon className="w-5 h-5 text-sky-300" />
                     </div>
                     <span className="font-display italic text-4xl text-white/[0.12] font-semibold select-none">{s.n}</span>
                   </div>
@@ -410,20 +410,20 @@ export default function LandingPage() {
 
       {/* ═══ FONCTIONNALITÉS (bento) ═══ */}
       <section id="features" className="py-28 px-4 sm:px-6 scroll-mt-16 border-t border-white/[0.05] relative">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_0%,rgba(212,165,60,0.05),transparent_70%)]" aria-hidden />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_0%,rgba(56,189,248,0.05),transparent_70%)]" aria-hidden />
         <div className="relative max-w-6xl mx-auto">
           <SectionHeading
             eyebrow="Fonctionnalités"
-            title={<>Tout ce qu&apos;un trader sérieux attend de <span className="font-display italic font-semibold dct-text-gold">son journal</span></>}
+            title={<>Tout ce qu&apos;un trader sérieux attend de <span className="font-display italic font-semibold dct-text-sapphire">son journal</span></>}
             subtitle="Chaque module est pensé pour un objectif : transformer tes données en décisions meilleures."
           />
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* Carte vedette — distribution RR */}
             <div className="sm:col-span-2 dct-border-hairline rounded-3xl group">
-              <div className="rounded-3xl bg-[#0a0908] p-7 h-full grid sm:grid-cols-2 gap-6 items-center transition-colors group-hover:bg-[#0c0b09]">
+              <div className="rounded-3xl bg-[#070a0f] p-7 h-full grid sm:grid-cols-2 gap-6 items-center transition-colors group-hover:bg-[#090d12]">
                 <div>
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-300/20 to-amber-600/[0.06] border border-amber-300/20 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
-                    <BarChart3 className="w-5 h-5 text-amber-300" />
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-300/20 to-blue-600/[0.06] border border-sky-300/20 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
+                    <BarChart3 className="w-5 h-5 text-sky-300" />
                   </div>
                   <h3 className="font-semibold text-white text-xl">{FEATURES[1].title}</h3>
                   <p className="mt-2.5 text-sm text-neutral-400 leading-relaxed">{FEATURES[1].description}</p>
@@ -433,7 +433,7 @@ export default function LandingPage() {
                   <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500 mb-3">Distribution RR · 90 derniers trades</div>
                   <div className="flex items-end gap-2 h-28">
                     {RR_BARS.map((h, i) => (
-                      <div key={i} className="flex-1 rounded-t-md bg-gradient-to-t from-amber-600/25 to-amber-300/80" style={{ height: `${h}%`, opacity: 0.45 + (i / RR_BARS.length) * 0.55 }} />
+                      <div key={i} className="flex-1 rounded-t-md bg-gradient-to-t from-blue-600/25 to-sky-300/80" style={{ height: `${h}%`, opacity: 0.45 + (i / RR_BARS.length) * 0.55 }} />
                     ))}
                   </div>
                 </div>
@@ -442,9 +442,9 @@ export default function LandingPage() {
 
             {FEATURES.filter((_, i) => i !== 1).map((f) => (
               <div key={f.title} className="dct-border-hairline rounded-3xl group">
-                <div className="rounded-3xl bg-[#0a0908] p-7 h-full transition-colors group-hover:bg-[#0c0b09]">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-300/20 to-amber-600/[0.06] border border-amber-300/20 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
-                    <f.icon className="w-5 h-5 text-amber-300" />
+                <div className="rounded-3xl bg-[#070a0f] p-7 h-full transition-colors group-hover:bg-[#090d12]">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-300/20 to-blue-600/[0.06] border border-sky-300/20 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
+                    <f.icon className="w-5 h-5 text-sky-300" />
                   </div>
                   <h3 className="font-semibold text-white text-lg">{f.title}</h3>
                   <p className="mt-2.5 text-sm text-neutral-400 leading-relaxed">{f.description}</p>
@@ -460,13 +460,13 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <SectionHeading
             eyebrow="Tarifs"
-            title={<>Un investissement dérisoire comparé à <span className="font-display italic font-semibold dct-text-gold">une perte évitée</span></>}
+            title={<>Un investissement dérisoire comparé à <span className="font-display italic font-semibold dct-text-sapphire">une perte évitée</span></>}
             subtitle="Commence gratuitement. Passe au plan supérieur quand tes résultats l'exigent."
           />
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
             {/* DÉCOUVERTE */}
             <div className="dct-border-hairline rounded-3xl">
-              <div className="rounded-3xl bg-[#0a0908] p-8 flex flex-col h-full">
+              <div className="rounded-3xl bg-[#070a0f] p-8 flex flex-col h-full">
                 <h3 className="text-xl font-bold text-white">{PLANS.FREE.name}</h3>
                 <p className="text-sm text-neutral-500 mt-1">{PLANS.FREE.tagline}</p>
                 <div className="mt-6 mb-7 flex items-baseline gap-2">
@@ -476,7 +476,7 @@ export default function LandingPage() {
                 <ul className="space-y-3 text-sm text-neutral-300 flex-1">
                   {PLANS.FREE.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5">
-                      <Check className="w-4 h-4 text-amber-400/80 mt-0.5 shrink-0" />
+                      <Check className="w-4 h-4 text-sky-400/80 mt-0.5 shrink-0" />
                       {f}
                     </li>
                   ))}
@@ -488,28 +488,28 @@ export default function LandingPage() {
             </div>
 
             {/* PRO */}
-            <div className="relative dct-border-gold rounded-3xl shadow-[0_0_80px_-18px_rgba(212,165,60,0.45)] md:-translate-y-3">
-              <Badge className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 bg-gradient-to-b from-amber-300 to-amber-500 text-black font-bold border-0 hover:from-amber-300 hover:to-amber-500">
+            <div className="relative dct-border-sapphire rounded-3xl shadow-[0_0_80px_-18px_rgba(56,189,248,0.45)] md:-translate-y-3">
+              <Badge className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 bg-gradient-to-b from-sky-300 to-blue-500 text-white font-bold border-0 hover:from-sky-300 hover:to-blue-500">
                 <Gem className="w-3 h-3 mr-1" />
                 Le plus choisi
               </Badge>
-              <div className="rounded-3xl bg-gradient-to-b from-[#12100b] to-[#0a0908] p-8 flex flex-col h-full">
+              <div className="rounded-3xl bg-gradient-to-b from-[#0d1220] to-[#070a0f] p-8 flex flex-col h-full">
                 <h3 className="text-xl font-bold text-white">{pro.name}</h3>
                 <p className="text-sm text-neutral-500 mt-1">{pro.tagline}</p>
                 <div className="mt-6 mb-1 flex items-baseline gap-2">
-                  <span className="text-5xl font-bold tabular-nums"><span className="dct-text-gold">{pro.priceMonthly} €</span></span>
+                  <span className="text-5xl font-bold tabular-nums"><span className="dct-text-sapphire">{pro.priceMonthly} €</span></span>
                   <span className="text-neutral-500 text-sm">/ mois</span>
                 </div>
-                <p className="text-xs text-amber-300/80 mb-7">ou {pro.priceYearly} €/an — 2 mois offerts</p>
+                <p className="text-xs text-sky-300/80 mb-7">ou {pro.priceYearly} €/an — 2 mois offerts</p>
                 <ul className="space-y-3 text-sm text-neutral-200 flex-1">
                   {pro.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5">
-                      <Check className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" />
+                      <Check className="w-4 h-4 text-sky-300 mt-0.5 shrink-0" />
                       {f}
                     </li>
                   ))}
                 </ul>
-                <Button asChild className="mt-8 w-full dct-btn-glow bg-gradient-to-b from-amber-300 to-amber-500 text-black hover:from-amber-200 hover:to-amber-400 font-bold h-11 border-0">
+                <Button asChild className="mt-8 w-full dct-btn-glow bg-gradient-to-b from-sky-400 to-blue-600 text-white hover:from-sky-300 hover:to-blue-500 font-bold h-11 border-0">
                   <Link href="/register">Passer au plan Pro</Link>
                 </Button>
               </div>
@@ -517,7 +517,7 @@ export default function LandingPage() {
 
             {/* ELITE */}
             <div className="dct-border-hairline rounded-3xl">
-              <div className="rounded-3xl bg-[#0a0908] p-8 flex flex-col h-full">
+              <div className="rounded-3xl bg-[#070a0f] p-8 flex flex-col h-full">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-bold text-white">{elite.name}</h3>
                   <Activity className="w-4 h-4 text-neutral-600" />
@@ -531,12 +531,12 @@ export default function LandingPage() {
                 <ul className="space-y-3 text-sm text-neutral-300 flex-1">
                   {elite.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5">
-                      <Check className="w-4 h-4 text-amber-400/80 mt-0.5 shrink-0" />
+                      <Check className="w-4 h-4 text-sky-400/80 mt-0.5 shrink-0" />
                       {f}
                     </li>
                   ))}
                 </ul>
-                <Button asChild variant="outline" className="mt-8 w-full border-amber-300/30 text-amber-200 hover:bg-amber-300/[0.07] bg-transparent h-11 font-semibold">
+                <Button asChild variant="outline" className="mt-8 w-full border-sky-300/30 text-sky-200 hover:bg-sky-300/[0.07] bg-transparent h-11 font-semibold">
                   <Link href="/register">Devenir Elite</Link>
                 </Button>
               </div>
@@ -551,7 +551,7 @@ export default function LandingPage() {
       {/* ═══ FAQ ═══ */}
       <section id="faq" className="py-28 px-4 sm:px-6 scroll-mt-16 border-t border-white/[0.05]">
         <div className="max-w-3xl mx-auto">
-          <SectionHeading eyebrow="FAQ" title={<>Les questions <span className="font-display italic font-semibold dct-text-gold">qu&apos;on nous pose</span></>} />
+          <SectionHeading eyebrow="FAQ" title={<>Les questions <span className="font-display italic font-semibold dct-text-sapphire">qu&apos;on nous pose</span></>} />
           <div className="space-y-3">
             {FAQ.map((item) => (
               <details
@@ -560,8 +560,8 @@ export default function LandingPage() {
               >
                 <summary className="flex items-center justify-between gap-4 cursor-pointer list-none p-5 font-medium text-white bg-white/[0.02] hover:bg-white/[0.045] transition-colors rounded-2xl">
                   {item.q}
-                  <span className="w-7 h-7 rounded-full border border-white/10 flex items-center justify-center shrink-0 group-open:border-amber-300/40 transition-colors">
-                    <ChevronDown className="w-3.5 h-3.5 text-neutral-400 group-open:text-amber-300 group-open:rotate-180 transition-transform" />
+                  <span className="w-7 h-7 rounded-full border border-white/10 flex items-center justify-center shrink-0 group-open:border-sky-300/40 transition-colors">
+                    <ChevronDown className="w-3.5 h-3.5 text-neutral-400 group-open:text-sky-300 group-open:rotate-180 transition-transform" />
                   </span>
                 </summary>
                 <p className="px-5 pb-5 pt-1 text-sm text-neutral-400 leading-relaxed">{item.a}</p>
@@ -573,16 +573,16 @@ export default function LandingPage() {
 
       {/* ═══ CTA FINAL ═══ */}
       <section className="py-28 px-4 sm:px-6 border-t border-white/[0.05] relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(212,165,60,0.09),transparent_60%)]" aria-hidden />
-        <div className="relative max-w-3xl mx-auto dct-border-gold rounded-[28px]">
-          <div className="relative rounded-[27px] bg-gradient-to-b from-[#100e0a] to-[#080807] px-6 sm:px-14 py-16 text-center overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(56,189,248,0.09),transparent_60%)]" aria-hidden />
+        <div className="relative max-w-3xl mx-auto dct-border-sapphire rounded-[28px]">
+          <div className="relative rounded-[27px] bg-gradient-to-b from-[#0a1016] to-[#070a0c] px-6 sm:px-14 py-16 text-center overflow-hidden">
             <div className="absolute inset-0 dct-noise" aria-hidden />
-            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[520px] h-[280px] bg-[radial-gradient(ellipse_at_center,rgba(212,165,60,0.14),transparent_65%)]" aria-hidden />
+            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[520px] h-[280px] bg-[radial-gradient(ellipse_at_center,rgba(56,189,248,0.14),transparent_65%)]" aria-hidden />
             <div className="relative">
-              <Sparkles className="w-5 h-5 text-amber-300 mx-auto mb-5" aria-hidden />
+              <Sparkles className="w-5 h-5 text-sky-300 mx-auto mb-5" aria-hidden />
               <h2 className="text-3xl sm:text-[2.6rem] leading-[1.15] font-bold text-white">
                 Le meilleur moment pour commencer, c&apos;est{" "}
-                <span className="font-display italic font-semibold dct-text-gold">ton prochain trade</span>.
+                <span className="font-display italic font-semibold dct-text-sapphire">ton prochain trade</span>.
               </h2>
               <p className="mt-5 text-neutral-400 text-lg">
                 Rejoins les traders qui arrêtent de deviner et commencent à mesurer.
@@ -590,7 +590,7 @@ export default function LandingPage() {
               <Button
                 asChild
                 size="lg"
-                className="mt-9 dct-btn-glow bg-gradient-to-b from-amber-300 to-amber-500 text-black hover:from-amber-200 hover:to-amber-400 font-bold h-[52px] px-10 text-base border-0 transition-transform hover:-translate-y-0.5"
+                className="mt-9 dct-btn-glow bg-gradient-to-b from-sky-400 to-blue-600 text-white hover:from-sky-300 hover:to-blue-500 font-bold h-[52px] px-10 text-base border-0 transition-transform hover:-translate-y-0.5"
               >
                 <Link href="/register" className="flex items-center gap-2">
                   Créer mon compte gratuit
@@ -604,36 +604,36 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ FOOTER ═══ */}
-      <footer className="mt-auto border-t border-white/[0.07] bg-[#060505]">
+      <footer className="mt-auto border-t border-white/[0.07] bg-[#05070a]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
           <div className="grid sm:grid-cols-3 gap-10">
             <div>
               <span className="text-lg font-bold tracking-tight">
-                <span className="text-white">DONCIEL</span><span className="dct-text-gold">™</span>
+                <span className="text-white">DONCIEL</span><span className="dct-text-sapphire">™</span>
               </span>
               <p className="mt-3 text-sm text-neutral-500 leading-relaxed">
                 Journal de trading professionnel pensé par des traders, pour des traders.
               </p>
               <div className="mt-5 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-neutral-600">
-                <Shield className="w-3.5 h-3.5 text-amber-400/50" />
+                <Shield className="w-3.5 h-3.5 text-sky-400/50" />
                 Données chiffrées · Infrastructure sécurisée
               </div>
             </div>
             <div className="text-sm">
               <h4 className="font-semibold text-white mb-4 text-xs uppercase tracking-[0.16em] text-neutral-300">Produit</h4>
               <ul className="space-y-2.5 text-neutral-500">
-                <li><a href="#features" className="hover:text-amber-200 transition-colors">Fonctionnalités</a></li>
-                <li><a href="#pricing" className="hover:text-amber-200 transition-colors">Tarifs</a></li>
-                <li><Link href="/login" className="hover:text-amber-200 transition-colors">Se connecter</Link></li>
-                <li><Link href="/register" className="hover:text-amber-200 transition-colors">Créer un compte</Link></li>
+                <li><a href="#features" className="hover:text-sky-200 transition-colors">Fonctionnalités</a></li>
+                <li><a href="#pricing" className="hover:text-sky-200 transition-colors">Tarifs</a></li>
+                <li><Link href="/login" className="hover:text-sky-200 transition-colors">Se connecter</Link></li>
+                <li><Link href="/register" className="hover:text-sky-200 transition-colors">Créer un compte</Link></li>
               </ul>
             </div>
             <div className="text-sm">
               <h4 className="font-semibold text-white mb-4 text-xs uppercase tracking-[0.16em] text-neutral-300">Légal</h4>
               <ul className="space-y-2.5 text-neutral-500">
-                <li><Link href="/legal" className="hover:text-amber-200 transition-colors">Mentions légales &amp; CGU</Link></li>
-                <li><Link href="/legal#confidentialite" className="hover:text-amber-200 transition-colors">Confidentialité</Link></li>
-                <li><Link href="/legal#risques" className="hover:text-amber-200 transition-colors">Avertissement sur les risques</Link></li>
+                <li><Link href="/legal" className="hover:text-sky-200 transition-colors">Mentions légales &amp; CGU</Link></li>
+                <li><Link href="/legal#confidentialite" className="hover:text-sky-200 transition-colors">Confidentialité</Link></li>
+                <li><Link href="/legal#risques" className="hover:text-sky-200 transition-colors">Avertissement sur les risques</Link></li>
               </ul>
             </div>
           </div>

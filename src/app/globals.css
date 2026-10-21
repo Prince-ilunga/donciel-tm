@@ -386,12 +386,12 @@
 
 
 /* ═══════════════════════════════════════════════════════════
-   DONCIEL™ — Landing premium (or / champagne / obsidienne)
+   DONCIEL™ — Landing premium (saphir royal / obsidienne)
    ═══════════════════════════════════════════════════════════ */
 
-/* Texte dégradé or champagne */
-.dct-text-gold {
-  background: linear-gradient(100deg, #f8e7c0 0%, #eccd7f 35%, #d4a53c 70%, #f0d68e 100%);
+/* Texte dégradé saphir */
+.dct-text-sapphire {
+  background: linear-gradient(100deg, #93c5fd 0%, #38bdf8 32%, #2563eb 66%, #7dd3fc 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -414,8 +414,8 @@
 }
 
 /* Bordure dégradée or (cartes premium) */
-.dct-border-gold {
-  background: linear-gradient(165deg, rgba(240, 214, 142, 0.65) 0%, rgba(212, 165, 60, 0.28) 40%, rgba(212, 165, 60, 0.06) 100%);
+.dct-border-sapphire {
+  background: linear-gradient(165deg, rgba(125, 211, 252, 0.55) 0%, rgba(59, 130, 246, 0.26) 40%, rgba(59, 130, 246, 0.06) 100%);
   padding: 1px;
 }
 .dct-border-hairline {
@@ -426,9 +426,9 @@
 /* Lueur dorée des CTA */
 .dct-btn-glow {
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.4) inset,
-    0 10px 34px -8px rgba(212, 165, 60, 0.55),
-    0 2px 8px -2px rgba(212, 165, 60, 0.35);
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 10px 34px -8px rgba(59, 130, 246, 0.55),
+    0 2px 8px -2px rgba(59, 130, 246, 0.35);
 }
 
 /* ── Animations ── */
@@ -461,7 +461,7 @@
   60%, 100% { background-position: 250% center; }
 }
 .dct-anim-shimmer {
-  background-image: linear-gradient(110deg, transparent 30%, rgba(248, 231, 192, 0.35) 50%, transparent 70%);
+  background-image: linear-gradient(110deg, transparent 30%, rgba(191, 219, 254, 0.35) 50%, transparent 70%);
   background-size: 200% 100%;
   animation: dct-shimmer 4.5s ease-in-out infinite;
 }
