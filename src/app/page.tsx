@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { LandingNav } from "@/components/landing/landing-nav";
-import { PLANS, PLAN_ORDER } from "@/lib/plans";
+import { PLANS } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,11 +12,19 @@ import {
   Newspaper,
   Check,
   Shield,
-  Clock,
-  Video,
+  Sparkles,
   TrendingUp,
   ChevronDown,
+  ArrowRight,
+  PenLine,
+  LineChart,
+  Gem,
+  Activity,
 } from "lucide-react";
+
+/* ────────────────────────────────────────────────────────────
+   DONnées (inchangées — source de vérité métier)
+   ──────────────────────────────────────────────────────────── */
 
 const FEATURES = [
   {
@@ -64,6 +72,30 @@ const STATS = [
   { value: "FR / EN", label: "interface bilingue" },
 ];
 
+const STEPS = [
+  {
+    n: "01",
+    icon: PenLine,
+    title: "Journalise",
+    description:
+      "Enregistre chaque trade en moins de 60 secondes : contexte, exécution, émotion. Le rituel des traders disciplinés.",
+  },
+  {
+    n: "02",
+    icon: LineChart,
+    title: "Analyse",
+    description:
+      "Tes statistiques révèlent tes vrais edge et tes fuites de performance, session par session, setup par setup.",
+  },
+  {
+    n: "03",
+    icon: Gem,
+    title: "Progresse",
+    description:
+      "Le Coach IA transforme ton historique en plan d'action concret. Ton capital grandit par paliers, sans improvisation.",
+  },
+];
+
 const FAQ = [
   {
     q: "DONCIEL TM convient-il à mon style de trading ?",
@@ -87,253 +119,534 @@ const FAQ = [
   },
 ];
 
-function SectionHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
+const INSTRUMENTS = [
+  "EUR/USD", "XAU/USD", "GBP/JPY", "NAS100", "US30",
+  "BTC/USD", "ETH/USD", "GBP/USD", "GER40", "USD/CHF",
+];
+
+/* Barres décoratives (distribution RR) — valeurs fixes, SSR-safe */
+const RR_BARS = [34, 58, 46, 72, 61, 88, 100, 76];
+
+/* ────────────────────────────────────────────────────────────
+   Sous-composants
+   ──────────────────────────────────────────────────────────── */
+
+function SectionHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: React.ReactNode; subtitle?: string }) {
   return (
-    <div className="text-center max-w-2xl mx-auto mb-12">
-      <Badge variant="outline" className="mb-4 border-amber-400/40 text-amber-400 bg-amber-400/5">
-        {eyebrow}
-      </Badge>
-      <h2 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">{title}</h2>
-      {subtitle && <p className="mt-3 text-neutral-400 text-lg">{subtitle}</p>}
+    <div className="text-center max-w-2xl mx-auto mb-14">
+      <div className="relative inline-block mb-5">
+        <Badge variant="outline" className="relative overflow-hidden border-amber-300/30 bg-amber-300/[0.06] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-amber-200/90">
+          <span className="absolute inset-0 dct-anim-shimmer motion-reduce:animate-none" aria-hidden />
+          {eyebrow}
+        </Badge>
+      </div>
+      <h2 className="text-3xl sm:text-[2.6rem] leading-[1.12] font-bold text-white tracking-tight">{title}</h2>
+      {subtitle && <p className="mt-4 text-neutral-400 text-lg leading-relaxed">{subtitle}</p>}
     </div>
   );
 }
+
+/* Courbe d'équité décorative (SVG statique) */
+function EquityCurve() {
+  return (
+    <svg viewBox="0 0 420 150" className="w-full h-full" preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <linearGradient id="dct-eq-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#e9c879" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="#e9c879" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="dct-eq-line" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#d4a53c" />
+          <stop offset="55%" stopColor="#f0d68e" />
+          <stop offset="100%" stopColor="#e9c879" />
+        </linearGradient>
+      </defs>
+      {[30, 65, 100, 135].map((y) => (
+        <line key={y} x1="0" y1={y} x2="420" y2={y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+      ))}
+      <path
+        d="M0,122 C28,116 44,104 68,106 S114,84 142,88 S196,62 224,66 S286,40 316,44 S372,22 420,18 L420,150 L0,150 Z"
+        fill="url(#dct-eq-fill)"
+      />
+      <path
+        d="M0,122 C28,116 44,104 68,106 S114,84 142,88 S196,62 224,66 S286,40 316,44 S372,22 420,18"
+        fill="none"
+        stroke="url(#dct-eq-line)"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+      <circle cx="420" cy="18" r="4" fill="#f0d68e" />
+      <circle cx="420" cy="18" r="8" fill="#f0d68e" opacity="0.25" className="dct-anim-ping motion-reduce:animate-none" />
+    </svg>
+  );
+}
+
+/* Mock du tableau de bord (vitrine hero) */
+function DashboardMock() {
+  return (
+    <div className="relative mt-16 sm:mt-20 max-w-4xl mx-auto">
+      {/* Halo sous la vitrine */}
+      <div className="absolute -inset-x-8 top-10 bottom-0 bg-[radial-gradient(ellipse_at_center,rgba(212,165,60,0.16),transparent_65%)] blur-2xl" aria-hidden />
+
+      <div className="relative dct-border-gold rounded-[22px] motion-reduce:animate-none">
+        <div className="rounded-[21px] bg-[#0b0a08]/95 backdrop-blur-xl overflow-hidden">
+          {/* Barre de fenêtre */}
+          <div className="flex items-center gap-2 px-5 h-11 border-b border-white/[0.06] bg-white/[0.02]">
+            <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
+            <span className="w-2.5 h-2.5 rounded-full bg-white/15" />
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-400/60" />
+            <div className="ml-3 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-neutral-500">
+              DONCIEL<span className="text-amber-400/80">™</span>
+              <span className="text-neutral-700">·</span>
+              <span className="text-neutral-400">Session New York</span>
+            </div>
+            <div className="ml-auto flex items-center gap-1.5 text-[10px] text-emerald-400/90">
+              <span className="relative flex w-1.5 h-1.5">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 dct-anim-ping motion-reduce:animate-none" />
+                <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              </span>
+              LIVE
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-[1.6fr_1fr] gap-4 p-5">
+            {/* Courbe d'équité */}
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs text-neutral-500 uppercase tracking-widest">Courbe d&apos;équité</span>
+                <span className="text-xs font-semibold text-emerald-400 tabular-nums">+12.4R · 30j</span>
+              </div>
+              <div className="h-36">
+                <EquityCurve />
+              </div>
+            </div>
+
+            {/* Chips de stats */}
+            <div className="grid grid-cols-2 md:grid-cols-1 gap-3 content-start">
+              {[
+                { label: "Win rate", value: "61.2 %", tone: "text-emerald-400" },
+                { label: "Facteur de profit", value: "2.14", tone: "text-amber-300" },
+                { label: "Expectancy", value: "0.42R", tone: "text-amber-300" },
+                { label: "Palier capital", value: "6 / 10", tone: "text-white" },
+              ].map((s) => (
+                <div key={s.label} className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500">{s.label}</div>
+                  <div className={`mt-0.5 text-lg font-bold tabular-nums ${s.tone}`}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Chip flottante — Coach IA */}
+      <div className="absolute -top-6 -right-3 sm:right-[-2.5rem] dct-anim-float motion-reduce:animate-none hidden sm:block">
+        <div className="dct-border-gold rounded-2xl">
+          <div className="flex items-center gap-3 rounded-2xl bg-[#0b0a08] px-4 py-3 backdrop-blur-xl">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-300/25 to-amber-600/10 border border-amber-300/25 flex items-center justify-center">
+              <Brain className="w-4.5 h-4.5 text-amber-300" />
+            </div>
+            <div>
+              <div className="text-[11px] font-semibold text-white">Coach IA</div>
+              <div className="text-[11px] text-neutral-400">Entrées tardives détectées · London</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Chip flottante — Palier */}
+      <div className="absolute -bottom-6 left-[-2rem] dct-anim-float-late motion-reduce:animate-none hidden sm:block">
+        <div className="dct-border-hairline rounded-2xl">
+          <div className="flex items-center gap-3 rounded-2xl bg-[#0b0a08] px-4 py-3 backdrop-blur-xl">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400/20 to-emerald-600/5 border border-emerald-300/25 flex items-center justify-center">
+              <TrendingUp className="w-4.5 h-4.5 text-emerald-300" />
+            </div>
+            <div>
+              <div className="text-[11px] font-semibold text-white">Palier 6 → 7 validé</div>
+              <div className="text-[11px] text-emerald-400/90">+8.4 % de capital ce mois</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ────────────────────────────────────────────────────────────
+   Page
+   ──────────────────────────────────────────────────────────── */
 
 export default function LandingPage() {
   const pro = PLANS.PRO;
   const elite = PLANS.ELITE;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-neutral-200 flex flex-col">
+    <div className="min-h-screen bg-[#050504] text-neutral-200 flex flex-col overflow-x-clip">
       <LandingNav />
 
-      {/* ─── HERO ─────────────────────────────────────────── */}
-      <section className="relative pt-36 pb-24 px-4 sm:px-6 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(251,191,36,0.08),transparent_55%)]" />
+      {/* ═══ HERO ═══ */}
+      <section className="relative pt-36 pb-28 px-4 sm:px-6 overflow-hidden">
+        {/* Lueurs d'ambiance */}
+        <div className="absolute inset-0" aria-hidden>
+          <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[520px] rounded-full bg-[radial-gradient(ellipse_at_center,rgba(212,165,60,0.13),transparent_60%)] dct-anim-aurora motion-reduce:animate-none" />
+          <div className="absolute top-[420px] -left-40 w-[560px] h-[560px] rounded-full bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05),transparent_65%)] dct-anim-aurora-slow motion-reduce:animate-none" />
+          <div className="absolute top-[220px] -right-52 w-[620px] h-[620px] rounded-full bg-[radial-gradient(circle_at_center,rgba(212,165,60,0.06),transparent_65%)] dct-anim-aurora motion-reduce:animate-none" />
+        </div>
+        <div className="absolute inset-0 dct-grid" aria-hidden />
+        <div className="absolute inset-0 dct-noise pointer-events-none" aria-hidden />
+
         <div className="relative max-w-4xl mx-auto text-center">
-          <Badge className="mb-6 hidden sm:inline-flex bg-amber-400/10 text-amber-400 border border-amber-400/30 hover:bg-amber-400/15">
-            <TrendingUp className="w-3.5 h-3.5 mr-1.5" />
-            Le journal des traders qui veulent passer au niveau supérieur
-          </Badge>
-          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-[1.1]">
+          <div className="relative inline-block mb-7">
+            <Badge className="relative overflow-hidden bg-amber-300/[0.07] text-amber-200 border border-amber-300/25 px-4 py-1.5 text-xs tracking-wide hover:bg-amber-300/[0.12]">
+              <span className="absolute inset-0 dct-anim-shimmer motion-reduce:animate-none" aria-hidden />
+              <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-300" />
+              Journal de trading nouvelle génération
+            </Badge>
+          </div>
+
+          <h1 className="text-[2.6rem] leading-[1.05] sm:text-6xl lg:text-7xl font-bold tracking-tight text-white">
             Ton edge existe.
             <br />
-            <span className="text-amber-400">Ton journal va le prouver.</span>
+            <span className="font-display italic font-semibold dct-text-gold pb-2">
+              Ton journal va le prouver.
+            </span>
           </h1>
-          <p className="mt-6 text-lg sm:text-xl text-neutral-400 max-w-2xl mx-auto leading-relaxed">
+
+          <p className="mt-7 text-lg sm:text-xl text-neutral-400 max-w-2xl mx-auto leading-relaxed">
             DONCIEL™ transforme ton historique de trades en plan d&apos;action :
             statistiques avancées, money management par paliers et Coach IA qui
             analyse tes moindres erreurs.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button asChild size="lg" className="bg-amber-400 text-black hover:bg-amber-300 font-bold h-12 px-8 text-base">
-              <Link href="/register">Créer mon compte gratuit</Link>
+
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button
+              asChild
+              size="lg"
+              className="dct-btn-glow bg-gradient-to-b from-amber-300 to-amber-500 text-black hover:from-amber-200 hover:to-amber-400 font-bold h-[52px] px-9 text-base border-0 transition-transform hover:-translate-y-0.5"
+            >
+              <Link href="/register" className="flex items-center gap-2">
+                Créer mon compte gratuit
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base border-white/15 text-white hover:bg-white/5 bg-transparent">
+            <Button
+              asChild
+              size="lg"
+              variant="outline"
+              className="h-[52px] px-9 text-base border-white/12 text-white hover:bg-white/[0.05] bg-white/[0.02] backdrop-blur"
+            >
               <a href="#features">Découvrir les fonctionnalités</a>
             </Button>
           </div>
-          <p className="mt-4 text-sm text-neutral-500">
+          <p className="mt-5 text-sm text-neutral-500">
             Sans carte bancaire · 30 trades/mois offerts · Résiliable en 1 clic
           </p>
         </div>
 
-        {/* Stats band */}
-        <div className="relative max-w-4xl mx-auto mt-20 grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Vitrine produit */}
+        <DashboardMock />
+
+        {/* Bandeau stats */}
+        <div className="relative max-w-4xl mx-auto mt-24 grid grid-cols-2 md:grid-cols-4 gap-4">
           {STATS.map((s) => (
-            <div key={s.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-center">
-              <div className="text-2xl sm:text-3xl font-bold text-amber-400">{s.value}</div>
-              <div className="mt-1 text-xs sm:text-sm text-neutral-400">{s.label}</div>
+            <div key={s.label} className="dct-border-hairline rounded-2xl">
+              <div className="rounded-2xl bg-white/[0.03] backdrop-blur-sm p-5 text-center h-full">
+                <div className="text-2xl sm:text-3xl font-bold tabular-nums">
+                  <span className="dct-text-gold">{s.value}</span>
+                </div>
+                <div className="mt-1 text-xs sm:text-sm text-neutral-400">{s.label}</div>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ─── FEATURES ─────────────────────────────────────── */}
-      <section id="features" className="py-24 px-4 sm:px-6 scroll-mt-16">
+      {/* ═══ BANDEAU INSTRUMENTS ═══ */}
+      <section className="border-y border-white/[0.05] bg-white/[0.015] py-5 overflow-hidden dct-marquee-mask" aria-label="Instruments couverts">
+        <div className="flex w-max dct-anim-marquee motion-reduce:animate-none">
+          {[0, 1].map((copy) => (
+            <div key={copy} className="flex items-center" aria-hidden={copy === 1}>
+              {INSTRUMENTS.map((ins) => (
+                <div key={`${copy}-${ins}`} className="flex items-center">
+                  <span className="px-7 text-xs uppercase tracking-[0.3em] text-neutral-500 whitespace-nowrap">
+                    {ins}
+                  </span>
+                  <span className="w-1 h-1 rotate-45 bg-amber-400/40" />
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══ MÉTHODE ═══ */}
+      <section className="relative py-28 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <SectionHeading
-            eyebrow="Fonctionnalités"
-            title="Tout ce qu'un trader sérieux attend de son journal"
-            subtitle="Chaque module est pensé pour un objectif : transformer tes données en décisions meilleures."
+            eyebrow="La méthode"
+            title={<>Trois rituels pour arrêter de <span className="font-display italic font-semibold dct-text-gold">deviner</span></>}
+            subtitle="La discipline n'est pas un talent : c'est un système. DONCIEL™ l'installe pour toi."
           />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                className="group rounded-2xl border border-white/10 bg-white/[0.03] p-6 hover:border-amber-400/40 hover:bg-amber-400/[0.04] transition-all duration-300"
-              >
-                <div className="w-11 h-11 rounded-lg bg-amber-400/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <f.icon className="w-5.5 h-5.5 text-amber-400" />
+          <div className="relative grid md:grid-cols-3 gap-5">
+            {/* Ligne de liaison */}
+            <div className="hidden md:block absolute top-[52px] left-[16%] right-[16%] h-px bg-gradient-to-r from-transparent via-amber-400/25 to-transparent" aria-hidden />
+            {STEPS.map((s) => (
+              <div key={s.n} className="relative dct-border-hairline rounded-3xl group">
+                <div className="rounded-3xl bg-[#0a0908] p-8 h-full transition-colors group-hover:bg-[#0c0b09]">
+                  <div className="flex items-start justify-between">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-300/20 to-amber-600/[0.06] border border-amber-300/20 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <s.icon className="w-5 h-5 text-amber-300" />
+                    </div>
+                    <span className="font-display italic text-4xl text-white/[0.12] font-semibold select-none">{s.n}</span>
+                  </div>
+                  <h3 className="mt-6 text-xl font-semibold text-white">{s.title}</h3>
+                  <p className="mt-2.5 text-sm text-neutral-400 leading-relaxed">{s.description}</p>
                 </div>
-                <h3 className="font-semibold text-white text-lg">{f.title}</h3>
-                <p className="mt-2 text-sm text-neutral-400 leading-relaxed">{f.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─── PRICING ──────────────────────────────────────── */}
-      <section id="pricing" className="py-24 px-4 sm:px-6 scroll-mt-16 border-t border-white/5">
+      {/* ═══ FONCTIONNALITÉS (bento) ═══ */}
+      <section id="features" className="py-28 px-4 sm:px-6 scroll-mt-16 border-t border-white/[0.05] relative">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_0%,rgba(212,165,60,0.05),transparent_70%)]" aria-hidden />
+        <div className="relative max-w-6xl mx-auto">
+          <SectionHeading
+            eyebrow="Fonctionnalités"
+            title={<>Tout ce qu&apos;un trader sérieux attend de <span className="font-display italic font-semibold dct-text-gold">son journal</span></>}
+            subtitle="Chaque module est pensé pour un objectif : transformer tes données en décisions meilleures."
+          />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* Carte vedette — distribution RR */}
+            <div className="sm:col-span-2 dct-border-hairline rounded-3xl group">
+              <div className="rounded-3xl bg-[#0a0908] p-7 h-full grid sm:grid-cols-2 gap-6 items-center transition-colors group-hover:bg-[#0c0b09]">
+                <div>
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-300/20 to-amber-600/[0.06] border border-amber-300/20 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
+                    <BarChart3 className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <h3 className="font-semibold text-white text-xl">{FEATURES[1].title}</h3>
+                  <p className="mt-2.5 text-sm text-neutral-400 leading-relaxed">{FEATURES[1].description}</p>
+                </div>
+                {/* Mini graphique distribution RR */}
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4" aria-hidden>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-neutral-500 mb-3">Distribution RR · 90 derniers trades</div>
+                  <div className="flex items-end gap-2 h-28">
+                    {RR_BARS.map((h, i) => (
+                      <div key={i} className="flex-1 rounded-t-md bg-gradient-to-t from-amber-600/25 to-amber-300/80" style={{ height: `${h}%`, opacity: 0.45 + (i / RR_BARS.length) * 0.55 }} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {FEATURES.filter((_, i) => i !== 1).map((f) => (
+              <div key={f.title} className="dct-border-hairline rounded-3xl group">
+                <div className="rounded-3xl bg-[#0a0908] p-7 h-full transition-colors group-hover:bg-[#0c0b09]">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-300/20 to-amber-600/[0.06] border border-amber-300/20 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
+                    <f.icon className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <h3 className="font-semibold text-white text-lg">{f.title}</h3>
+                  <p className="mt-2.5 text-sm text-neutral-400 leading-relaxed">{f.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ TARIFS ═══ */}
+      <section id="pricing" className="py-28 px-4 sm:px-6 scroll-mt-16 border-t border-white/[0.05]">
         <div className="max-w-6xl mx-auto">
           <SectionHeading
             eyebrow="Tarifs"
-            title="Un investissement dérisoire comparé à une perte évitée"
+            title={<>Un investissement dérisoire comparé à <span className="font-display italic font-semibold dct-text-gold">une perte évitée</span></>}
             subtitle="Commence gratuitement. Passe au plan supérieur quand tes résultats l'exigent."
           />
           <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
-            {/* FREE */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 flex flex-col">
-              <h3 className="text-xl font-bold text-white">{PLANS.FREE.name}</h3>
-              <p className="text-sm text-neutral-400 mt-1">{PLANS.FREE.tagline}</p>
-              <div className="mt-6 mb-6">
-                <span className="text-4xl font-bold text-white">0 €</span>
-                <span className="text-neutral-500 text-sm"> / pour toujours</span>
+            {/* DÉCOUVERTE */}
+            <div className="dct-border-hairline rounded-3xl">
+              <div className="rounded-3xl bg-[#0a0908] p-8 flex flex-col h-full">
+                <h3 className="text-xl font-bold text-white">{PLANS.FREE.name}</h3>
+                <p className="text-sm text-neutral-500 mt-1">{PLANS.FREE.tagline}</p>
+                <div className="mt-6 mb-7 flex items-baseline gap-2">
+                  <span className="text-4xl font-bold text-white tabular-nums">0 €</span>
+                  <span className="text-neutral-500 text-sm">/ pour toujours</span>
+                </div>
+                <ul className="space-y-3 text-sm text-neutral-300 flex-1">
+                  {PLANS.FREE.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2.5">
+                      <Check className="w-4 h-4 text-amber-400/80 mt-0.5 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Button asChild variant="outline" className="mt-8 w-full border-white/12 text-white hover:bg-white/[0.05] bg-white/[0.02] h-11">
+                  <Link href="/register">Commencer gratuitement</Link>
+                </Button>
               </div>
-              <ul className="space-y-3 text-sm text-neutral-300 flex-1">
-                {PLANS.FREE.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Button asChild variant="outline" className="mt-8 w-full border-white/15 text-white hover:bg-white/5 bg-transparent h-11">
-                <Link href="/register">Commencer gratuitement</Link>
-              </Button>
             </div>
 
             {/* PRO */}
-            <div className="relative rounded-2xl border-2 border-amber-400 bg-gradient-to-b from-amber-400/[0.08] to-transparent p-8 flex flex-col shadow-[0_0_60px_-15px_rgba(251,191,36,0.3)]">
-              <Badge className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-amber-400 text-black font-bold hover:bg-amber-400">
-                Le plus populaire
+            <div className="relative dct-border-gold rounded-3xl shadow-[0_0_80px_-18px_rgba(212,165,60,0.45)] md:-translate-y-3">
+              <Badge className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10 bg-gradient-to-b from-amber-300 to-amber-500 text-black font-bold border-0 hover:from-amber-300 hover:to-amber-500">
+                <Gem className="w-3 h-3 mr-1" />
+                Le plus choisi
               </Badge>
-              <h3 className="text-xl font-bold text-white">{pro.name}</h3>
-              <p className="text-sm text-neutral-400 mt-1">{pro.tagline}</p>
-              <div className="mt-6 mb-2">
-                <span className="text-4xl font-bold text-white">{pro.priceMonthly} €</span>
-                <span className="text-neutral-500 text-sm"> / mois</span>
+              <div className="rounded-3xl bg-gradient-to-b from-[#12100b] to-[#0a0908] p-8 flex flex-col h-full">
+                <h3 className="text-xl font-bold text-white">{pro.name}</h3>
+                <p className="text-sm text-neutral-500 mt-1">{pro.tagline}</p>
+                <div className="mt-6 mb-1 flex items-baseline gap-2">
+                  <span className="text-5xl font-bold tabular-nums"><span className="dct-text-gold">{pro.priceMonthly} €</span></span>
+                  <span className="text-neutral-500 text-sm">/ mois</span>
+                </div>
+                <p className="text-xs text-amber-300/80 mb-7">ou {pro.priceYearly} €/an — 2 mois offerts</p>
+                <ul className="space-y-3 text-sm text-neutral-200 flex-1">
+                  {pro.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2.5">
+                      <Check className="w-4 h-4 text-amber-300 mt-0.5 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Button asChild className="mt-8 w-full dct-btn-glow bg-gradient-to-b from-amber-300 to-amber-500 text-black hover:from-amber-200 hover:to-amber-400 font-bold h-11 border-0">
+                  <Link href="/register">Passer au plan Pro</Link>
+                </Button>
               </div>
-              <p className="text-xs text-amber-400/90 mb-6">ou {pro.priceYearly} €/an (2 mois offerts)</p>
-              <ul className="space-y-3 text-sm text-neutral-200 flex-1">
-                {pro.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Button asChild className="mt-8 w-full bg-amber-400 text-black hover:bg-amber-300 font-bold h-11">
-                <Link href="/register">Passer au plan Pro</Link>
-              </Button>
             </div>
 
             {/* ELITE */}
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 flex flex-col">
-              <h3 className="text-xl font-bold text-white">{elite.name}</h3>
-              <p className="text-sm text-neutral-400 mt-1">{elite.tagline}</p>
-              <div className="mt-6 mb-2">
-                <span className="text-4xl font-bold text-white">{elite.priceMonthly} €</span>
-                <span className="text-neutral-500 text-sm"> / mois</span>
+            <div className="dct-border-hairline rounded-3xl">
+              <div className="rounded-3xl bg-[#0a0908] p-8 flex flex-col h-full">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-white">{elite.name}</h3>
+                  <Activity className="w-4 h-4 text-neutral-600" />
+                </div>
+                <p className="text-sm text-neutral-500 mt-1">{elite.tagline}</p>
+                <div className="mt-6 mb-1 flex items-baseline gap-2">
+                  <span className="text-4xl font-bold text-white tabular-nums">{elite.priceMonthly} €</span>
+                  <span className="text-neutral-500 text-sm">/ mois</span>
+                </div>
+                <p className="text-xs text-neutral-600 mb-7">ou {elite.priceYearly} €/an — 2 mois offerts</p>
+                <ul className="space-y-3 text-sm text-neutral-300 flex-1">
+                  {elite.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2.5">
+                      <Check className="w-4 h-4 text-amber-400/80 mt-0.5 shrink-0" />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Button asChild variant="outline" className="mt-8 w-full border-amber-300/30 text-amber-200 hover:bg-amber-300/[0.07] bg-transparent h-11 font-semibold">
+                  <Link href="/register">Devenir Elite</Link>
+                </Button>
               </div>
-              <p className="text-xs text-neutral-500 mb-6">ou {elite.priceYearly} €/an (2 mois offerts)</p>
-              <ul className="space-y-3 text-sm text-neutral-300 flex-1">
-                {elite.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Button asChild variant="outline" className="mt-8 w-full border-amber-400/40 text-amber-400 hover:bg-amber-400/10 bg-transparent h-11 font-semibold">
-                <Link href="/register">Devenir Elite</Link>
-              </Button>
             </div>
           </div>
-          <p className="text-center text-xs text-neutral-500 mt-8">
-            Paiement sécurisé par Stripe · TVA applicable selon ton pays · Annulation à tout moment depuis ton espace
+          <p className="text-center text-xs text-neutral-500 mt-10">
+            Paiement sécurisé par carte (Paddle) · Mobile Money : M-Pesa, Airtel &amp; Orange · TVA applicable selon ton pays · Annulation en 1 clic
           </p>
         </div>
       </section>
 
-      {/* ─── FAQ ──────────────────────────────────────────── */}
-      <section id="faq" className="py-24 px-4 sm:px-6 scroll-mt-16 border-t border-white/5">
+      {/* ═══ FAQ ═══ */}
+      <section id="faq" className="py-28 px-4 sm:px-6 scroll-mt-16 border-t border-white/[0.05]">
         <div className="max-w-3xl mx-auto">
-          <SectionHeading eyebrow="FAQ" title="Les questions qu'on nous pose" />
+          <SectionHeading eyebrow="FAQ" title={<>Les questions <span className="font-display italic font-semibold dct-text-gold">qu&apos;on nous pose</span></>} />
           <div className="space-y-3">
             {FAQ.map((item) => (
               <details
                 key={item.q}
-                className="group rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden"
+                className="group dct-border-hairline rounded-2xl overflow-hidden"
               >
-                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none p-5 font-medium text-white hover:bg-white/[0.03] transition-colors">
+                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none p-5 font-medium text-white bg-white/[0.02] hover:bg-white/[0.045] transition-colors rounded-2xl">
                   {item.q}
-                  <ChevronDown className="w-4 h-4 shrink-0 text-neutral-500 group-open:rotate-180 transition-transform" />
+                  <span className="w-7 h-7 rounded-full border border-white/10 flex items-center justify-center shrink-0 group-open:border-amber-300/40 transition-colors">
+                    <ChevronDown className="w-3.5 h-3.5 text-neutral-400 group-open:text-amber-300 group-open:rotate-180 transition-transform" />
+                  </span>
                 </summary>
-                <p className="px-5 pb-5 text-sm text-neutral-400 leading-relaxed">{item.a}</p>
+                <p className="px-5 pb-5 pt-1 text-sm text-neutral-400 leading-relaxed">{item.a}</p>
               </details>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ─── FINAL CTA ────────────────────────────────────── */}
-      <section className="py-24 px-4 sm:px-6 border-t border-white/5 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.07),transparent_60%)]" />
-        <div className="relative max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold text-white">
-            Le meilleur moment pour commencer, c&apos;<span className="text-amber-400">ton prochain trade</span>.
-          </h2>
-          <p className="mt-4 text-neutral-400 text-lg">
-            Rejoins les traders qui arrêtent de deviner et commencent à mesurer.
-          </p>
-          <Button asChild size="lg" className="mt-8 bg-amber-400 text-black hover:bg-amber-300 font-bold h-12 px-10 text-base">
-            <Link href="/register">Créer mon compte gratuit</Link>
-          </Button>
+      {/* ═══ CTA FINAL ═══ */}
+      <section className="py-28 px-4 sm:px-6 border-t border-white/[0.05] relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(212,165,60,0.09),transparent_60%)]" aria-hidden />
+        <div className="relative max-w-3xl mx-auto dct-border-gold rounded-[28px]">
+          <div className="relative rounded-[27px] bg-gradient-to-b from-[#100e0a] to-[#080807] px-6 sm:px-14 py-16 text-center overflow-hidden">
+            <div className="absolute inset-0 dct-noise" aria-hidden />
+            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-[520px] h-[280px] bg-[radial-gradient(ellipse_at_center,rgba(212,165,60,0.14),transparent_65%)]" aria-hidden />
+            <div className="relative">
+              <Sparkles className="w-5 h-5 text-amber-300 mx-auto mb-5" aria-hidden />
+              <h2 className="text-3xl sm:text-[2.6rem] leading-[1.15] font-bold text-white">
+                Le meilleur moment pour commencer, c&apos;est{" "}
+                <span className="font-display italic font-semibold dct-text-gold">ton prochain trade</span>.
+              </h2>
+              <p className="mt-5 text-neutral-400 text-lg">
+                Rejoins les traders qui arrêtent de deviner et commencent à mesurer.
+              </p>
+              <Button
+                asChild
+                size="lg"
+                className="mt-9 dct-btn-glow bg-gradient-to-b from-amber-300 to-amber-500 text-black hover:from-amber-200 hover:to-amber-400 font-bold h-[52px] px-10 text-base border-0 transition-transform hover:-translate-y-0.5"
+              >
+                <Link href="/register" className="flex items-center gap-2">
+                  Créer mon compte gratuit
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </Button>
+              <p className="mt-4 text-xs text-neutral-500">Installation en 60 secondes · Données chiffrées</p>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ─── FOOTER ───────────────────────────────────────── */}
-      <footer className="mt-auto border-t border-white/10 bg-[#070707]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-          <div className="grid sm:grid-cols-3 gap-8">
+      {/* ═══ FOOTER ═══ */}
+      <footer className="mt-auto border-t border-white/[0.07] bg-[#060505]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
+          <div className="grid sm:grid-cols-3 gap-10">
             <div>
-              <span className="text-lg font-bold text-white">
-                DONCIEL<span className="text-amber-400">™</span>
+              <span className="text-lg font-bold tracking-tight">
+                <span className="text-white">DONCIEL</span><span className="dct-text-gold">™</span>
               </span>
-              <p className="mt-2 text-sm text-neutral-500">
+              <p className="mt-3 text-sm text-neutral-500 leading-relaxed">
                 Journal de trading professionnel pensé par des traders, pour des traders.
               </p>
+              <div className="mt-5 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-neutral-600">
+                <Shield className="w-3.5 h-3.5 text-amber-400/50" />
+                Données chiffrées · Infrastructure sécurisée
+              </div>
             </div>
             <div className="text-sm">
-              <h4 className="font-semibold text-white mb-3">Produit</h4>
-              <ul className="space-y-2 text-neutral-400">
-                <li><a href="#features" className="hover:text-white transition-colors">Fonctionnalités</a></li>
-                <li><a href="#pricing" className="hover:text-white transition-colors">Tarifs</a></li>
-                <li><Link href="/login" className="hover:text-white transition-colors">Se connecter</Link></li>
-                <li><Link href="/register" className="hover:text-white transition-colors">Créer un compte</Link></li>
+              <h4 className="font-semibold text-white mb-4 text-xs uppercase tracking-[0.16em] text-neutral-300">Produit</h4>
+              <ul className="space-y-2.5 text-neutral-500">
+                <li><a href="#features" className="hover:text-amber-200 transition-colors">Fonctionnalités</a></li>
+                <li><a href="#pricing" className="hover:text-amber-200 transition-colors">Tarifs</a></li>
+                <li><Link href="/login" className="hover:text-amber-200 transition-colors">Se connecter</Link></li>
+                <li><Link href="/register" className="hover:text-amber-200 transition-colors">Créer un compte</Link></li>
               </ul>
             </div>
             <div className="text-sm">
-              <h4 className="font-semibold text-white mb-3">Légal</h4>
-              <ul className="space-y-2 text-neutral-400">
-                <li><Link href="/legal" className="hover:text-white transition-colors">Mentions légales & CGU</Link></li>
-                <li><Link href="/legal#confidentialite" className="hover:text-white transition-colors">Confidentialité</Link></li>
-                <li><Link href="/legal#risques" className="hover:text-white transition-colors">Avertissement sur les risques</Link></li>
+              <h4 className="font-semibold text-white mb-4 text-xs uppercase tracking-[0.16em] text-neutral-300">Légal</h4>
+              <ul className="space-y-2.5 text-neutral-500">
+                <li><Link href="/legal" className="hover:text-amber-200 transition-colors">Mentions légales &amp; CGU</Link></li>
+                <li><Link href="/legal#confidentialite" className="hover:text-amber-200 transition-colors">Confidentialité</Link></li>
+                <li><Link href="/legal#risques" className="hover:text-amber-200 transition-colors">Avertissement sur les risques</Link></li>
               </ul>
             </div>
           </div>
-          <div className="mt-10 pt-6 border-t border-white/5 space-y-3">
-            <p className="text-xs leading-relaxed text-neutral-500">
+          <div className="mt-12 pt-7 border-t border-white/[0.05] space-y-3">
+            <p className="text-xs leading-relaxed text-neutral-600">
               <Shield className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
-              <strong className="text-neutral-400">Avertissement sur les risques :</strong> le trading
+              <strong className="text-neutral-500">Avertissement sur les risques :</strong> le trading
               de instruments financiers et de crypto-actifs comporte un risque élevé de perte en
               capital. DONCIEL TM est un outil de journalisation et d&apos;analyse et ne fournit
               aucun conseil en investissement. Les performances passées ne préjugent pas des
               performances futures. Tu restes seul(e) responsable de tes décisions de trading.
             </p>
-            <p className="text-xs text-neutral-600">
+            <p className="text-xs text-neutral-700">
               © {new Date().getFullYear()} DONCIEL TM. Tous droits réservés.
             </p>
           </div>
