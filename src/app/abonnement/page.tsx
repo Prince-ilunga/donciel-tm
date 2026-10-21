@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -81,7 +81,7 @@ const METHOD_LABELS: Record<string, string> = {
   ORANGE: "Orange Money",
 };
 
-export default function AbonnementPage() {
+function AbonnementContent() {
   const searchParams = useSearchParams();
   const [info, setInfo] = useState<SubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -591,5 +591,13 @@ export default function AbonnementPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function AbonnementPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0a]" />}>
+      <AbonnementContent />
+    </Suspense>
   );
 }
