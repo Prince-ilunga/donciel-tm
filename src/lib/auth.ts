@@ -4,8 +4,19 @@ import { cookies } from 'next/headers';
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 
+// SECURITY: JWT_SECRET must be set in environment variables.
+// Never fall back to a hardcoded secret — anyone could forge tokens.
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'donciel-tm-secret-key-2024-dev-only'
+  (() => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret || secret.length < 32) {
+      throw new Error(
+        'JWT_SECRET manquant ou trop court (32+ caractères requis). ' +
+        'Ajoutez-le dans les variables d\'environnement (Vercel → Settings → Environment Variables).'
+      );
+    }
+    return secret;
+  })()
 );
 
 const COOKIE_NAME = 'donciel-tm-token';
