@@ -64,7 +64,7 @@ export default function LegalPage() {
           <h3>2. Accès au Service</h3>
           <ul>
             <li>Le plan « Découverte » est gratuit, avec des limites d&apos;usage (30 trades/mois, 2 playbooks, 5 analyses IA/mois).</li>
-            <li>Les plans payants (Pro, Elite) sont proposés par abonnement mensuel ou annuel, payable via notre prestataire de paiement Stripe.</li>
+            <li>Les plans payants (Pro, Elite) sont proposés par abonnement mensuel ou annuel, payable via notre prestataire de paiement agréé Paddle (carte bancaire internationale) ou par mobile money (M-Pesa, Airtel Money, Orange Money) avec validation manuelle.</li>
             <li>L&apos;abonnement est reconduit tacitement jusqu&apos;à résiliation. Tu peux annuler à tout moment depuis ton espace ; l&apos;accès au plan reste actif jusqu&apos;à la fin de la période payée.</li>
           </ul>
           <h3>3. Compte utilisateur</h3>
@@ -101,7 +101,7 @@ export default function LegalPage() {
           <ul>
             <li><strong>Données de compte :</strong> email, nom (optionnel), mot de passe (haché avec bcrypt, jamais stocké en clair).</li>
             <li><strong>Données de trading :</strong> les trades, notes, playbooks et captures d&apos;écran que tu saisis — utilisés uniquement pour te fournir le Service.</li>
-            <li><strong>Données de facturation :</strong> traitées exclusivement par Stripe. Nous ne voyons ni ne stockons jamais tes coordonnées bancaires complètes.</li>
+            <li><strong>Données de facturation :</strong> traitées exclusivement par nos prestataires de paiement (Paddle pour les cartes bancaires, opérateurs mobile money locaux). Nous ne voyons ni ne stockons jamais tes coordonnées bancaires complètes.</li>
             <li><strong>Données techniques :</strong> journaux de connexion nécessaires à la sécurité du Service.</li>
           </ul>
           <h3>2. Utilisation</h3>

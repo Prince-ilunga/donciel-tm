@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PaymentRequestsPanel } from "@/components/admin/payment-requests-panel";
 import {
   ShieldCheck,
   Check,
@@ -23,6 +24,7 @@ import {
   AlertCircle,
   UserCheck,
   UserX,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,7 +71,7 @@ export function AdminTab() {
   const handleTabChange = useCallback((tab: string) => {
     setActiveTab(tab);
     const statusMap: Record<string, string> = { pending: "pending", approved: "approved", rejected: "rejected" };
-    loadUsers(statusMap[tab]);
+    if (statusMap[tab]) loadUsers(statusMap[tab]);
   }, [loadUsers]);
 
   const handleApprove = async (userId: string) => {
@@ -167,7 +169,7 @@ export function AdminTab() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid grid-cols-3 w-full">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full">
           <TabsTrigger value="pending" className="gap-1 text-[10px] sm:text-xs px-1 sm:px-3">
             <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
             <span className="truncate">{t(language, "pendingMembers")}</span>
@@ -180,7 +182,19 @@ export function AdminTab() {
             <UserX className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
             <span className="truncate">{t(language, "rejectedMembers")}</span>
           </TabsTrigger>
+          <TabsTrigger value="payments" className="gap-1 text-[10px] sm:text-xs px-1 sm:px-3">
+            <Smartphone className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
+            <span className="truncate">Paiements</span>
+          </TabsTrigger>
         </TabsList>
+
+        {activeTab === "payments" && (
+          <TabsContent value="payments">
+            <div className="mt-3">
+              <PaymentRequestsPanel />
+            </div>
+          </TabsContent>
+        )}
 
         {["pending", "approved", "rejected"].map((tab) => (
           <TabsContent key={tab} value={tab}>

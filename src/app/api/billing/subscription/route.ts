@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import { getPlan, stripeConfigured } from '@/lib/plans';
+import { paddleConfigured, paddlePublicConfig, mobileMoneyConfig } from '@/lib/paddle';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,13 +15,17 @@ export async function GET(request: NextRequest) {
     const user = await db.user.findUnique({
       where: { id: auth.user.id },
       select: {
+        id: true,
         plan: true,
         planStatus: true,
         planInterval: true,
         currentPeriodEnd: true,
         role: true,
+        email: true,
         stripeCustomerId: true,
         stripeSubscriptionId: true,
+        paddleCustomerId: true,
+        paddleSubscriptionId: true,
       },
     });
 
@@ -28,15 +33,26 @@ export async function GET(request: NextRequest) {
 
     const plan = user.role === 'admin' ? getPlan('ELITE') : getPlan(user.plan);
 
+    const pendingRequest = await db.paymentRequest.findFirst({
+      where: { userId: user.id, status: 'PENDING' },
+      select: { id: true, plan: true, interval: true, method: true, amount: true, currency: true, createdAt: true },
+    });
+
     return NextResponse.json({
+      userId: user.id,
       plan: plan.id,
       planName: plan.name,
       planStatus: user.planStatus,
       interval: user.planInterval,
       currentPeriodEnd: user.currentPeriodEnd,
       isAdmin: user.role === 'admin',
-      hasSubscription: Boolean(user.stripeSubscriptionId),
-      billingConfigured: stripeConfigured(),
+      hasSubscription: Boolean(user.stripeSubscriptionId || user.paddleSubscriptionId),
+      billingConfigured: paddleConfigured() || stripeConfigured() || Boolean(mobileMoneyConfig()),
+      billingProvider: paddleConfigured() ? 'paddle' : stripeConfigured() ? 'stripe' : mobileMoneyConfig() ? 'mobile_money' : null,
+      paddle: paddlePublicConfig(),
+      mobileMoney: mobileMoneyConfig(),
+      email: user.email,
+      pendingRequest,
     });
   } catch (error) {
     console.error('Subscription fetch error:', error);
