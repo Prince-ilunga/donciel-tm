@@ -25,9 +25,6 @@ export async function GET(request: NextRequest) {
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
-    // Compte démo : lecture seule
-    const demoGuard = demoReadonlyGuard(result.user?.email);
-    if (demoGuard) return demoGuard;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -72,6 +69,10 @@ export async function POST(request: NextRequest) {
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
+
+    // Compte démo : lecture seule
+    const demoGuard = demoReadonlyGuard(result.user?.email);
+    if (demoGuard) return demoGuard;
 
     // ─── Plan gating : limite de playbooks ───
     const limitCheck = await checkPlaybookLimit(result.user.id);

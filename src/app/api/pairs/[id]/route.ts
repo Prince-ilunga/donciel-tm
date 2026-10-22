@@ -16,6 +16,7 @@ export async function DELETE(
     if (result.error || !result.user) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
+
     // Compte démo : lecture seule
     const demoGuard = demoReadonlyGuard(result.user?.email);
     if (demoGuard) return demoGuard;
