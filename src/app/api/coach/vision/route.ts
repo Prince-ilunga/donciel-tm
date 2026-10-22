@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
           {
             type: 'text',
             text:
-              'Tu es le Coach IA de DONCIEL™, expert en trading ICT (Inner Circle Trader) et en price action. ' +
+              'Tu es le Coach IA de DONCIEL™, expert en price action et en structure de marché. ' +
               'Tu analyses les captures d\'écran TradingView de traders. Réponds toujours en français, ' +
               'directement, sans markdown lourd. Structure ta réponse ainsi :\n' +
               '1. 📊 Ce que je vois (2-3 phrases : actif, timeframe, structure, niveaux)\n' +
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
               `Analyse ma capture de trade. Contexte du trade enregistré :\n${context}\n\n` +
               'Compare ce que tu vois sur le graphique avec ce contexte : est-ce que l\'entrée, ' +
               'le stop loss et le take profit semblent bien placés ? Le setup correspond-il à une ' +
-              'logique ICT cohérente (liquidity, order block, fair value gap, market structure) ?',
+              'logique de price action cohérente (liquidité, order block, fair value gap, structure de marché) ?',
           },
           { type: 'image_url', image_url: { url: dataUrl } },
         ],

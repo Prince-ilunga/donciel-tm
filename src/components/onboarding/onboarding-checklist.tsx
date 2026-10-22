@@ -90,7 +90,7 @@ export function OnboardingChecklist() {
       done: status.hasPlaybook,
       icon: BookOpen,
       title: "Crée ton premier playbook",
-      desc: "Tes règles d'entrée ICT par écrit : le document qui rend ton edge reproductible.",
+      desc: "Tes règles d'entrée par écrit : le document qui rend ton edge reproductible.",
       tab: "playbook",
       cta: "Créer",
     },
