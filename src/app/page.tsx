@@ -477,7 +477,7 @@ export default function LandingPage() {
               DONCIEL<sup className="text-base sm:text-lg align-super">TM</sup> en 45 secondes
             </h2>
             <p className="mt-4 text-neutral-400 sm:text-lg">
-              La tournée complète : setups ICT, Coach IA qui analyse tes graphiques, statistiques 360° et paiement Mobile Money.
+              La tournée complète : les setups A, B et C, le Coach IA qui analyse tes graphiques, les statistiques 360° et le paiement Mobile Money.
             </p>
           </div>
           <div className="relative rounded-3xl overflow-hidden border border-white/[0.08] bg-[#070a0f] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]">

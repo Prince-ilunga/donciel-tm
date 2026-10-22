@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // DONCIEL TM — Compte démo public
 // Un compte partagé "demo@donciel.tm" contenant un jeu de
-// données réaliste (10 trades ICT + captures) pour permettre
+// données réaliste (10 trades + captures) pour permettre
 // aux visiteurs de tester l'application sans créer de compte.
 //
 // Sécurité :
