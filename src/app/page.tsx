@@ -465,6 +465,39 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ═══ VIDÉO DE PRÉSENTATION ═══ */}
+      <section id="video" className="py-28 px-4 sm:px-6 scroll-mt-16 border-t border-white/[0.05]">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-4 py-1.5 text-xs font-medium text-neutral-300 mb-5">
+              <Sparkles className="w-3.5 h-3.5 text-sky-300" />
+              Visite guidée
+            </div>
+            <h2 className="text-3xl sm:text-[2.6rem] leading-[1.12] font-bold text-white tracking-tight">
+              DONCIEL<sup className="text-base sm:text-lg align-super">TM</sup> en 45 secondes
+            </h2>
+            <p className="mt-4 text-neutral-400 sm:text-lg">
+              La tournée complète : setups ICT, Coach IA qui analyse tes graphiques, statistiques 360° et paiement Mobile Money.
+            </p>
+          </div>
+          <div className="relative rounded-3xl overflow-hidden border border-white/[0.08] bg-[#070a0f] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]">
+            <video
+              controls
+              preload="metadata"
+              poster="/videos/presentation-poster.jpg"
+              className="w-full aspect-video block"
+              aria-label="Vidéo de présentation de DONCIEL TM"
+            >
+              <source src="/videos/presentation.mp4" type="video/mp4" />
+              Ton navigateur ne prend pas en charge la vidéo.
+            </video>
+          </div>
+          <p className="mt-4 text-center text-xs text-neutral-500">
+            Captures réelles de l&apos;application — compte démo inclus.
+          </p>
+        </div>
+      </section>
+
       {/* ═══ TARIFS ═══ */}
       <section id="pricing" className="py-28 px-4 sm:px-6 scroll-mt-16 border-t border-white/[0.05]">
         <div className="max-w-6xl mx-auto">
