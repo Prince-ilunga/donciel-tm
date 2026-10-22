@@ -156,6 +156,23 @@ export async function callOpenAICompat(
   const key = process.env.OPENAI_COMPAT_API_KEY;
   if (!base || !key) return null; // non configuré → stratégie suivante
 
+  const attempt = async (model: string) => {
+    const res = await fetch(`${base}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify({ model, messages }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (res.ok) return res.json();
+    const errBody = await res.text();
+    const err = new Error(`HTTP ${res.status}: ${errBody.slice(0, 150)}`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  };
+
   // Candidats : dernier qui marchait → modèle configuré → replis
   const candidates = [
     ...new Set(
@@ -165,37 +182,68 @@ export async function callOpenAICompat(
     ),
   ];
 
-  for (let i = 0; i < candidates.length; i++) {
-    const model = candidates[i];
-    const isLast = i === candidates.length - 1;
+  const tried: string[] = [];
+  for (const model of candidates) {
     try {
-      const res = await fetch(`${base}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify({ model, messages }),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-      if (!res.ok) {
-        const errBody = await res.text();
-        const modelUnavailable =
-          res.status === 404 ||
-          /no longer available|not found|does not exist|deprecat/i.test(errBody);
-        // Modèle retiré → bascule automatique sur le candidat suivant
-        if (modelUnavailable && !isLast) continue;
-        throw new Error(
-          `Provider IA (${base}) → HTTP ${res.status}: ${errBody.slice(0, 200)}`
-        );
-      }
+      const json = await attempt(model);
       lastWorkingCompatModel = model;
-      return res.json();
-    } catch (e) {
-      if (isLast) throw e;
+      return json;
+    } catch (e: any) {
+      tried.push(`${model} → ${e?.message || e}`);
+      const unavailable =
+        e?.status === 404 ||
+        /no longer available|not found|does not exist|deprecat/i.test(String(e?.message || ''));
+      // Erreur non liée au modèle (clé invalide, quota…) → inutile d'essayer d'autres modèles
+      if (!unavailable) throw new Error(`Provider IA (${base}) → ${e?.message || e}`);
     }
   }
-  throw new Error(`Provider IA (${base}) → aucun modèle candidat n'a répondu`);
+
+  // Tous les candidats sont indisponibles → découverte automatique
+  const discovered = await discoverCompatModels(base, key);
+  const variants: string[] = [];
+  for (const id of discovered.slice(0, 3)) {
+    variants.push(id);
+    if (id.startsWith('models/')) variants.push(id.slice('models/'.length));
+  }
+  for (const model of variants.filter((m) => !candidates.includes(m))) {
+    try {
+      const json = await attempt(model);
+      lastWorkingCompatModel = model;
+      return json;
+    } catch (e: any) {
+      tried.push(`${model} (auto) → ${e?.message || e}`);
+    }
+  }
+
+  throw new Error(`Provider IA (${base}) → aucun modèle disponible [${tried.join(' | ')}]`);
+}
+
+/**
+ * Liste les modèles disponibles du provider OpenAI-compatible
+ * (GET /models). Retourne les ids triés : les modèles "flash" d'abord.
+ */
+export async function discoverCompatModels(
+  base: string,
+  key: string,
+  timeoutMs = 20000
+): Promise<string[]> {
+  try {
+    const res = await fetch(`${base}/models`, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const ids: string[] = (data?.data || [])
+      .map((m: any) => String(m?.id || ''))
+      .filter(Boolean);
+    return ids.sort((a, b) => {
+      const score = (id: string) => (/flash/i.test(id) ? 0 : 1);
+      return score(a) - score(b);
+    });
+  } catch {
+    return [];
+  }
 }
 
 /**
