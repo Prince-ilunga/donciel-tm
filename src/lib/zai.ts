@@ -136,10 +136,11 @@ export async function callSandboxProxy(messages: { role: string; content: string
 //  - OPENAI_COMPAT_BASE_URL  ex: https://generativelanguage.googleapis.com/v1beta/openai
 //  - OPENAI_COMPAT_API_KEY   la clé API
 //  - OPENAI_COMPAT_MODEL     ex: gemini-3.8-flash (vision OK)
-const DEFAULT_COMPAT_MODEL = 'gemini-3.8-flash';
+const DEFAULT_COMPAT_MODEL = 'gemini-flash-latest';
 // Replis essayés automatiquement quand le modèle configuré n'est
-// plus disponible (ex: gemini-2.0-flash retiré par Google).
-const FALLBACK_COMPAT_MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+// plus disponible. « gemini-flash-latest » est un alias maintenu par
+// Google qui pointe toujours vers le flash stable actuel.
+const FALLBACK_COMPAT_MODELS = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-2.5-flash'];
 // Dernier modèle ayant répondu (mémoire par instance serverless)
 let lastWorkingCompatModel: string | null = null;
 
@@ -183,39 +184,56 @@ export async function callOpenAICompat(
   ];
 
   const tried: string[] = [];
-  for (const model of candidates) {
-    try {
-      const json = await attempt(model);
-      lastWorkingCompatModel = model;
-      return json;
-    } catch (e: any) {
-      tried.push(`${model} → ${e?.message || e}`);
-      const unavailable =
-        e?.status === 404 ||
-        /no longer available|not found|does not exist|deprecat/i.test(String(e?.message || ''));
-      // Erreur non liée au modèle (clé invalide, quota…) → inutile d'essayer d'autres modèles
-      if (!unavailable) throw new Error(`Provider IA (${base}) → ${e?.message || e}`);
-    }
-  }
 
-  // Tous les candidats sont indisponibles → découverte automatique
+  const attemptCandidates = async (list: string[]) => {
+    for (const model of list) {
+      try {
+        const json = await attempt(model);
+        lastWorkingCompatModel = model;
+        return json;
+      } catch (e: any) {
+        tried.push(`${model} → ${e?.message || e}`);
+        const status = e?.status;
+        const msg = String(e?.message || '');
+        const unavailable =
+          status === 404 || /no longer available|not found|does not exist|deprecat/i.test(msg);
+        const transient =
+          status === 503 ||
+          status === 429 ||
+          /high demand|overload|rate.?limit|resource.?exhaust/i.test(msg);
+        // Clé invalide / requête invalide → les autres modèles n'aideront pas
+        if (status === 401 || status === 403 || status === 400) {
+          throw new Error(`Provider IA (${base}) → ${e?.message || e}`);
+        }
+        // Modèle retiré OU surchargé → candidat suivant
+        if (!unavailable && !transient) {
+          throw new Error(`Provider IA (${base}) → ${e?.message || e}`);
+        }
+      }
+    }
+    return null;
+  };
+
+  const direct = await attemptCandidates(candidates);
+  if (direct) return direct;
+
+  // Tous les candidats sont indisponibles/surchargés → découverte automatique
   const discovered = await discoverCompatModels(base, key);
+  const pool = discovered
+    .filter((id) => !/tts|embed|audio|imagen|veo|native|live/i.test(id))
+    .slice(0, 8);
   const variants: string[] = [];
-  for (const id of discovered.slice(0, 3)) {
+  for (const id of pool) {
     variants.push(id);
     if (id.startsWith('models/')) variants.push(id.slice('models/'.length));
   }
-  for (const model of variants.filter((m) => !candidates.includes(m))) {
-    try {
-      const json = await attempt(model);
-      lastWorkingCompatModel = model;
-      return json;
-    } catch (e: any) {
-      tried.push(`${model} (auto) → ${e?.message || e}`);
-    }
-  }
+  const unique = [...new Set(variants)].filter((m) => !candidates.includes(m));
+  const auto = await attemptCandidates(unique.slice(0, 8));
+  if (auto) return auto;
 
-  throw new Error(`Provider IA (${base}) → aucun modèle disponible [${tried.join(' | ')}]`);
+  throw new Error(
+    `Provider IA (${base}) → aucun modèle disponible pour le moment [${tried.slice(0, 6).join(' | ')}]`
+  );
 }
 
 /**
@@ -238,7 +256,12 @@ export async function discoverCompatModels(
       .map((m: any) => String(m?.id || ''))
       .filter(Boolean);
     return ids.sort((a, b) => {
-      const score = (id: string) => (/flash/i.test(id) ? 0 : 1);
+      const score = (id: string) => {
+        if (/flash-latest$/i.test(id)) return 0; // alias toujours à jour
+        if (/flash/i.test(id) && !/preview|lite/i.test(id)) return 1;
+        if (/flash.*lite/i.test(id)) return 2;
+        return 3;
+      };
       return score(a) - score(b);
     });
   } catch {
