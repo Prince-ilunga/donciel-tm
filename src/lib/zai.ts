@@ -75,36 +75,58 @@ export async function getZAI() {
  *
  * Required env var: ZAI_PROXY_URL (e.g., http://8.212.10.159:81)
  */
+// Passerelle publique du sandbox (stable d'une session à l'autre).
+// Utilisée en secours si ZAI_PROXY_URL est absent ou injoignable.
+const SANDBOX_GATEWAY_FALLBACK = 'http://8.212.10.159:81';
+
+/** Liste ordonnée des URLs de proxy à essayer. */
+export function proxyBaseUrls(): string[] {
+  const urls: string[] = [];
+  const env = process.env.ZAI_PROXY_URL?.replace(/\/+$/, '');
+  if (env) urls.push(env);
+  if (!env || env !== SANDBOX_GATEWAY_FALLBACK) urls.push(SANDBOX_GATEWAY_FALLBACK);
+  return urls;
+}
+
+/**
+ * Appel unifié du proxy sandbox avec basculement automatique :
+ * essaie chaque URL candidate jusqu'à la première qui répond.
+ */
+async function proxyFetchLLM(body: Record<string, unknown>, timeoutMs = 180000): Promise<any> {
+  let lastError: any = null;
+  for (const base of proxyBaseUrls()) {
+    try {
+      const response = await fetch(`${base}/api/llm-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Proxy ${base} → HTTP ${response.status}: ${errorBody.slice(0, 200)}`);
+      }
+      return await response.json();
+    } catch (e: any) {
+      lastError = e;
+      console.error(`[ZAI Proxy] échec ${base}:`, e?.message);
+    }
+  }
+  throw lastError ?? new Error('Aucune URL de proxy disponible');
+}
+
+/**
+ * Call the ZAI LLM API through the sandbox proxy (avec fallback).
+ *
+ * On Vercel, internal-api.z.ai est injoignable (IPs privées) :
+ * on relaie via la passerelle sandbox. Si ZAI_PROXY_URL échoue,
+ * la passerelle publique par défaut est essayée automatiquement.
+ */
 export async function callSandboxProxy(messages: { role: string; content: string }[]): Promise<any> {
-  const proxyUrl = process.env.ZAI_PROXY_URL;
-  if (!proxyUrl) {
-    throw new Error('ZAI_PROXY_URL not configured. Set it to the sandbox URL (e.g., http://YOUR_SANDBOX_IP:81)');
-  }
-
-  const url = `${proxyUrl}/api/llm-proxy`;
-
-  console.log(`[ZAI Proxy] Calling sandbox proxy at ${url}`);
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages,
-      thinking: { type: 'disabled' },
-    }),
-    signal: AbortSignal.timeout(120000), // 2 min timeout for LLM responses
+  return proxyFetchLLM({
+    messages,
+    thinking: { type: 'disabled' },
   });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Sandbox proxy error (${response.status}): ${errorBody}`);
-  }
-
-  const data = await response.json();
-
-  // The /api/llm-proxy route returns the raw ZAI SDK response
-  // which has the same format as chat.completions.create()
-  return data;
 }
 
 /**
@@ -154,25 +176,11 @@ export type VisionMessage = {
  */
 export async function callZAIVision(messages: VisionMessage[]): Promise<any> {
   if (process.env.VERCEL) {
-    const proxyUrl = process.env.ZAI_PROXY_URL;
-    if (!proxyUrl) {
-      throw new Error('ZAI_PROXY_URL not configured');
-    }
-    const response = await fetch(`${proxyUrl}/api/llm-proxy`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages,
-        mode: 'vision',
-        thinking: { type: 'disabled' },
-      }),
-      signal: AbortSignal.timeout(180000),
+    return proxyFetchLLM({
+      messages,
+      mode: 'vision',
+      thinking: { type: 'disabled' },
     });
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Sandbox proxy error (${response.status}): ${errorBody}`);
-    }
-    return await response.json();
   }
 
   const zai = await getZAI();
