@@ -135,32 +135,67 @@ export async function callSandboxProxy(messages: { role: string; content: string
 // Env vars :
 //  - OPENAI_COMPAT_BASE_URL  ex: https://generativelanguage.googleapis.com/v1beta/openai
 //  - OPENAI_COMPAT_API_KEY   la clé API
-//  - OPENAI_COMPAT_MODEL     ex: gemini-2.0-flash (vision OK)
+//  - OPENAI_COMPAT_MODEL     ex: gemini-3.8-flash (vision OK)
+const DEFAULT_COMPAT_MODEL = 'gemini-3.8-flash';
+// Replis essayés automatiquement quand le modèle configuré n'est
+// plus disponible (ex: gemini-2.0-flash retiré par Google).
+const FALLBACK_COMPAT_MODELS = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+// Dernier modèle ayant répondu (mémoire par instance serverless)
+let lastWorkingCompatModel: string | null = null;
+
+/** Modèle effectivement utilisé (env → dernier qui marche → défaut) */
+export function openAICompatModel(): string {
+  return process.env.OPENAI_COMPAT_MODEL || lastWorkingCompatModel || DEFAULT_COMPAT_MODEL;
+}
+
 export async function callOpenAICompat(
   messages: unknown[],
   timeoutMs = 180000
 ): Promise<any | null> {
   const base = process.env.OPENAI_COMPAT_BASE_URL?.replace(/\/+$/, '');
   const key = process.env.OPENAI_COMPAT_API_KEY;
-  const model = process.env.OPENAI_COMPAT_MODEL || 'gemini-2.0-flash';
   if (!base || !key) return null; // non configuré → stratégie suivante
 
-  const res = await fetch(`${base}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
-    },
-    body: JSON.stringify({ model, messages }),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(
-      `Provider IA (${base}) → HTTP ${res.status}: ${errBody.slice(0, 200)}`
-    );
+  // Candidats : dernier qui marchait → modèle configuré → replis
+  const candidates = [
+    ...new Set(
+      [lastWorkingCompatModel, process.env.OPENAI_COMPAT_MODEL, ...FALLBACK_COMPAT_MODELS].filter(
+        (m): m is string => Boolean(m)
+      )
+    ),
+  ];
+
+  for (let i = 0; i < candidates.length; i++) {
+    const model = candidates[i];
+    const isLast = i === candidates.length - 1;
+    try {
+      const res = await fetch(`${base}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({ model, messages }),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+      if (!res.ok) {
+        const errBody = await res.text();
+        const modelUnavailable =
+          res.status === 404 ||
+          /no longer available|not found|does not exist|deprecat/i.test(errBody);
+        // Modèle retiré → bascule automatique sur le candidat suivant
+        if (modelUnavailable && !isLast) continue;
+        throw new Error(
+          `Provider IA (${base}) → HTTP ${res.status}: ${errBody.slice(0, 200)}`
+        );
+      }
+      lastWorkingCompatModel = model;
+      return res.json();
+    } catch (e) {
+      if (isLast) throw e;
+    }
   }
-  return res.json();
+  throw new Error(`Provider IA (${base}) → aucun modèle candidat n'a répondu`);
 }
 
 /**

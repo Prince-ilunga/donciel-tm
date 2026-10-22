@@ -19,7 +19,7 @@ export async function POST() {
     return NextResponse.json({ error: 'Réservé à l\'administrateur' }, { status: 403 });
   }
 
-  const { proxyBaseUrls, callOpenAICompat } = await import('@/lib/zai');
+  const { proxyBaseUrls, callOpenAICompat, openAICompatModel } = await import('@/lib/zai');
   const bases = proxyBaseUrls();
 
   // ─── Sonde du provider public OpenAI-compatible (si configuré) ───
@@ -34,7 +34,7 @@ export async function POST() {
       );
       compatProbe = {
         base: compatBase,
-        model: process.env.OPENAI_COMPAT_MODEL || 'gemini-2.0-flash',
+        model: openAICompatModel(),
         ok: true,
         ms: Date.now() - start,
         content: String(completion?.choices?.[0]?.message?.content || '').slice(0, 80),
