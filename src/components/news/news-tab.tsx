@@ -9,6 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { SessionsClock } from "@/components/journal/sessions-clock";
 import {
   Brain,
@@ -38,6 +48,8 @@ import {
   Timer,
   Gauge,
   Eye,
+  Plus,
+  X,
   Users,
   Sunrise,
   Flame,
@@ -56,9 +68,319 @@ import {
 // Constants
 // ──────────────────────────────────────────────────────
 
-const ASSETS = [
-  { id: "XAUUSD", emoji: "🥇", label_fr: "Or / Dollar", label_en: "Gold / Dollar", color: "from-amber-500/10 to-yellow-500/10" },
-] as const;
+// ──────────────────────────────────────────────────────
+// Assets registry — built-in instruments + user's custom
+// pairs (illimité) fetched from /api/pairs
+// ──────────────────────────────────────────────────────
+
+interface AssetOption {
+  id: string;
+  emoji: string;
+  label_fr: string;
+  label_en: string;
+  category: string;
+  color: string;
+  isCustom?: boolean;
+  customId?: string;
+  deletable?: boolean;
+}
+
+const BUILTIN_ASSETS: AssetOption[] = [
+  { id: "XAUUSD", emoji: "🥇", label_fr: "Or / Dollar", label_en: "Gold / Dollar", category: "METALS", color: "from-amber-500/10 to-yellow-500/10" },
+  { id: "XAGUSD", emoji: "🥈", label_fr: "Argent / Dollar", label_en: "Silver / Dollar", category: "METALS", color: "from-zinc-400/10 to-slate-400/10" },
+  { id: "EURUSD", emoji: "🇪🇺", label_fr: "Euro / Dollar", label_en: "Euro / Dollar", category: "FOREX", color: "from-sky-500/10 to-cyan-500/10" },
+  { id: "GBPUSD", emoji: "🇬🇧", label_fr: "Livre / Dollar", label_en: "Pound / Dollar", category: "FOREX", color: "from-purple-500/10 to-fuchsia-500/10" },
+  { id: "USDJPY", emoji: "🇯🇵", label_fr: "Dollar / Yen", label_en: "Dollar / Yen", category: "FOREX", color: "from-rose-500/10 to-red-500/10" },
+  { id: "BTCUSD", emoji: "₿", label_fr: "Bitcoin / Dollar", label_en: "Bitcoin / Dollar", category: "CRYPTO", color: "from-orange-500/10 to-amber-500/10" },
+  { id: "ETHUSD", emoji: "Ξ", label_fr: "Ethereum / Dollar", label_en: "Ethereum / Dollar", category: "CRYPTO", color: "from-violet-500/10 to-purple-500/10" },
+  { id: "NAS100", emoji: "📈", label_fr: "Nasdaq 100", label_en: "Nasdaq 100", category: "INDICES", color: "from-emerald-500/10 to-teal-500/10" },
+  { id: "US30", emoji: "🏛️", label_fr: "Dow Jones 30", label_en: "Dow Jones 30", category: "INDICES", color: "from-teal-500/10 to-emerald-500/10" },
+  { id: "USOIL", emoji: "🛢️", label_fr: "Pétrole WTI", label_en: "WTI Crude Oil", category: "ENERGY", color: "from-stone-500/10 to-neutral-500/10" },
+];
+
+const CATEGORY_LABEL: Record<string, { fr: string; en: string }> = {
+  METALS: { fr: "Métaux précieux", en: "Precious metals" },
+  FOREX: { fr: "Devises", en: "Forex" },
+  CRYPTO: { fr: "Crypto", en: "Crypto" },
+  INDICES: { fr: "Indices boursiers", en: "Stock indices" },
+  ENERGY: { fr: "Énergie", en: "Energy" },
+  SYNTHETIC: { fr: "Indices synthétiques", en: "Synthetic indices" },
+  OTHER: { fr: "Mes actifs", en: "My assets" },
+};
+
+/** Client-side emoji guessing for custom asset symbols */
+function emojiForAsset(name: string): string {
+  const s = name.toUpperCase();
+  if (/(BTC|ETH|SOL|XRP|BNB|DOGE|ADA|AVAX|LINK|DOT|LTC|TRX)/.test(s)) return "🪙";
+  if (/(XAU|GOLD|XAG|SILVER|PLAT|PALLAD|COPPER)/.test(s)) return "🥇";
+  if (/(NAS|US30|US500|SPX|DAX|CAC|FTSE|NIKKEI|DJ|SMI|IBEX|AEX)/.test(s)) return "📈";
+  if (/(OIL|WTI|BRENT|NGAS|GAS)/.test(s)) return "🛢️";
+  if (/(VOLATILIT|BOOM|CRASH|STEP|JUMP|DRIFT|DEX|RANGE BREAK)/.test(s)) return "⚡";
+  return "💱";
+}
+
+/** Fetch the user's pairs and merge them with the built-in registry */
+function useAssets() {
+  const [assets, setAssets] = useState<AssetOption[]>(BUILTIN_ASSETS);
+
+  const applyPairs = useCallback((data: any) => {
+    const extras: AssetOption[] = (data?.pairs || [])
+      .filter((p: any) => !(p.isDefault && BUILTIN_ASSETS.some((b) => b.id === p.name)))
+      .map((p: any) => ({
+        id: p.name,
+        emoji: emojiForAsset(p.name),
+        label_fr: p.name,
+        label_en: p.name,
+        category: emojiForAsset(p.name) === "⚡" ? "SYNTHETIC" : "OTHER",
+        color: "from-primary/10 to-primary/5",
+        isCustom: !p.isDefault,
+        customId: p.id,
+        deletable: !p.isDefault,
+      }));
+    setAssets([...BUILTIN_ASSETS, ...extras]);
+  }, []);
+
+  const reload = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pairs");
+      if (!res.ok) return;
+      const data = await res.json();
+      applyPairs(data);
+    } catch {
+      /* keep built-ins */
+    }
+  }, [applyPairs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/pairs");
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) applyPairs(data);
+      } catch {
+        /* keep built-ins */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyPairs]);
+
+  const addAsset = useCallback(async (name: string) => {
+    const res = await fetch("/api/pairs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Erreur lors de l'ajout");
+    await reload();
+  }, [reload]);
+
+  const removeAsset = useCallback(async (customId: string) => {
+    const res = await fetch(`/api/pairs/${customId}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Erreur lors de la suppression");
+    await reload();
+  }, [reload]);
+
+  return { assets, reload, addAsset, removeAsset };
+}
+
+/** Dialog to manage the user's custom assets (add / remove, illimité) */
+function AssetManagerDialog({
+  open,
+  onClose,
+  assets,
+  addAsset,
+  removeAsset,
+  language,
+}: {
+  open: boolean;
+  onClose: () => void;
+  assets: AssetOption[];
+  addAsset: (name: string) => Promise<void>;
+  removeAsset: (customId: string) => Promise<void>;
+  language: string;
+}) {
+  const isFr = language === "fr";
+  const [name, setName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const customAssets = assets.filter((a) => a.deletable);
+
+  const handleAdd = async () => {
+    if (!name.trim()) return;
+    setAdding(true);
+    try {
+      await addAsset(name.trim());
+      toast.success(isFr ? `Actif « ${name.trim().toUpperCase()} » ajouté` : `Asset "${name.trim().toUpperCase()}" added`);
+      setName("");
+    } catch (e: any) {
+      toast.error(e?.message || (isFr ? "Erreur lors de l'ajout" : "Error adding asset"));
+    }
+    setAdding(false);
+  };
+
+  const handleRemove = async (asset: AssetOption) => {
+    if (!asset.customId) return;
+    setDeletingId(asset.customId);
+    try {
+      await removeAsset(asset.customId);
+      toast.success(isFr ? `Actif « ${asset.id} » supprimé` : `Asset "${asset.id}" removed`);
+    } catch {
+      toast.error(isFr ? "Erreur lors de la suppression" : "Error removing asset");
+    }
+    setDeletingId(null);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Globe className="w-4 h-4 text-primary" />
+            {isFr ? "Gérer mes actifs" : "Manage my assets"}
+          </DialogTitle>
+          <DialogDescription>
+            {isFr
+              ? "Ajoutez autant d'actifs que vous voulez : devises, crypto, indices, métaux, indices synthétiques de votre broker..."
+              : "Add as many assets as you want: currencies, crypto, indices, metals, broker synthetic indices..."}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex gap-2">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+            placeholder={isFr ? "Ex: VOLATILITÉ 100, XPTUSD, SP500..." : "e.g. VOLATILITY 100, XPTUSD, SP500..."}
+            className="h-9 uppercase"
+          />
+          <Button onClick={handleAdd} disabled={adding || !name.trim()} className="gap-1.5 h-9 shrink-0">
+            {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            {isFr ? "Ajouter" : "Add"}
+          </Button>
+        </div>
+
+        {customAssets.length > 0 && (
+          <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              {isFr ? "Mes actifs personnalisés" : "My custom assets"} ({customAssets.length})
+            </p>
+            {customAssets.map((asset) => (
+              <div key={asset.customId} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <span>{asset.emoji}</span>
+                  {asset.id}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-destructive hover:text-destructive"
+                  onClick={() => handleRemove(asset)}
+                  disabled={deletingId === asset.customId}
+                >
+                  {deletingId === asset.customId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            {isFr ? "Fermer" : "Close"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Shared asset selector grid used by all Market sub-tabs.
+ * Displays built-in + custom assets and a management button.
+ */
+function AssetSelectorGrid({
+  language,
+  activeAsset,
+  onSelect,
+  allowAll = true,
+}: {
+  language: string;
+  activeAsset: string | null;
+  onSelect: (id: string | null) => void;
+  allowAll?: boolean;
+}) {
+  const isFr = language === "fr";
+  const { assets, addAsset, removeAsset } = useAssets();
+  const [manageOpen, setManageOpen] = useState(false);
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+        {allowAll && (
+          <button
+            onClick={() => onSelect(null)}
+            className={cn(
+              "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+              !activeAsset
+                ? "border-primary bg-primary/10 shadow-sm"
+                : "border-border hover:border-primary/30 bg-card"
+            )}
+          >
+            <div className="text-sm sm:text-lg">🌍</div>
+            <div className="text-[8px] sm:text-[10px] font-bold">{isFr ? "Tous" : "All"}</div>
+          </button>
+        )}
+        {assets.map((asset) => {
+          const isActive = activeAsset === asset.id;
+          return (
+            <button
+              key={asset.id}
+              onClick={() => onSelect(isActive && allowAll ? null : asset.id)}
+              className={cn(
+                "relative p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
+                isActive
+                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-sm"
+                  : "border-border hover:border-primary/30 bg-card"
+              )}
+            >
+              <div className="text-sm sm:text-lg">{asset.emoji}</div>
+              <div className="text-[7px] sm:text-[10px] font-bold truncate px-0.5">{asset.id}</div>
+              {asset.deletable && (
+                <span className="absolute top-1 right-1.5 text-[7px] uppercase tracking-wide text-primary/70 font-bold">
+                  {isFr ? "perso" : "custom"}
+                </span>
+              )}
+            </button>
+          );
+        })}
+        <button
+          onClick={() => setManageOpen(true)}
+          className="p-2 sm:p-3 rounded-xl border-2 border-dashed border-border hover:border-primary/50 bg-card transition-all duration-200 text-center"
+        >
+          <div className="text-sm sm:text-lg text-primary">＋</div>
+          <div className="text-[8px] sm:text-[10px] font-bold text-primary">
+            {isFr ? "Gérer" : "Manage"}
+          </div>
+        </button>
+      </div>
+
+      <AssetManagerDialog
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        assets={assets}
+        addAsset={addAsset}
+        removeAsset={removeAsset}
+        language={language}
+      />
+    </>
+  );
+}
 
 const DAYS_ORDER = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAYS_FR: Record<string, string> = { Mon: "Lun", Tue: "Mar", Wed: "Mer", Thu: "Jeu", Fri: "Ven", Sat: "Sam", Sun: "Dim" };
@@ -725,38 +1047,11 @@ function CalendarSubTab({ language }: { language: string }) {
       <PeriodFilterButtons period={period} setPeriod={setPeriod} language={language} />
 
       {/* Asset Selector */}
-      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-        <button
-          onClick={() => setActiveAsset(null)}
-          className={cn(
-            "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
-            !activeAsset
-              ? "border-primary bg-primary/10 shadow-sm"
-              : "border-border hover:border-primary/30 bg-card"
-          )}
-        >
-          <div className="text-sm sm:text-lg">🌍</div>
-          <div className="text-[8px] sm:text-[10px] font-bold">{isFr ? "Tous" : "All"}</div>
-        </button>
-        {ASSETS.map((asset) => {
-          const isActive = activeAsset === asset.id;
-          return (
-            <button
-              key={asset.id}
-              onClick={() => setActiveAsset(isActive ? null : asset.id)}
-              className={cn(
-                "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
-                isActive
-                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-sm"
-                  : "border-border hover:border-primary/30 bg-card"
-              )}
-            >
-              <div className="text-sm sm:text-lg">{asset.emoji}</div>
-              <div className="text-[7px] sm:text-[10px] font-bold">{asset.id}</div>
-            </button>
-          );
-        })}
-      </div>
+      <AssetSelectorGrid
+        language={language}
+        activeAsset={activeAsset}
+        onSelect={setActiveAsset}
+      />
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
@@ -1158,7 +1453,10 @@ function AnalysisSubTab({ language }: { language: string }) {
 
   const handleRefresh = () => fetchNews(activeAsset, periodFilter);
 
-  const currentAsset = ASSETS.find(a => a.id === activeAsset);
+  const currentAsset = useMemo(() => {
+    if (newsData?.assetLabel) return newsData.assetLabel as { fr: string; en: string; emoji: string };
+    return { fr: activeAsset, en: activeAsset, emoji: emojiForAsset(activeAsset) };
+  }, [newsData, activeAsset]);
   const analysis = newsData?.analysis;
   const aiPowered = newsData?.aiPowered;
 
@@ -1179,29 +1477,12 @@ function AnalysisSubTab({ language }: { language: string }) {
   return (
     <div className="space-y-4">
       {/* Asset Selector */}
-      <div className="grid grid-cols-1 gap-2 sm:gap-3">
-        {ASSETS.map((asset) => {
-          const isActive = activeAsset === asset.id;
-          return (
-            <button
-              key={asset.id}
-              onClick={() => setActiveAsset(asset.id)}
-              className={cn(
-                "p-3 sm:p-4 rounded-xl border-2 transition-all duration-200 text-center",
-                isActive
-                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-lg shadow-primary/10"
-                  : "border-border hover:border-primary/30 bg-card"
-              )}
-            >
-              <div className="text-lg sm:text-2xl mb-1">{asset.emoji}</div>
-              <div className="text-[10px] sm:text-sm font-bold">{asset.id}</div>
-              <div className="text-[8px] sm:text-xs text-muted-foreground hidden sm:block">
-                {language === "fr" ? asset.label_fr : asset.label_en}
-              </div>
-            </button>
-          );
-        })}
-      </div>
+      <AssetSelectorGrid
+        language={language}
+        activeAsset={activeAsset}
+        onSelect={(id) => id && setActiveAsset(id)}
+        allowAll={false}
+      />
 
       {/* Period Filter */}
       <div className="flex items-center gap-2">
@@ -1302,7 +1583,7 @@ function AnalysisSubTab({ language }: { language: string }) {
                       )}
                     </div>
                     <p className="text-[10px] text-muted-foreground">
-                      {currentAsset && (isFr ? currentAsset.label_fr : currentAsset.label_en)}
+                      {currentAsset && (isFr ? currentAsset.fr : currentAsset.en)}
                       {periodFilter === "today"
                         ? (isFr ? " · Aujourd'hui" : " · Today")
                         : (isFr ? " · Cette semaine" : " · This Week")}
@@ -1735,38 +2016,11 @@ function SentimentSubTab({ language }: { language: string }) {
       )}
 
       {/* Asset Selector */}
-      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-        <button
-          onClick={() => setActiveAsset(null)}
-          className={cn(
-            "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
-            !activeAsset
-              ? "border-primary bg-primary/10 shadow-sm"
-              : "border-border hover:border-primary/30 bg-card"
-          )}
-        >
-          <div className="text-sm sm:text-lg">🌍</div>
-          <div className="text-[8px] sm:text-[10px] font-bold">{isFr ? "Tous" : "All"}</div>
-        </button>
-        {ASSETS.map((asset) => {
-          const isActive = activeAsset === asset.id;
-          return (
-            <button
-              key={asset.id}
-              onClick={() => setActiveAsset(isActive ? null : asset.id)}
-              className={cn(
-                "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
-                isActive
-                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-sm"
-                  : "border-border hover:border-primary/30 bg-card"
-              )}
-            >
-              <div className="text-sm sm:text-lg">{asset.emoji}</div>
-              <div className="text-[7px] sm:text-[10px] font-bold">{asset.id}</div>
-            </button>
-          );
-        })}
-      </div>
+      <AssetSelectorGrid
+        language={language}
+        activeAsset={activeAsset}
+        onSelect={setActiveAsset}
+      />
 
       {/* Asset-specific sentiment */}
       {activeAsset && sentimentData?.assetSentiment && (
@@ -2154,38 +2408,11 @@ function AlertsSubTab({ language }: { language: string }) {
       )}
 
       {/* Asset Selector */}
-      <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-        <button
-          onClick={() => setActiveAsset(null)}
-          className={cn(
-            "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
-            !activeAsset
-              ? "border-primary bg-primary/10 shadow-sm"
-              : "border-border hover:border-primary/30 bg-card"
-          )}
-        >
-          <div className="text-sm sm:text-lg">🌍</div>
-          <div className="text-[8px] sm:text-[10px] font-bold">{isFr ? "Tous" : "All"}</div>
-        </button>
-        {ASSETS.map((asset) => {
-          const isActive = activeAsset === asset.id;
-          return (
-            <button
-              key={asset.id}
-              onClick={() => setActiveAsset(isActive ? null : asset.id)}
-              className={cn(
-                "p-2 sm:p-3 rounded-xl border-2 transition-all duration-200 text-center",
-                isActive
-                  ? "border-primary bg-gradient-to-br " + asset.color + " shadow-sm"
-                  : "border-border hover:border-primary/30 bg-card"
-              )}
-            >
-              <div className="text-sm sm:text-lg">{asset.emoji}</div>
-              <div className="text-[7px] sm:text-[10px] font-bold">{asset.id}</div>
-            </button>
-          );
-        })}
-      </div>
+      <AssetSelectorGrid
+        language={language}
+        activeAsset={activeAsset}
+        onSelect={setActiveAsset}
+      />
 
       {/* Asset-specific briefing */}
       {activeAsset && briefingData?.assetBriefing && (

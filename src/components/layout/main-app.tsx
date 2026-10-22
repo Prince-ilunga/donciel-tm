@@ -12,7 +12,6 @@ import {
   Calendar,
   BarChart3,
   Clock,
-  Video,
   StickyNote,
   ShieldCheck,
   Crown,
@@ -46,7 +45,6 @@ import { DashboardTab } from "@/components/dashboard/dashboard-tab";
 import { JournalTab } from "@/components/journal/journal-tab";
 import { DistributionTab } from "@/components/distribution/distribution-tab";
 import { TimingTab } from "@/components/timing/timing-tab";
-import { VideosTab } from "@/components/videos/videos-tab";
 import { NotesTab } from "@/components/notes/notes-tab";
 import { AdminTab } from "@/components/admin/admin-tab";
 import { RoleManagementTab } from "@/components/admin/role-management-tab";
@@ -68,7 +66,6 @@ const navItems: { id: TabId; icon: typeof LayoutDashboard; key: string; adminOnl
   { id: "distribution", icon: BarChart3, key: "distributionRR" },
   { id: "timing", icon: Clock, key: "timingAnalysis" },
   { id: "discipline", icon: ShieldAlert, key: "disciplineTab" },
-  { id: "videos", icon: Video, key: "setupVideos" },
   { id: "notes", icon: StickyNote, key: "prepNotes" },
   { id: "news", icon: Activity, key: "newsFundamental" },
   { id: "playbook", icon: BookOpen, key: "playbook" },
@@ -168,7 +165,6 @@ export function MainApp() {
       case "journal": return <JournalTab />;
       case "distribution": return <DistributionTab />;
       case "timing": return <TimingTab />;
-      case "videos": return <VideosTab />;
       case "notes": return <NotesTab />;
       case "news": return <NewsTab />;
       case "playbook": return <PlaybookTab />;

@@ -2,31 +2,288 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/auth';
 import { XMLParser } from 'fast-xml-parser';
 
-const ASSETS = ['XAUUSD'] as const;
-type Asset = (typeof ASSETS)[number];
+type Asset = string;
 
-const ASSET_LABELS: Record<Asset, { fr: string; en: string; emoji: string }> = {
-  XAUUSD: { fr: 'Or / Dollar', en: 'Gold / Dollar', emoji: '🥇' },
-};
+// ─────────────────────────────────────────────────────────────
+// Asset configuration registry — known assets get rich context,
+// unknown (custom) assets get a smart generic config derived
+// from the symbol name. This makes the Marché tab work with
+// ANY instrument the user trades (illimité).
+// ─────────────────────────────────────────────────────────────
 
-// Asset-specific context for AI analysis
-const ASSET_CONTEXT: Record<Asset, { sectors: string; drivers: string; correlations: string }> = {
+interface AssetEvent { title_fr: string; title_en: string; impact: string }
+
+export interface AssetConfig {
+  label: { fr: string; en: string; emoji: string };
+  category: 'METALS' | 'FOREX' | 'CRYPTO' | 'INDICES' | 'ENERGY' | 'SYNTHETIC' | 'OTHER';
+  sectors: string;
+  drivers: string;
+  correlations: string;
+  feeds: { id: number; keywords: string[] }[];
+  searchQuery: string;
+  events: AssetEvent[];
+}
+
+// Shared macro events — relevant for almost every asset class
+const MACRO_EVENTS: AssetEvent[] = [
+  { title_fr: 'IPC (Indice des Prix à la Consommation) US', title_en: 'US CPI (Consumer Price Index)', impact: 'HIGH' },
+  { title_fr: 'Décision de la FED sur les taux', title_en: 'FOMC Rate Decision', impact: 'HIGH' },
+  { title_fr: 'Emploi non-agricole US (NFP)', title_en: 'US Non-Farm Payrolls', impact: 'HIGH' },
+  { title_fr: 'Discours du Président de la Fed', title_en: 'Fed Chair Speech', impact: 'MEDIUM' },
+  { title_fr: 'Revendications chômage US', title_en: 'US Jobless Claims', impact: 'MEDIUM' },
+];
+
+const CRYPTO_EVENTS: AssetEvent[] = [
+  { title_fr: 'Décision de taux de la FED (impact risque)', title_en: 'FOMC Rate Decision (risk impact)', impact: 'HIGH' },
+  { title_fr: 'IPC US (inflation → appetite au risque)', title_en: 'US CPI (inflation → risk appetite)', impact: 'HIGH' },
+  { title_fr: 'Régulation crypto (SEC / MiCA)', title_en: 'Crypto regulation (SEC / MiCA)', impact: 'MEDIUM' },
+  { title_fr: 'Flows ETF spot (entrées/sorties)', title_en: 'Spot ETF flows (inflows/outflows)', impact: 'MEDIUM' },
+  { title_fr: 'Liquidations majeures du marché', title_en: 'Major market liquidations', impact: 'HIGH' },
+];
+
+const KNOWN_ASSETS: Record<string, AssetConfig> = {
   XAUUSD: {
+    label: { fr: 'Or / Dollar', en: 'Gold / Dollar', emoji: '🥇' },
+    category: 'METALS',
     sectors: 'precious metals, commodities, mining',
     drivers: 'Fed interest rates, US dollar strength, inflation data (CPI/PCE), geopolitical risk, central bank gold reserves, real yields',
     correlations: 'inversely correlated with US Dollar Index (DXY) and real yields; positively with inflation expectations and risk aversion',
-  },
-};
-
-// RSS feeds - each asset maps to multiple feed IDs
-const ASSET_RSS: Record<Asset, { feeds: { id: number; keywords: string[] }[] }> = {
-  XAUUSD: {
     feeds: [
       { id: 11, keywords: ['gold', 'xau', 'precious', 'commodit', 'fed', 'inflation', 'dollar', 'oil', 'energy', 'mining', 'metal', 'rate'] },
       { id: 1, keywords: ['gold', 'dollar', 'fed', 'inflation', 'rate', 'cpi', 'jobs', 'gdp'] },
     ],
+    searchQuery: 'gold price today XAUUSD market analysis',
+    events: MACRO_EVENTS,
+  },
+  XAGUSD: {
+    label: { fr: 'Argent / Dollar', en: 'Silver / Dollar', emoji: '🥈' },
+    category: 'METALS',
+    sectors: 'precious metals, industrial metals, mining',
+    drivers: 'industrial demand (solar, electronics), Fed rates, US dollar, gold price correlation, inflation data',
+    correlations: 'positively correlated with gold (higher beta); inversely with DXY and real yields',
+    feeds: [
+      { id: 11, keywords: ['silver', 'xag', 'precious', 'metal', 'commodit', 'gold', 'mining', 'rate'] },
+      { id: 1, keywords: ['silver', 'metal', 'commodities', 'inflation', 'dollar'] },
+    ],
+    searchQuery: 'silver price today XAGUSD market analysis',
+    events: MACRO_EVENTS,
+  },
+  EURUSD: {
+    label: { fr: 'Euro / Dollar', en: 'Euro / Dollar', emoji: '🇪🇺' },
+    category: 'FOREX',
+    sectors: 'foreign exchange, major currency pair',
+    drivers: 'ECB vs Fed rate differential, Eurozone inflation (HICP), US inflation (CPI), NFP, Eurozone PMI, energy prices',
+    correlations: 'inversely correlated with DXY; sensitive to EU/US yield spread',
+    feeds: [
+      { id: 1, keywords: ['euro', 'ecb', 'dollar', 'inflation', 'rate', 'cpi', 'forex', 'currency'] },
+      { id: 14, keywords: ['euro', 'ecb', 'eur', 'forex', 'currency', 'rate'] },
+    ],
+    searchQuery: 'EURUSD euro dollar forecast today analysis',
+    events: MACRO_EVENTS,
+  },
+  GBPUSD: {
+    label: { fr: 'Livre / Dollar', en: 'Pound / Dollar', emoji: '🇬🇧' },
+    category: 'FOREX',
+    sectors: 'foreign exchange, major currency pair',
+    drivers: 'BoE rate decisions, UK inflation (CPI), UK employment data, Fed policy, UK GDP, political risk',
+    correlations: 'inversely correlated with DXY; sensitive to UK/US yield spread',
+    feeds: [
+      { id: 1, keywords: ['pound', 'gbp', 'boe', 'dollar', 'inflation', 'rate', 'forex', 'currency'] },
+      { id: 14, keywords: ['pound', 'gbp', 'boe', 'uk', 'forex', 'currency'] },
+    ],
+    searchQuery: 'GBPUSD pound dollar forecast today analysis',
+    events: MACRO_EVENTS,
+  },
+  USDJPY: {
+    label: { fr: 'Dollar / Yen', en: 'Dollar / Yen', emoji: '🇯🇵' },
+    category: 'FOREX',
+    sectors: 'foreign exchange, major currency pair',
+    drivers: 'BoJ policy and yield curve control, Fed rates, US-Japan yield differential, risk sentiment, intervention risk',
+    correlations: 'correlated with US 10y yields and risk-on sentiment; sensitive to BoJ intervention',
+    feeds: [
+      { id: 1, keywords: ['yen', 'boj', 'japan', 'dollar', 'rate', 'forex', 'currency'] },
+      { id: 14, keywords: ['yen', 'boj', 'jpy', 'japan', 'forex', 'currency'] },
+    ],
+    searchQuery: 'USDJPY dollar yen forecast today analysis',
+    events: MACRO_EVENTS,
+  },
+  BTCUSD: {
+    label: { fr: 'Bitcoin / Dollar', en: 'Bitcoin / Dollar', emoji: '₿' },
+    category: 'CRYPTO',
+    sectors: 'cryptocurrencies, digital assets, blockchain',
+    drivers: 'spot ETF flows, Fed policy and risk appetite, regulation (SEC/MiCA), halving cycle, institutional adoption, on-chain data',
+    correlations: 'correlated with Nasdaq and risk assets in risk-off episodes; inversely with DXY strength',
+    feeds: [
+      { id: 1, keywords: ['bitcoin', 'btc', 'crypto', 'etf', 'blockchain', 'digital asset'] },
+      { id: 11, keywords: ['bitcoin', 'crypto', 'etf', 'blockchain'] },
+    ],
+    searchQuery: 'bitcoin BTCUSD price today analysis forecast',
+    events: CRYPTO_EVENTS,
+  },
+  ETHUSD: {
+    label: { fr: 'Ethereum / Dollar', en: 'Ethereum / Dollar', emoji: 'Ξ' },
+    category: 'CRYPTO',
+    sectors: 'cryptocurrencies, smart contracts, DeFi',
+    drivers: 'ETF flows, network activity and fees, staking, DeFi/TVL growth, regulation, ETH/BTC ratio',
+    correlations: 'correlated with BTC (higher beta); sensitive to tech/risk sentiment',
+    feeds: [
+      { id: 1, keywords: ['ethereum', 'eth', 'crypto', 'defi', 'blockchain', 'etf'] },
+      { id: 11, keywords: ['ethereum', 'crypto', 'defi', 'blockchain'] },
+    ],
+    searchQuery: 'ethereum ETHUSD price today analysis forecast',
+    events: CRYPTO_EVENTS,
+  },
+  NAS100: {
+    label: { fr: 'Nasdaq 100', en: 'Nasdaq 100', emoji: '📈' },
+    category: 'INDICES',
+    sectors: 'US tech equities, index trading',
+    drivers: 'Fed rates, US inflation, big tech earnings (Magnificent 7), AI narrative, Treasury yields, risk sentiment',
+    correlations: 'inversely correlated with Treasury yields (duration-sensitive); correlated with risk appetite',
+    feeds: [
+      { id: 1, keywords: ['nasdaq', 'stocks', 'tech', 'earnings', 'fed', 'inflation', 'market'] },
+      { id: 11, keywords: ['nasdaq', 'stocks', 'tech', 'market', 'earnings'] },
+    ],
+    searchQuery: 'nasdaq 100 NAS100 today analysis forecast',
+    events: MACRO_EVENTS,
+  },
+  US30: {
+    label: { fr: 'Dow Jones 30', en: 'Dow Jones 30', emoji: '🏛️' },
+    category: 'INDICES',
+    sectors: 'US blue-chip equities, index trading',
+    drivers: 'Fed policy, US macro data (CPI, NFP, GDP), industrial and financial earnings, consumer confidence',
+    correlations: 'correlated with US economic cycle; less rate-sensitive than Nasdaq',
+    feeds: [
+      { id: 1, keywords: ['dow', 'stocks', 'market', 'fed', 'inflation', 'economy'] },
+      { id: 11, keywords: ['dow', 'stocks', 'market', 'economy'] },
+    ],
+    searchQuery: 'dow jones US30 today analysis forecast',
+    events: MACRO_EVENTS,
+  },
+  USOIL: {
+    label: { fr: 'Pétrole WTI', en: 'WTI Crude Oil', emoji: '🛢️' },
+    category: 'ENERGY',
+    sectors: 'energy, commodities, oil & gas',
+    drivers: 'OPEC+ decisions, US inventories (EIA), geopolitics (Middle East, Russia), global demand outlook, US dollar',
+    correlations: 'positively with inflation expectations; inversely with DXY; sensitive to geopolitical risk premium',
+    feeds: [
+      { id: 11, keywords: ['oil', 'crude', 'opec', 'energy', 'wti', 'petroleum'] },
+      { id: 1, keywords: ['oil', 'opec', 'energy', 'inflation'] },
+    ],
+    searchQuery: 'crude oil WTI price today analysis',
+    events: MACRO_EVENTS,
   },
 };
+
+/** Sanitize a user-provided asset name (uppercase, safe charset, max 30 chars) */
+export function sanitizeAsset(raw: string | null | undefined): string {
+  if (!raw) return 'XAUUSD';
+  return raw.trim().toUpperCase().replace(/[^A-Z0-9 ._-]/g, '').slice(0, 30) || 'XAUUSD';
+}
+
+/**
+ * Resolve any asset name to a full configuration.
+ * Unknown / custom assets get a smart generic config derived from
+ * the symbol pattern — so users can track ANY instrument.
+ */
+export function getAssetConfig(asset: string): AssetConfig {
+  const known = KNOWN_ASSETS[asset];
+  if (known) return known;
+
+  const sym = asset.toUpperCase();
+
+  // Pattern detection for common instrument families
+  const isCrypto = /(BTC|ETH|SOL|XRP|BNB|DOGE|ADA|AVAX|LINK|DOT|LTC|TRX)/.test(sym);
+  const isMetal = /(XAU|XAG|GOLD|SILVER|PLAT|PALLAD|COPPER)/.test(sym);
+  const isIndex = /(NAS|US30|US500|SPX|DAX|CAC|FTSE|NIKKEI|DJ|SMI|IBEX|AEX)/.test(sym);
+  const isEnergy = /(OIL|WTI|BRENT|NGAS|GAS|HEATING)/.test(sym);
+  // Synthetic / derived indices (Deriv, MT5 brokers) — very popular in RDC
+  const isSynthetic = /(VOLATILIT|BOOM|CRASH|STEP|JUMP|DRIFT|RANGE BREAK|DEX)/.test(sym);
+
+  const label = { fr: sym, en: sym, emoji: isCrypto ? '🪙' : isMetal ? '🥇' : isIndex ? '📈' : isEnergy ? '🛢️' : isSynthetic ? '⚡' : '💱' };
+  const category: AssetConfig['category'] = isCrypto ? 'CRYPTO' : isMetal ? 'METALS' : isIndex ? 'INDICES' : isEnergy ? 'ENERGY' : isSynthetic ? 'SYNTHETIC' : 'FOREX';
+
+  if (isCrypto) {
+    return {
+      label, category,
+      sectors: 'cryptocurrencies, digital assets',
+      drivers: 'Fed policy and risk appetite, regulation, ETF flows, adoption, market liquidity',
+      correlations: 'correlated with risk assets (Nasdaq); inversely with DXY in risk-off episodes',
+      feeds: [
+        { id: 1, keywords: ['crypto', 'bitcoin', 'etf', 'regulation', 'fed'] },
+        { id: 11, keywords: ['crypto', 'bitcoin', 'blockchain', 'digital'] },
+      ],
+      searchQuery: `${asset} crypto price today analysis forecast`,
+      events: CRYPTO_EVENTS,
+    };
+  }
+
+  if (isSynthetic) {
+    return {
+      label, category: 'SYNTHETIC',
+      sectors: 'synthetic indices, derived instruments (broker-generated volatility)',
+      drivers: 'broker volatility algorithm (macro news independent), general risk sentiment of clients, weekend trading',
+      correlations: 'macro-news independent by design; follow your broker volatility index behaviour',
+      feeds: [
+        { id: 1, keywords: ['market', 'volatility', 'trading', 'fed', 'risk'] },
+        { id: 14, keywords: ['volatility', 'trading', 'market', 'risk'] },
+      ],
+      searchQuery: `${asset} volatility index today analysis`,
+      events: MACRO_EVENTS,
+    };
+  }
+
+  if (isIndex) {
+    return {
+      label, category: 'INDICES',
+      sectors: 'equity indices, index trading',
+      drivers: 'central bank policy, macro data (CPI, NFP, GDP), earnings season, risk sentiment, Treasury yields',
+      correlations: 'correlated with economic cycle and risk appetite; inversely with rates for tech-heavy indices',
+      feeds: [
+        { id: 1, keywords: ['stocks', 'market', 'index', 'fed', 'inflation', 'economy'] },
+        { id: 11, keywords: ['stocks', 'market', 'index', 'economy'] },
+      ],
+      searchQuery: `${asset} index price today analysis forecast`,
+      events: MACRO_EVENTS,
+    };
+  }
+
+  if (isEnergy) {
+    return {
+      label, category: 'ENERGY',
+      sectors: 'energy, commodities',
+      drivers: 'OPEC+ decisions, inventories, geopolitics, global demand outlook, US dollar',
+      correlations: 'positively with inflation expectations; inversely with DXY',
+      feeds: [
+        { id: 11, keywords: ['oil', 'energy', 'gas', 'opec', 'commodit'] },
+        { id: 1, keywords: ['oil', 'energy', 'opec', 'inflation'] },
+      ],
+      searchQuery: `${asset} price today analysis forecast`,
+      events: MACRO_EVENTS,
+    };
+  }
+
+  // Default: forex / generic market instrument
+  return {
+    label, category,
+    sectors: isMetal ? 'precious metals, commodities' : 'foreign exchange, currency markets',
+    drivers: 'central bank policies (Fed, ECB, BoE, BoJ), macro data (CPI, NFP, GDP), risk sentiment, US dollar strength',
+    correlations: 'sensitive to DXY and interest rate differentials; correlated with risk sentiment',
+    feeds: [
+      { id: 1, keywords: ['fed', 'inflation', 'rate', 'cpi', 'dollar', 'forex', 'currency', 'market'] },
+      { id: 14, keywords: ['forex', 'currency', 'rate', 'inflation', 'market'] },
+      { id: 11, keywords: ['gold', 'commodit', 'dollar', 'market'] },
+    ],
+    searchQuery: `${asset} price today market analysis forecast`,
+    events: MACRO_EVENTS,
+  };
+}
+
+// Legacy alias kept for compatibility with existing imports
+const ASSET_LABELS: Record<string, AssetConfig['label']> = new Proxy({} as Record<string, AssetConfig['label']>, {
+  get(_t, prop: string) {
+    return getAssetConfig(String(prop)).label;
+  },
+});
 
 // In-memory cache
 interface CacheEntry { data: any; timestamp: number; }
@@ -156,8 +413,8 @@ async function analyzeWithFinanceAI(asset: Asset, newsItems: any[], language: st
     if (!newsSummary.trim()) return null;
 
     const lang = language === 'fr' ? 'fr' : 'en';
-    const assetLabel = ASSET_LABELS[asset][lang === 'fr' ? 'fr' : 'en'];
-    const context = ASSET_CONTEXT[asset];
+    const assetLabel = getAssetConfig(asset).label[lang === 'fr' ? 'fr' : 'en'];
+    const context = getAssetConfig(asset);
     const periodLabel = period === 'today'
       ? (lang === 'fr' ? "d'aujourd'hui" : "for today")
       : (lang === 'fr' ? "de cette semaine" : "for this week");
@@ -222,12 +479,10 @@ async function searchLatestMarketData(asset: Asset, language: string): Promise<a
     const { getZAI } = await import('@/lib/zai');
     const zai = await getZAI();
 
-    const searchQueries: Record<Asset, string> = {
-      XAUUSD: 'gold price today XAUUSD market analysis',
-    };
+    const query = getAssetConfig(asset).searchQuery;
 
     const results = await zai.functions.invoke('web_search', {
-      query: searchQueries[asset],
+      query,
       num: 5,
       recency_days: 1,
     });
@@ -295,22 +550,12 @@ function generateBasicAnalysis(asset: Asset, newsItems: any[], language: string)
   };
 }
 
-// Generate upcoming economic events based on typical weekly calendar
+// Generate upcoming economic events for the asset (macro calendar)
 function generateUpcomingEvents(asset: Asset, language: string): any[] {
   const now = new Date();
   const events: any[] = [];
 
-  const commonEvents: Record<string, { title_fr: string; title_en: string; impact: string }[]> = {
-    XAUUSD: [
-      { title_fr: 'IPC (Indice des Prix à la Consommation) US', title_en: 'US CPI (Consumer Price Index)', impact: 'HIGH' },
-      { title_fr: 'Décision de la FED sur les taux', title_en: 'FOMC Rate Decision', impact: 'HIGH' },
-      { title_fr: 'Discours du Président de la Fed', title_en: 'Fed Chair Speech', impact: 'MEDIUM' },
-      { title_fr: 'Emploi non-agricole US (NFP)', title_en: 'US Non-Farm Payrolls', impact: 'HIGH' },
-      { title_fr: 'Revendications chômage US', title_en: 'US Jobless Claims', impact: 'MEDIUM' },
-    ],
-  };
-
-  const assetEvents = commonEvents[asset] || [];
+  const assetEvents = getAssetConfig(asset).events;
   let dayOffset = 1;
 
   for (const evt of assetEvents) {
@@ -360,13 +605,11 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const asset = searchParams.get('asset') as Asset || 'XAUUSD';
+    const asset = sanitizeAsset(searchParams.get('asset'));
     const language = searchParams.get('lang') || 'fr';
     const period = searchParams.get('period') || 'week';
 
-    if (!ASSETS.includes(asset)) {
-      return NextResponse.json({ error: 'Actif invalide' }, { status: 400 });
-    }
+    const config = getAssetConfig(asset);
 
     // Check cache
     const cacheKey = `${asset}-${language}-${period}`;
@@ -376,7 +619,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 1. Fetch from RSS feeds with keyword filtering
-    const feedConfigs = ASSET_RSS[asset].feeds;
+    const feedConfigs = config.feeds;
     const allFeedResults = await Promise.all(
       feedConfigs.map(fc => fetchRSSFeed(fc.id, fc.keywords))
     );
@@ -467,7 +710,8 @@ export async function GET(request: NextRequest) {
 
     const responseData = {
       asset,
-      assetLabel: ASSET_LABELS[asset],
+      assetLabel: config.label,
+      assetCategory: config.category,
       period,
       news: enrichedNews,
       upcomingEvents,

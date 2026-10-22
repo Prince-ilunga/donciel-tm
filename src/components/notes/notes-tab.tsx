@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useRef, Component } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef, Component } from "react";
 import type { ReactNode, ErrorInfo } from "react";
 import { useAppStore } from "@/stores/app-store";
 import { useNotes } from "@/lib/hooks";
 import { getFileUrl } from "@/lib/file-url";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,6 +38,14 @@ import {
   CalendarRange,
   Calendar as CalIcon,
   AlertTriangle,
+  CheckCircle2,
+  Pin,
+  PinOff,
+  ListChecks,
+  Flag,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, isToday, isYesterday, isThisWeek, isThisMonth, parseISO } from "date-fns";
@@ -54,6 +63,12 @@ interface Note {
   title: string;
   content: string;
   date: string;
+  mood: string | null;
+  confidence: number | null;
+  marketBias: string | null;
+  tags: string | null;
+  checklist: string | null; // JSON [{text, checked}]
+  priority: string | null; // LOW, MEDIUM, HIGH, URGENT
   pinned: boolean;
   createdAt: string;
   updatedAt: string;
@@ -61,6 +76,11 @@ interface Note {
 }
 
 type NoteType = "DAY" | "WEEK" | "MONTH";
+
+interface ChecklistItem {
+  text: string;
+  checked: boolean;
+}
 
 // ─── Error Boundary (safety net) ───────────────────────────
 interface ErrorBoundaryState {
@@ -132,6 +152,63 @@ const NOTE_TYPES: { id: NoteType; label_fr: string; label_en: string; icon: type
   { id: "MONTH", label_fr: "Mois", label_en: "Month", icon: CalendarRange },
 ];
 
+const MOODS = ["😊", "😐", "😤", "🧠", "💪", "😴"];
+
+const BIASES: { id: string; fr: string; en: string; icon: typeof TrendingUp }[] = [
+  { id: "BULLISH", fr: "Haussier", en: "Bullish", icon: TrendingUp },
+  { id: "BEARISH", fr: "Baissier", en: "Bearish", icon: TrendingDown },
+  { id: "NEUTRAL", fr: "Neutre", en: "Neutral", icon: Minus },
+];
+
+const PRIORITIES: { id: string; fr: string; en: string; cls: string }[] = [
+  { id: "LOW", fr: "Basse", en: "Low", cls: "bg-slate-500/15 text-slate-600 dark:text-slate-300 border-slate-500/30" },
+  { id: "MEDIUM", fr: "Moyenne", en: "Medium", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/30" },
+  { id: "HIGH", fr: "Haute", en: "High", cls: "bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/30" },
+  { id: "URGENT", fr: "Urgente", en: "Urgent", cls: "bg-red-500/15 text-red-600 dark:text-red-300 border-red-500/30" },
+];
+
+/** Structured preparation templates — prefill content per note type */
+const TEMPLATES: Record<NoteType, { fr: string; en: string; content: string }> = {
+  DAY: {
+    fr: "Préparation de session",
+    en: "Session prep",
+    content: `📋 BIAIS DU JOUR :\n🎯 PAIRES À TRADER :\n📏 NIVEAUX CLÉS :\n⏰ SESSIONS À TRADER :\n✅ CHECKLIST PRÉ-SESSION :\n- [ ] Mon setup du playbook est-il présent ?\n- [ ] Ai-je vérifié le calendrier économique ?\n- [ ] Mon risque par trade est-il défini ?\n⚠️ RISQUES À SURVEILLER :`,
+  },
+  WEEK: {
+    fr: "Review hebdomadaire",
+    en: "Weekly review",
+    content: `✅ CE QUI A MARCHÉ :\n❌ CE QUI N'A PAS MARCHÉ :\n💡 LEÇONS DE LA SEMAINE :\n🎯 OBJECTIFS SEMAINE PROCHAINE :`,
+  },
+  MONTH: {
+    fr: "Bilan mensuel",
+    en: "Monthly review",
+    content: `📊 BILAN DU MOIS (stats) :\n🏆 VICTOIRES :\n🧠 LEÇONS APPRISES :\n⚠️ ERREURS RÉCURRENTES :\n🎯 OBJECTIFS DU MOIS PROCHAIN :`,
+  },
+};
+
+function parseChecklist(raw: string | null): ChecklistItem[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((i: any) => i && typeof i.text === "string")
+        .map((i: any) => ({ text: i.text, checked: Boolean(i.checked) }));
+    }
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+
+function getPriorityMeta(id: string | null) {
+  return PRIORITIES.find((p) => p.id === id) || null;
+}
+
+function getBiasMeta(id: string | null) {
+  return BIASES.find((b) => b.id === id) || null;
+}
+
 function getNoteTypeMeta(type: string) {
   return NOTE_TYPES.find((t) => t.id === type) || NOTE_TYPES[0];
 }
@@ -166,6 +243,7 @@ function NotesTabInner({ language }: { language: "fr" | "en" }) {
   const { notes, loading, refetch } = useNotes();
   const [showForm, setShowForm] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [presetType, setPresetType] = useState<NoteType | null>(null);
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<NoteType | "ALL">("ALL");
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -180,7 +258,7 @@ function NotesTabInner({ language }: { language: "fr" | "en" }) {
     return true;
   });
 
-  // Group notes by date label
+  // Group notes by date label (pinned notes first within each group)
   const groups: { label: string; items: Note[] }[] = [];
   const groupMap = new Map<string, Note[]>();
   filteredNotes.forEach((n) => {
@@ -188,7 +266,10 @@ function NotesTabInner({ language }: { language: "fr" | "en" }) {
     if (!groupMap.has(label)) groupMap.set(label, []);
     groupMap.get(label)!.push(n);
   });
-  groupMap.forEach((items, label) => groups.push({ label, items }));
+  groupMap.forEach((items, label) => {
+    items.sort((a, b) => (a.pinned === b.pinned ? 0 : a.pinned ? -1 : 1));
+    groups.push({ label, items });
+  });
 
   const handleEdit = (note: Note) => {
     setEditingNote(note);
@@ -197,6 +278,7 @@ function NotesTabInner({ language }: { language: "fr" | "en" }) {
 
   const handleNew = () => {
     setEditingNote(null);
+    setPresetType(null);
     setShowForm(true);
   };
 
@@ -222,6 +304,32 @@ function NotesTabInner({ language }: { language: "fr" | "en" }) {
     }
   };
 
+  const handleTogglePin = async (note: Note) => {
+    try {
+      const res = await fetch(`/api/notes/${note.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinned: !note.pinned }),
+      });
+      if (!res.ok) throw new Error("pin failed");
+      toast.success(fr ? (note.pinned ? "Note désépinglée" : "Note épinglée") : note.pinned ? "Note unpinned" : "Note pinned");
+      refetch();
+    } catch {
+      toast.error(fr ? "Erreur lors de l'épinglage" : "Error pinning note");
+    }
+  };
+
+  // Quick stats
+  const counts = useMemo(() => {
+    const all = notes as Note[];
+    return {
+      DAY: all.filter((n) => n.type === "DAY").length,
+      WEEK: all.filter((n) => n.type === "WEEK").length,
+      MONTH: all.filter((n) => n.type === "MONTH").length,
+      pinned: all.filter((n) => n.pinned).length,
+    };
+  }, [notes]);
+
   return (
     <div className="space-y-4 pb-6">
       {/* Header */}
@@ -232,13 +340,49 @@ function NotesTabInner({ language }: { language: "fr" | "en" }) {
             {fr ? "Notes de Préparation" : "Preparation Notes"}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {fr ? "Notez vos observations et joignez vos captures" : "Write your observations and attach screenshots"}
+            {fr
+              ? "Prépare tes sessions, révise tes semaines, épingle tes stratégies clés"
+              : "Prep your sessions, review your weeks, pin your key strategies"}
           </p>
         </div>
-        <Button onClick={handleNew} className="gap-2 w-full sm:w-auto">
-          <Plus className="w-4 h-4" />
-          {fr ? "Ajouter une Note" : "Add Note"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {NOTE_TYPES.map((nt) => (
+            <Button
+              key={nt.id}
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditingNote(null);
+                setPresetType(nt.id);
+                setShowForm(true);
+              }}
+              className="gap-1.5 h-9"
+            >
+              <nt.icon className="w-3.5 h-3.5" />
+              {fr ? nt.label_fr : nt.label_en}
+            </Button>
+          ))}
+          <Button onClick={handleNew} className="gap-2">
+            <Plus className="w-4 h-4" />
+            {fr ? "Ajouter" : "Add"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-4 gap-2">
+        {[
+          { label: fr ? "Journée" : "Day", value: counts.DAY, icon: Sun },
+          { label: fr ? "Semaine" : "Week", value: counts.WEEK, icon: CalendarDays },
+          { label: fr ? "Mois" : "Month", value: counts.MONTH, icon: CalendarRange },
+          { label: fr ? "Épinglées" : "Pinned", value: counts.pinned, icon: Pin },
+        ].map((s) => (
+          <Card key={s.label} className="p-3 text-center">
+            <s.icon className="w-3.5 h-3.5 mx-auto text-muted-foreground mb-1" />
+            <div className="text-lg font-bold font-mono">{s.value}</div>
+            <div className="text-[10px] text-muted-foreground truncate">{s.label}</div>
+          </Card>
+        ))}
       </div>
 
       {/* Filters */}
@@ -313,6 +457,7 @@ function NotesTabInner({ language }: { language: "fr" | "en" }) {
                       language={language}
                       onEdit={() => handleEdit(note)}
                       onDelete={() => handleDelete(note)}
+                      onTogglePin={() => handleTogglePin(note)}
                       onViewScreenshot={setViewerUrl}
                     />
                   ))}
@@ -328,6 +473,7 @@ function NotesTabInner({ language }: { language: "fr" | "en" }) {
         <NoteFormDialog
           language={language}
           note={editingNote}
+          presetType={presetType}
           onClose={handleClose}
           onSaved={handleSaved}
         />
@@ -361,17 +507,23 @@ function NoteCard({
   language,
   onEdit,
   onDelete,
+  onTogglePin,
   onViewScreenshot,
 }: {
   note: Note;
   language: "fr" | "en";
   onEdit: () => void;
   onDelete: () => void;
+  onTogglePin: () => void;
   onViewScreenshot: (url: string) => void;
 }) {
   const fr = language === "fr";
   const meta = getNoteTypeMeta(note.type);
   const TypeIcon = meta.icon;
+  const priorityMeta = getPriorityMeta(note.priority);
+  const biasMeta = getBiasMeta(note.marketBias);
+  const checklist = parseChecklist(note.checklist);
+  const checkedCount = checklist.filter((c) => c.checked).length;
 
   let dateLabel = "";
   try {
@@ -385,10 +537,20 @@ function NoteCard({
     note.content.length > 180 ? note.content.slice(0, 180) + "..." : note.content;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 hover:border-foreground/20 transition-colors">
+    <div
+      className={cn(
+        "rounded-xl border bg-card p-4 transition-colors relative",
+        note.pinned ? "border-primary/50 bg-primary/5" : "border-border hover:border-foreground/20"
+      )}
+    >
+      {/* Pinned marker */}
+      {note.pinned && (
+        <Pin className="absolute -top-2 -left-2 w-5 h-5 text-primary fill-primary drop-shadow" />
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <Badge variant="outline" className="gap-1 shrink-0">
             <TypeIcon className="w-3 h-3" />
             {fr ? meta.label_fr : meta.label_en}
@@ -396,8 +558,23 @@ function NoteCard({
           {dateLabel && (
             <span className="text-xs text-muted-foreground shrink-0">{dateLabel}</span>
           )}
+          {priorityMeta && (
+            <Badge variant="outline" className={cn("text-[9px] shrink-0", priorityMeta.cls)}>
+              <Flag className="w-2.5 h-2.5" />
+              {fr ? priorityMeta.fr : priorityMeta.en}
+            </Badge>
+          )}
         </div>
         <div className="flex gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("h-7 w-7", note.pinned && "text-primary")}
+            onClick={onTogglePin}
+            title={note.pinned ? (fr ? "Désépingler" : "Unpin") : fr ? "Épingler" : "Pin"}
+          >
+            {note.pinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+          </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}>
             <Edit3 className="w-3.5 h-3.5" />
           </Button>
@@ -410,11 +587,46 @@ function NoteCard({
       {/* Title */}
       <h4 className="font-semibold text-sm mb-1 line-clamp-1">{note.title}</h4>
 
+      {/* Mood / confidence / bias row */}
+      {(note.mood || note.confidence != null || biasMeta) && (
+        <div className="flex items-center gap-2 flex-wrap mb-1.5 text-xs">
+          {note.mood && <span title="Humeur">{note.mood}</span>}
+          {note.confidence != null && (
+            <Badge variant="secondary" className="text-[9px] gap-1">
+              <ListChecks className="w-2.5 h-2.5" />
+              {fr ? "Confiance" : "Confidence"} {note.confidence}/10
+            </Badge>
+          )}
+          {biasMeta && (
+            <Badge variant="secondary" className="text-[9px] gap-1">
+              <biasMeta.icon className="w-2.5 h-2.5" />
+              {fr ? biasMeta.fr : biasMeta.en}
+            </Badge>
+          )}
+        </div>
+      )}
+
       {/* Content */}
       {note.content && (
         <p className="text-xs text-muted-foreground line-clamp-4 whitespace-pre-wrap mb-2">
           {contentPreview}
         </p>
+      )}
+
+      {/* Checklist progress */}
+      {checklist.length > 0 && (
+        <div className="flex items-center gap-2 mb-2">
+          <ListChecks className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all"
+              style={{ width: `${(checkedCount / checklist.length) * 100}%` }}
+            />
+          </div>
+          <span className="text-[10px] text-muted-foreground font-mono shrink-0">
+            {checkedCount}/{checklist.length}
+          </span>
+        </div>
       )}
 
       {/* Screenshots */}
@@ -446,23 +658,32 @@ function NoteCard({
 function NoteFormDialog({
   language,
   note,
+  presetType,
   onClose,
   onSaved,
 }: {
   language: "fr" | "en";
   note: Note | null;
+  presetType?: NoteType | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const fr = language === "fr";
   const isEdit = !!note;
 
-  const [type, setType] = useState<NoteType>((note?.type as NoteType) || "DAY");
+  const [type, setType] = useState<NoteType>((note?.type as NoteType) || presetType || "DAY");
   const [title, setTitle] = useState(note?.title || "");
   const [content, setContent] = useState(note?.content || "");
   const [date, setDate] = useState(
     note?.date ? format(parseISO(note.date), "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd")
   );
+  const [mood, setMood] = useState<string | null>(note?.mood || null);
+  const [confidence, setConfidence] = useState<number | null>(note?.confidence ?? null);
+  const [marketBias, setMarketBias] = useState<string | null>(note?.marketBias || null);
+  const [priority, setPriority] = useState<string | null>(note?.priority || null);
+  const [pinned, setPinned] = useState<boolean>(note?.pinned || false);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(parseChecklist(note?.checklist || null));
+  const [newItemText, setNewItemText] = useState("");
   const [screenshots, setScreenshots] = useState<NoteScreenshot[]>(note?.screenshots || []);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -496,6 +717,12 @@ function NoteFormDialog({
         title: title.trim(),
         content: content.trim(),
         date: new Date(date).toISOString(),
+        mood,
+        confidence,
+        marketBias,
+        priority,
+        pinned,
+        checklist: JSON.stringify(checklist),
       };
 
       let res: Response;
@@ -638,6 +865,34 @@ function NoteFormDialog({
             </div>
           </div>
 
+          {/* Templates (creation only) */}
+          {!isEdit && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">{fr ? "Modèle de préparation" : "Prep template"}</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {NOTE_TYPES.map((nt) => (
+                  <Button
+                    key={nt.id}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 h-8 text-xs"
+                    onClick={() => {
+                      setType(nt.id);
+                      setContent(TEMPLATES[nt.id].content);
+                      if (!title.trim()) {
+                        setTitle(fr ? TEMPLATES[nt.id].fr : TEMPLATES[nt.id].en);
+                      }
+                    }}
+                  >
+                    <nt.icon className="w-3.5 h-3.5" />
+                    {fr ? TEMPLATES[nt.id].fr : TEMPLATES[nt.id].en}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Title */}
           <div className="space-y-1.5">
             <Label className="text-xs font-medium">{fr ? "Titre" : "Title"} *</Label>
@@ -659,6 +914,158 @@ function NoteFormDialog({
               className="h-9"
             />
           </div>
+
+          {/* Meta: mood / confidence / bias / priority */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">{fr ? "Humeur" : "Mood"}</Label>
+              <div className="flex gap-1">
+                {MOODS.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMood(mood === m ? null : m)}
+                    className={cn(
+                      "w-8 h-8 rounded-lg border text-base flex items-center justify-center transition-colors",
+                      mood === m ? "border-primary bg-primary/10" : "border-border hover:border-primary/30"
+                    )}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">{fr ? "Confiance (1-10)" : "Confidence (1-10)"}</Label>
+              <Input
+                type="number"
+                min={1}
+                max={10}
+                value={confidence ?? ""}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  setConfidence(isNaN(v) ? null : Math.max(1, Math.min(10, v)));
+                }}
+                className="h-9 font-mono"
+                placeholder={fr ? "Ex : 7" : "e.g. 7"}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">{fr ? "Biais de marché" : "Market bias"}</Label>
+              <div className="flex gap-1.5">
+                {BIASES.map((b) => (
+                  <Button
+                    key={b.id}
+                    type="button"
+                    variant={marketBias === b.id ? "default" : "outline"}
+                    size="sm"
+                    className="gap-1 flex-1 h-8 text-xs"
+                    onClick={() => setMarketBias(marketBias === b.id ? null : b.id)}
+                  >
+                    <b.icon className="w-3 h-3" />
+                    {fr ? b.fr : b.en}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">{fr ? "Priorité" : "Priority"}</Label>
+              <div className="flex flex-wrap gap-1">
+                {PRIORITIES.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPriority(priority === p.id ? null : p.id)}
+                    className={cn(
+                      "px-2 h-8 rounded-md border text-[10px] font-semibold transition-colors",
+                      priority === p.id ? p.cls : "border-border text-muted-foreground hover:border-primary/30"
+                    )}
+                  >
+                    {fr ? p.fr : p.en}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Checklist editor */}
+          <div className="space-y-2">
+            <Label className="text-xs font-medium">{fr ? "Checklist" : "Checklist"}</Label>
+            {checklist.length > 0 && (
+              <div className="space-y-1">
+                {checklist.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2 group">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setChecklist((prev) => prev.map((c, ci) => (ci === i ? { ...c, checked: !c.checked } : c)))
+                      }
+                      className={cn(
+                        "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors",
+                        item.checked ? "bg-primary border-primary text-primary-foreground" : "border-border"
+                      )}
+                    >
+                      {item.checked && <CheckCircle2 className="w-3 h-3" />}
+                    </button>
+                    <span className={cn("text-sm flex-1", item.checked && "line-through text-muted-foreground")}>
+                      {item.text}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setChecklist((prev) => prev.filter((_, ci) => ci !== i))}
+                      className="opacity-0 group-hover:opacity-100 text-destructive"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input
+                value={newItemText}
+                onChange={(e) => setNewItemText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newItemText.trim()) {
+                    e.preventDefault();
+                    setChecklist((prev) => [...prev, { text: newItemText.trim(), checked: false }]);
+                    setNewItemText("");
+                  }
+                }}
+                placeholder={fr ? "Ajouter un élément... (Entrée)" : "Add an item... (Enter)"}
+                className="h-9 text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 gap-1.5 shrink-0"
+                disabled={!newItemText.trim()}
+                onClick={() => {
+                  setChecklist((prev) => [...prev, { text: newItemText.trim(), checked: false }]);
+                  setNewItemText("");
+                }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {fr ? "Ajouter" : "Add"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Pin toggle */}
+          <button
+            type="button"
+            onClick={() => setPinned(!pinned)}
+            className={cn(
+              "flex items-center gap-2 text-sm rounded-lg border px-3 py-2 transition-colors w-fit",
+              pinned ? "border-primary/50 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/30"
+            )}
+          >
+            <Pin className="w-4 h-4" />
+            {pinned
+              ? fr ? "Note épinglée (en haut de la liste)" : "Note pinned (top of list)"
+              : fr ? "Épingler cette note" : "Pin this note"}
+          </button>
 
           {/* Content */}
           <div className="space-y-1.5">
