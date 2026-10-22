@@ -19,7 +19,7 @@ export async function POST() {
     return NextResponse.json({ error: 'Réservé à l\'administrateur' }, { status: 403 });
   }
 
-  const { proxyBaseUrls, callOpenAICompat, openAICompatModel } = await import('@/lib/zai');
+  const { proxyBaseUrls, callOpenAICompat, openAICompatModel, discoverCompatModels } = await import('@/lib/zai');
   const bases = proxyBaseUrls();
 
   // ─── Sonde du provider public OpenAI-compatible (si configuré) ───
@@ -48,6 +48,15 @@ export async function POST() {
       };
     }
   }
+
+  // ─── Modèles réellement disponibles pour cette clé (GET /models) ───
+  const availableModels =
+    compatBase && process.env.OPENAI_COMPAT_API_KEY
+      ? await discoverCompatModels(
+          compatBase.replace(/\/+$/, ''),
+          process.env.OPENAI_COMPAT_API_KEY
+        )
+      : null;
 
   const probes = await Promise.all(
     bases.map(async (base) => {
@@ -91,6 +100,8 @@ export async function POST() {
   return NextResponse.json({
     zaiProxyUrlEnv: process.env.ZAI_PROXY_URL || null,
     openaiCompatConfigured: Boolean(compatBase && process.env.OPENAI_COMPAT_API_KEY),
+    configuredModel: compatBase ? openAICompatModel() : null,
+    availableModels: availableModels && availableModels.length ? availableModels.slice(0, 20) : availableModels,
     isVercel: Boolean(process.env.VERCEL),
     probes: allProbes,
     verdict: allProbes.some((p) => p.ok)
