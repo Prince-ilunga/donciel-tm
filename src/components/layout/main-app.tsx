@@ -34,6 +34,7 @@ import {
   ShieldAlert,
   Trophy,
   PlayCircle,
+  Brain,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import React, { useState, useCallback, useEffect } from "react";
@@ -56,11 +57,13 @@ import { PnlCalendarTab } from "@/components/calendar/pnl-calendar-tab";
 import { AnalyticsTab } from "@/components/analytics/analytics-tab";
 import { DisciplineTab } from "@/components/discipline/discipline-tab";
 import { LeaderboardTab } from "@/components/discipline/leaderboard-tab";
+import { CoachTab } from "@/components/coach/coach-tab";
 import { DoncielLogo } from "@/components/shared/donciel-logo";
 
 const navItems: { id: TabId; icon: typeof LayoutDashboard; key: string; adminOnly?: boolean }[] = [
   { id: "execution", icon: Target, key: "executionDonciel" },
   { id: "setup", icon: FolderOpen, key: "setupTab" },
+  { id: "coach", icon: Brain, key: "coachIA" },
   { id: "journal", icon: Calendar, key: "journal" },
   { id: "calendar", icon: CalendarDays, key: "calendarPnl" },
   { id: "analytics", icon: Radar, key: "analytics360" },
@@ -162,6 +165,7 @@ export function MainApp() {
     switch (activeTab) {
       case "execution": return <ExecutionTab />;
       case "setup": return <SetupTab />;
+      case "coach": return <CoachTab />;
       case "dashboard": return <DashboardTab />;
       case "journal": return <JournalTab />;
       case "distribution": return <DistributionTab />;
