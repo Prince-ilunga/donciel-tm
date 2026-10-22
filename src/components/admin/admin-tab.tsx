@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PaymentRequestsPanel } from "@/components/admin/payment-requests-panel";
+import { WhatsappKit } from "@/components/admin/whatsapp-kit";
 import {
   ShieldCheck,
   Check,
@@ -25,6 +26,7 @@ import {
   UserCheck,
   UserX,
   Smartphone,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -169,7 +171,7 @@ export function AdminTab() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid grid-cols-2 sm:grid-cols-4 w-full">
+        <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full">
           <TabsTrigger value="pending" className="gap-1 text-[10px] sm:text-xs px-1 sm:px-3">
             <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
             <span className="truncate">{t(language, "pendingMembers")}</span>
@@ -186,7 +188,19 @@ export function AdminTab() {
             <Smartphone className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
             <span className="truncate">Paiements</span>
           </TabsTrigger>
+          <TabsTrigger value="kit" className="gap-1 text-[10px] sm:text-xs px-1 sm:px-3">
+            <MessageCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 hidden sm:block" />
+            <span className="truncate">Kit WhatsApp</span>
+          </TabsTrigger>
         </TabsList>
+
+        {activeTab === "kit" && (
+          <TabsContent value="kit">
+            <div className="mt-3">
+              <WhatsappKit />
+            </div>
+          </TabsContent>
+        )}
 
         {activeTab === "payments" && (
           <TabsContent value="payments">
