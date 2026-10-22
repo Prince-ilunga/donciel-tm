@@ -6,6 +6,9 @@ import { t } from "@/lib/i18n";
 import { useTrades } from "@/lib/hooks";
 import { useTimeFilter } from "@/lib/use-time-filter";
 import { TimeFilterBar } from "@/components/shared/time-filter-bar";
+import { ImportDialog } from "@/components/import/import-dialog";
+import { ShareCardDialog } from "@/components/growth/share-card-dialog";
+import { WeeklyReviewCard } from "@/components/growth/weekly-review-card";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -57,6 +60,8 @@ import {
   Layers,
   X,
   Trash2,
+  Upload,
+  Share2,
 } from "lucide-react";
 
 import {
@@ -161,6 +166,8 @@ export function JournalTab() {
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; pair: string; direction: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const handleDeleteTrade = useCallback(async () => {
     if (!deleteTarget || isDeleting) return;
@@ -411,7 +418,31 @@ export function JournalTab() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-[1600px] mx-auto overflow-x-hidden">
+    <div className="p-4 md:p-6 max-w-[1600px] mx-auto overflow-x-hidden space-y-4">
+      {/* Toolbar : Import / Partage / Review IA */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 h-9"
+            onClick={() => setShowImport(true)}
+          >
+            <Upload className="w-3.5 h-3.5" />
+            {language === "fr" ? "Importer MT5/CSV" : "Import MT5/CSV"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 h-9 border-sky-400/40 text-sky-400 hover:bg-sky-400/10"
+            onClick={() => setShareOpen(true)}
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            {language === "fr" ? "Partager mon bilan" : "Share my review"}
+          </Button>
+        </div>
+        <WeeklyReviewCard />
+      </div>
       <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
         {/* Calendar Section (Left - 60%) */}
         <div className="flex-1 lg:flex-[3]">
@@ -613,6 +644,15 @@ export function JournalTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+          {/* Import MT5/CSV */}
+      <ImportDialog
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={() => refetch()}
+      />
+
+      {/* Carte de partage */}
+      <ShareCardDialog open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   );
 }

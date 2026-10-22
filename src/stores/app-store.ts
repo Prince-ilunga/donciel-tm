@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type TabId = 'execution' | 'setup' | 'dashboard' | 'journal' | 'distribution' | 'timing' | 'videos' | 'notes' | 'news' | 'playbook' | 'money' | 'admin' | 'roles';
+export type TabId = 'execution' | 'setup' | 'dashboard' | 'journal' | 'distribution' | 'timing' | 'videos' | 'notes' | 'news' | 'playbook' | 'money' | 'admin' | 'roles' | 'calendar' | 'analytics' | 'discipline' | 'leaderboard';
 
 interface AppState {
   // Auth

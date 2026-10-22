@@ -30,6 +30,10 @@ import {
   Activity,
   BookOpen,
   Wallet,
+  CalendarDays,
+  Radar,
+  ShieldAlert,
+  Trophy,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import React, { useState, useCallback, useEffect } from "react";
@@ -49,19 +53,27 @@ import { RoleManagementTab } from "@/components/admin/role-management-tab";
 import { NewsTab } from "@/components/news/news-tab";
 import { PlaybookTab } from "@/components/playbook/playbook-tab";
 import { MoneyManagementTab } from "@/components/money-management/money-management-tab";
+import { PnlCalendarTab } from "@/components/calendar/pnl-calendar-tab";
+import { AnalyticsTab } from "@/components/analytics/analytics-tab";
+import { DisciplineTab } from "@/components/discipline/discipline-tab";
+import { LeaderboardTab } from "@/components/discipline/leaderboard-tab";
 import { DoncielLogo } from "@/components/shared/donciel-logo";
 
 const navItems: { id: TabId; icon: typeof LayoutDashboard; key: string; adminOnly?: boolean }[] = [
   { id: "execution", icon: Target, key: "executionDonciel" },
   { id: "setup", icon: FolderOpen, key: "setupTab" },
   { id: "journal", icon: Calendar, key: "journal" },
+  { id: "calendar", icon: CalendarDays, key: "calendarPnl" },
+  { id: "analytics", icon: Radar, key: "analytics360" },
   { id: "distribution", icon: BarChart3, key: "distributionRR" },
   { id: "timing", icon: Clock, key: "timingAnalysis" },
+  { id: "discipline", icon: ShieldAlert, key: "disciplineTab" },
   { id: "videos", icon: Video, key: "setupVideos" },
   { id: "notes", icon: StickyNote, key: "prepNotes" },
   { id: "news", icon: Activity, key: "newsFundamental" },
   { id: "playbook", icon: BookOpen, key: "playbook" },
   { id: "money", icon: Wallet, key: "moneyManagement" },
+  { id: "leaderboard", icon: Trophy, key: "leaderboardTab" },
   { id: "admin", icon: ShieldCheck, key: "adminVerification", adminOnly: true },
   { id: "roles", icon: Crown, key: "roleManagement" },
 ];
@@ -161,6 +173,10 @@ export function MainApp() {
       case "news": return <NewsTab />;
       case "playbook": return <PlaybookTab />;
       case "money": return <MoneyManagementTab />;
+      case "calendar": return <PnlCalendarTab />;
+      case "analytics": return <AnalyticsTab />;
+      case "discipline": return <DisciplineTab />;
+      case "leaderboard": return <LeaderboardTab />;
       case "admin": return <AdminTab />;
       case "roles": return <RoleManagementTab />;
       default: return <ExecutionTab />;

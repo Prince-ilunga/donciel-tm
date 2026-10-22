@@ -207,6 +207,9 @@ interface TradeFormData {
   mistakes: string;
   lessons: string;
   notes: string;
+  mfe: string;
+  mae: string;
+  accountName: string;
   contextFile: File | null;
   entryFile: File | null;
   exitFile: File | null;
@@ -237,6 +240,9 @@ const initialFormData: TradeFormData = {
   mistakes: "",
   lessons: "",
   notes: "",
+  mfe: "",
+  mae: "",
+  accountName: "Principal",
   contextFile: null,
   entryFile: null,
   exitFile: null,
@@ -1235,6 +1241,9 @@ function TradeFormDialog({
         mistakes: formData.mistakes || null,
         lessons: formData.lessons || null,
         notes: formData.notes || null,
+        mfe: formData.mfe ? parseFloat(formData.mfe) : null,
+        mae: formData.mae ? parseFloat(formData.mae) : null,
+        accountName: formData.accountName?.trim() || "Principal",
       };
 
       const res = await fetch("/api/trades", {
@@ -1526,6 +1535,46 @@ function TradeFormDialog({
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium">{t(language, "notes")}</Label>
                 <Textarea value={formData.notes} onChange={(e) => updateField("notes", e.target.value)} className="min-h-[60px] text-sm" />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">
+                    {language === "fr" ? "MFE (R max favorable)" : "MFE (max favorable R)"}
+                  </Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder={language === "fr" ? "ex: 1.8 (optionnel)" : "e.g. 1.8 (optional)"}
+                    value={formData.mfe}
+                    onChange={(e) => updateField("mfe", e.target.value)}
+                    className="h-9 font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">
+                    {language === "fr" ? "MAE (R max adverse)" : "MAE (max adverse R)"}
+                  </Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder={language === "fr" ? "ex: -0.4 (optionnel)" : "e.g. -0.4 (optional)"}
+                    value={formData.mae}
+                    onChange={(e) => updateField("mae", e.target.value)}
+                    className="h-9 font-mono"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">
+                    {language === "fr" ? "Compte" : "Account"}
+                  </Label>
+                  <Input
+                    placeholder={language === "fr" ? "Principal, Financé…" : "Main, Funded…"}
+                    value={formData.accountName}
+                    onChange={(e) => updateField("accountName", e.target.value)}
+                    className="h-9"
+                  />
+                </div>
               </div>
             </div>
 

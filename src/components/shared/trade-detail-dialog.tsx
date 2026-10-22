@@ -38,6 +38,10 @@ import {
   X,
   Image as ImageIcon,
   Eye,
+  Upload,
+  Crosshair,
+  Activity,
+  ListOrdered,
 } from "lucide-react";
 
 interface TradeDetail {
@@ -70,6 +74,10 @@ interface TradeDetail {
   mistakes: string | null;
   lessons: string | null;
   notes: string | null;
+  mfe?: number | null;
+  mae?: number | null;
+  accountName?: string | null;
+  importSource?: string | null;
   createdAt: string;
   screenshots: { id: string; type: string; url: string }[];
 }
@@ -199,6 +207,72 @@ export function TradeDetailDialog() {
 
     return { riskRewardRatio, riskAmount, rewardAmount, efficiency, pnl };
   }, [trade]);
+
+  // ─── Exécution & R : R planifié vs R réalisé ───
+  const execStats = useMemo(() => {
+    if (!trade) return null;
+    const risk = Math.abs(trade.entryPrice - trade.stopLoss);
+    const reward = Math.abs(trade.takeProfit - trade.entryPrice);
+    const plannedR = risk > 0 ? reward / risk : 0;
+    const realizedR = trade.rr ?? 0;
+    // Échelle commune pour les deux barres (plancher 1R)
+    const scale = Math.max(plannedR, Math.abs(realizedR), 1);
+    const plannedPct = Math.min(100, (plannedR / scale) * 100);
+    const realizedPct = Math.min(100, (Math.abs(realizedR) / scale) * 100);
+    const beaten = plannedR > 0 && realizedR > plannedR;
+    return { plannedR, realizedR, plannedPct, realizedPct, beaten };
+  }, [trade]);
+
+  // ─── MFE / MAE : excursions extrêmes en R ───
+  const mfeMae = useMemo(() => {
+    if (!trade) return null;
+    const hasMfe = trade.mfe != null;
+    const hasMae = trade.mae != null;
+    if (!hasMfe && !hasMae) return null;
+    const mfe = trade.mfe ?? 0;
+    const mae = trade.mae ?? 0;
+    const scale = Math.max(Math.abs(mfe), Math.abs(mae), 1);
+    return {
+      hasMfe,
+      hasMae,
+      mfePct: Math.min(100, (Math.abs(mfe) / scale) * 100),
+      maePct: Math.min(100, (Math.abs(mae) / scale) * 100),
+      mfeLabel: `+${Math.abs(mfe).toFixed(1)}R`,
+      maeLabel: `${mae <= 0 ? mae.toFixed(1) : `-${mae.toFixed(1)}`}R`,
+    };
+  }, [trade]);
+
+  // ─── Badge import (MT5 / CSV) ───
+  const importBadge = useMemo(() => {
+    const src = trade?.importSource;
+    if (!src || src === "MANUAL") return null;
+    if (src === "MT5_HTML") return language === "fr" ? "Importé (MT5)" : "Imported (MT5)";
+    if (src === "CSV") return language === "fr" ? "Importé (CSV)" : "Imported (CSV)";
+    return language === "fr" ? "Importé" : "Imported";
+  }, [trade, language]);
+
+  // ─── Timeline verticale compacte ───
+  const timelineItems = useMemo(() => {
+    if (!trade) return [];
+    const dateLabel = (() => {
+      try {
+        const d = new Date(trade.date);
+        if (isNaN(d.getTime())) return trade.date;
+        return d.toLocaleDateString(language === "fr" ? "fr-FR" : "en-US", {
+          weekday: "short", day: "numeric", month: "short", year: "numeric",
+        });
+      } catch {
+        return trade.date;
+      }
+    })();
+    return [
+      { label: language === "fr" ? "Date" : "Date", value: dateLabel, has: true },
+      { label: t(language, "entryTime"), value: trade.entryTime || "—", has: !!trade.entryTime },
+      { label: t(language, "exitTime"), value: trade.exitTime || "—", has: !!trade.exitTime },
+      { label: t(language, "duration"), value: trade.duration || "—", has: !!trade.duration },
+      { label: language === "fr" ? "Session" : "Session", value: trade.session || "—", has: !!trade.session },
+    ];
+  }, [trade, language]);
 
   // Get chart data for this trade
   const chartData = useMemo(() => {
@@ -455,6 +529,12 @@ export function TradeDetailDialog() {
                 {trade.newsEnabled && (
                   <Badge className="text-xs bg-gold/15 text-gold border-gold/20 gap-1"><Newspaper className="w-3 h-3" />News</Badge>
                 )}
+                {importBadge && (
+                  <Badge variant="outline" className="text-xs gap-1 text-muted-foreground border-border/60">
+                    <Upload className="w-3 h-3" />
+                    {importBadge}
+                  </Badge>
+                )}
               </div>
             </div>
 
@@ -583,6 +663,41 @@ export function TradeDetailDialog() {
                   </div>
                 )}
 
+                {/* ─── Timeline verticale compacte ─── */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <ListOrdered className="w-3.5 h-3.5" />
+                    {language === "fr" ? "Chronologie" : "Timeline"}
+                  </h4>
+                  <div className="rounded-xl border border-border bg-muted/20 p-4">
+                    <div className="space-y-0">
+                      {timelineItems.map((item, i) => (
+                        <div key={`${item.label}-${i}`} className="flex gap-3">
+                          <div className="flex flex-col items-center pt-1">
+                            <span
+                              className={cn(
+                                "w-2 h-2 rounded-full shrink-0",
+                                item.has ? "bg-primary" : "bg-muted-foreground/30"
+                              )}
+                            />
+                            {i < timelineItems.length - 1 && (
+                              <span className="w-px flex-1 min-h-[18px] bg-border my-0.5" />
+                            )}
+                          </div>
+                          <div className={cn("min-w-0", i < timelineItems.length - 1 && "pb-3")}>
+                            <div className="text-[9px] uppercase tracking-wider text-muted-foreground">
+                              {item.label}
+                            </div>
+                            <div className={cn("text-sm font-semibold font-mono", !item.has && "text-muted-foreground/50")}>
+                              {item.value}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Trade Statistics */}
                 {tradeStats && (
                   <div className="space-y-3">
@@ -595,6 +710,121 @@ export function TradeDetailDialog() {
                       <StatCard label={language === "fr" ? "Récompense ($)" : "Reward ($)"} value={tradeStats.rewardAmount} valueClass="text-profit" />
                       <StatCard label={language === "fr" ? "Efficacité" : "Efficiency"} value={tradeStats.efficiency} />
                     </div>
+                  </div>
+                )}
+
+                {/* ─── Exécution & R : planifié vs réalisé ─── */}
+                {execStats && execStats.plannedR > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Crosshair className="w-3.5 h-3.5" />
+                      {language === "fr" ? "Exécution & R" : "Execution & R"}
+                    </h4>
+                    <Card className="p-4 space-y-4">
+                      {/* Barre : R planifié */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <Target className="w-3 h-3" />
+                            {language === "fr" ? "R planifié" : "Planned R"}
+                          </span>
+                          <span className="text-sm font-bold font-mono text-primary">
+                            {execStats.plannedR.toFixed(2)}R
+                          </span>
+                        </div>
+                        <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${execStats.plannedPct}%`, backgroundColor: "#38bdf8", opacity: 0.55 }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Barre : R réalisé */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                            <TrendingUp className="w-3 h-3" />
+                            {language === "fr" ? "R réalisé" : "Realized R"}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-sm font-bold font-mono",
+                              execStats.realizedR > 0 && "text-profit",
+                              execStats.realizedR < 0 && "text-loss"
+                            )}
+                          >
+                            {execStats.realizedR >= 0 ? "+" : ""}{execStats.realizedR.toFixed(2)}R
+                          </span>
+                        </div>
+                        <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all duration-500",
+                              execStats.realizedR >= execStats.plannedR ? "bg-profit" : execStats.realizedR < 0 ? "bg-loss" : "bg-gold"
+                            )}
+                            style={{ width: `${execStats.realizedPct}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Badge objectif dépassé */}
+                      {execStats.beaten && (
+                        <Badge className="bg-profit/15 text-profit border-profit/20 text-xs w-fit">
+                          {language === "fr" ? "Objectif dépassé 🎯" : "Target beaten 🎯"}
+                        </Badge>
+                      )}
+                      {!execStats.beaten && execStats.realizedR < execStats.plannedR && (
+                        <p className="text-[10px] text-muted-foreground">
+                          {language === "fr"
+                            ? `Sortie à ${(execStats.realizedR / execStats.plannedR * 100).toFixed(0)}% de l'objectif planifié`
+                            : `Exited at ${(execStats.realizedR / execStats.plannedR * 100).toFixed(0)}% of the planned target`}
+                        </p>
+                      )}
+                    </Card>
+                  </div>
+                )}
+
+                {/* ─── MFE / MAE : excursions extrêmes ─── */}
+                {mfeMae && (
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Activity className="w-3.5 h-3.5" />
+                      MFE / MAE
+                    </h4>
+                    <Card className="p-4 space-y-4">
+                      {mfeMae.hasMfe && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                              {language === "fr" ? "Excursion favorable max (MFE)" : "Max favorable excursion (MFE)"}
+                            </span>
+                            <span className="text-sm font-bold font-mono text-profit">{mfeMae.mfeLabel}</span>
+                          </div>
+                          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-profit transition-all duration-500" style={{ width: `${mfeMae.mfePct}%` }} />
+                          </div>
+                        </div>
+                      )}
+                      {mfeMae.hasMae && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                              {language === "fr" ? "Excursion adverse max (MAE)" : "Max adverse excursion (MAE)"}
+                            </span>
+                            <span className="text-sm font-bold font-mono text-loss">{mfeMae.maeLabel}</span>
+                          </div>
+                          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+                            <div className="h-full rounded-full bg-loss transition-all duration-500" style={{ width: `${mfeMae.maePct}%` }} />
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-[10px] text-muted-foreground italic">
+                        {language === "fr"
+                          ? "MFE = meilleur point atteint, MAE = pire point atteint"
+                          : "MFE = best point reached, MAE = worst point reached"}
+                      </p>
+                    </Card>
                   </div>
                 )}
 
