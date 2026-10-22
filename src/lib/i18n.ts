@@ -7,6 +7,7 @@ export const translations = {
     // Navigation
     executionDonciel: "Exécution DONCIEL",
     setupTab: "Setup",
+    coachIA: "Coach IA",
     dashboard: "Tableau de Bord",
     journal: "Journal de Trading",
     distributionRR: "Distribution RR",
@@ -309,6 +310,7 @@ export const translations = {
     // Navigation
     executionDonciel: "DONCIEL Execution",
     setupTab: "Setup",
+    coachIA: "AI Coach",
     dashboard: "Dashboard",
     journal: "Trading Journal",
     distributionRR: "RR Distribution",
