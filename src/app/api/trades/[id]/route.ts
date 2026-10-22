@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getAuthUser, isAdmin } from '@/lib/auth';
+import { getAuthUser, isAdmin, demoReadonlyGuard } from '@/lib/auth';
 import { getContractSize } from '@/lib/utils';
 
 export async function GET(
@@ -12,6 +12,9 @@ export async function GET(
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
+    // Compte démo : lecture seule
+    const demoGuard = demoReadonlyGuard(result.user?.email);
+    if (demoGuard) return demoGuard;
 
     const { id } = await params;
 

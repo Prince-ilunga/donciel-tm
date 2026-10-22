@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LandingNav } from "@/components/landing/landing-nav";
+import { DemoButton } from "@/components/landing/demo-button";
 import { PLANS } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -338,6 +339,15 @@ export default function LandingPage() {
               <a href="#features">Découvrir les fonctionnalités</a>
             </Button>
           </div>
+
+          <div className="mt-5 flex justify-center">
+            <DemoButton
+              variant="ghost"
+              className="text-sky-300 hover:text-sky-200 hover:bg-sky-300/[0.06] text-sm"
+            >
+              Essayer la démo sans compte
+            </DemoButton>
+          </div>
           <p className="mt-5 text-sm text-neutral-500">
             Sans carte bancaire · 30 trades/mois offerts · Résiliable en 1 clic
           </p>
@@ -597,6 +607,14 @@ export default function LandingPage() {
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </Button>
+              <div className="mt-4">
+                <DemoButton
+                  variant="ghost"
+                  className="text-sky-300 hover:text-sky-200 hover:bg-sky-300/[0.06] text-sm"
+                >
+                  Ou essayer la démo sans compte
+                </DemoButton>
+              </div>
               <p className="mt-4 text-xs text-neutral-500">Installation en 60 secondes · Données chiffrées</p>
             </div>
           </div>

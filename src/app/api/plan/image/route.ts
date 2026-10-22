@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser, demoReadonlyGuard } from '@/lib/auth';
 import { uploadFile, isStorageConfigured, getFileUrl } from '@/lib/storage';
 import path from 'path';
 import fs from 'fs';
@@ -18,6 +18,9 @@ export async function POST(request: NextRequest) {
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
+    // Compte démo : lecture seule
+    const demoGuard = demoReadonlyGuard(result.user?.email);
+    if (demoGuard) return demoGuard;
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;

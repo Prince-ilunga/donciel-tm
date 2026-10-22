@@ -33,6 +33,7 @@ import {
   Radar,
   ShieldAlert,
   Trophy,
+  PlayCircle,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import React, { useState, useCallback, useEffect } from "react";
@@ -375,6 +376,23 @@ export function MainApp() {
           </div>
 
         </header>
+
+        {/* Bandeau mode démo */}
+        {user?.email === "demo@donciel.tm" && (
+          <div className="bg-sky-300/[0.08] border-b border-sky-300/20 text-sky-200 text-xs px-4 py-2 flex items-center gap-2 flex-wrap">
+            <PlayCircle className="w-3.5 h-3.5 shrink-0" aria-hidden />
+            <span>
+              <strong>Mode démo</strong> — explore librement le journal, les stats et le coach IA. Pour enregistrer tes trades,{" "}
+              <button
+                onClick={() => router.push("/register")}
+                className="underline font-semibold hover:text-sky-100"
+              >
+                crée un compte gratuit
+              </button>
+              .
+            </span>
+          </div>
+        )}
 
         {/* Tab content */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden">

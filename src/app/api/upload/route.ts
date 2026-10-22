@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getAuthUser, isAdmin } from '@/lib/auth';
+import { getAuthUser, isAdmin, demoReadonlyGuard } from '@/lib/auth';
 import { uploadFile } from '@/lib/storage';
 
 const MAX_IMAGE_SIZE = 8 * 1024 * 1024; // 8 Mo
@@ -21,6 +21,9 @@ export async function POST(request: NextRequest) {
     if (result.error || !result.user) {
       return NextResponse.json({ error: result.error || 'Non autorisé' }, { status: 401 });
     }
+    // Compte démo : lecture seule
+    const demoGuard = demoReadonlyGuard(result.user?.email);
+    if (demoGuard) return demoGuard;
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;

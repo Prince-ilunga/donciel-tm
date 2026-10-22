@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser, demoReadonlyGuard } from '@/lib/auth';
 
 // ─────────────────────────────────────────────────────────────
 // Goals API (Pack 3 — Discipline & Risque)
@@ -38,6 +38,9 @@ export async function GET(request: NextRequest) {
     if (result.error || !result.user) {
       return NextResponse.json({ error: result.error || 'Non autorisé' }, { status: 401 });
     }
+    // Compte démo : lecture seule
+    const demoGuard = demoReadonlyGuard(result.user?.email);
+    if (demoGuard) return demoGuard;
     const userId = result.user.id;
 
     const { searchParams } = new URL(request.url);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser, demoReadonlyGuard } from '@/lib/auth';
 import { getContractSize } from '@/lib/utils';
 import { checkTradeLimit, limitErrorResponse } from '@/lib/plan-limits';
 
@@ -10,6 +10,9 @@ export async function GET(request: NextRequest) {
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
+    // Compte démo : lecture seule
+    const demoGuard = demoReadonlyGuard(result.user?.email);
+    if (demoGuard) return demoGuard;
 
     const { searchParams } = new URL(request.url);
     const pair = searchParams.get('pair');
