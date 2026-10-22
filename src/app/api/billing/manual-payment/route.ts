@@ -15,9 +15,6 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthUser();
     if (auth.error || !auth.user) return NextResponse.json({ error: auth.error || 'Non autorisé' }, { status: 401 });
-    // Compte démo : lecture seule
-    const demoGuard = demoReadonlyGuard(auth.user?.email);
-    if (demoGuard) return demoGuard;
 
     const body = await request.json().catch(() => null);
     const plan = body?.plan as PlanId;
@@ -29,6 +26,10 @@ export async function POST(request: NextRequest) {
     if (plan !== 'PRO' && plan !== 'ELITE') {
       return NextResponse.json({ error: 'Plan invalide' }, { status: 400 });
     }
+
+    // Compte démo : lecture seule
+    const demoGuard = demoReadonlyGuard(auth.user?.email);
+    if (demoGuard) return demoGuard;
     if (interval !== 'monthly' && interval !== 'yearly') {
       return NextResponse.json({ error: 'Intervalle invalide' }, { status: 400 });
     }

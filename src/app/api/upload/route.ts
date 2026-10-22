@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     if (result.error || !result.user) {
       return NextResponse.json({ error: result.error || 'Non autorisé' }, { status: 401 });
     }
+
     // Compte démo : lecture seule
     const demoGuard = demoReadonlyGuard(result.user?.email);
     if (demoGuard) return demoGuard;
