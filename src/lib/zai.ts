@@ -129,6 +129,40 @@ export async function callSandboxProxy(messages: { role: string; content: string
   });
 }
 
+// ─── Strategy 0 : provider public OpenAI-compatible ─────────
+// (Gemini API gratuite, Groq, OpenRouter…) — fonctionne
+// PARTOUT (Vercel inclus), sans dépendance au sandbox.
+// Env vars :
+//  - OPENAI_COMPAT_BASE_URL  ex: https://generativelanguage.googleapis.com/v1beta/openai
+//  - OPENAI_COMPAT_API_KEY   la clé API
+//  - OPENAI_COMPAT_MODEL     ex: gemini-2.0-flash (vision OK)
+export async function callOpenAICompat(
+  messages: unknown[],
+  timeoutMs = 180000
+): Promise<any | null> {
+  const base = process.env.OPENAI_COMPAT_BASE_URL?.replace(/\/+$/, '');
+  const key = process.env.OPENAI_COMPAT_API_KEY;
+  const model = process.env.OPENAI_COMPAT_MODEL || 'gemini-2.0-flash';
+  if (!base || !key) return null; // non configuré → stratégie suivante
+
+  const res = await fetch(`${base}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify({ model, messages }),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(
+      `Provider IA (${base}) → HTTP ${res.status}: ${errBody.slice(0, 200)}`
+    );
+  }
+  return res.json();
+}
+
 /**
  * Unified LLM call that works on both sandbox and Vercel.
  *
@@ -136,6 +170,10 @@ export async function callSandboxProxy(messages: { role: string; content: string
  * - On Vercel: Uses callSandboxProxy() to route through the sandbox
  */
 export async function callZAI(messages: { role: string; content: string }[]): Promise<any> {
+  // Strategy 0 : provider public OpenAI-compatible (si configuré)
+  const compat = await callOpenAICompat(messages);
+  if (compat) return compat;
+
   // On Vercel, use the sandbox proxy
   if (process.env.VERCEL) {
     try {
@@ -175,6 +213,10 @@ export type VisionMessage = {
  * - Vercel  : proxy sandbox /api/llm-proxy avec mode:'vision'
  */
 export async function callZAIVision(messages: VisionMessage[]): Promise<any> {
+  // Strategy 0 : provider public OpenAI-compatible (si configuré)
+  const compat = await callOpenAICompat(messages);
+  if (compat) return compat;
+
   if (process.env.VERCEL) {
     return proxyFetchLLM({
       messages,
