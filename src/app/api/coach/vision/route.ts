@@ -143,6 +143,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ analysis, screenshotId });
   } catch (error: any) {
     console.error('[coach/vision] Error:', error?.message);
+    const msg = String(error?.message || '');
+    if (msg.includes('Provider IA') || msg.includes('fetch failed') || msg.includes('Aucune URL')) {
+      return NextResponse.json(
+        { error: "Le Coach IA est en cours d'activation. Reviens dans quelques minutes !", pending: true },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: 'Le Coach IA n\'a pas pu analyser cette capture. Réessaie dans un instant.' },
       { status: 500 }

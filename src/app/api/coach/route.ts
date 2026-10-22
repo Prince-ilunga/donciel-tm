@@ -302,6 +302,16 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Coach API error:', error);
     const errorMessage = error?.message || 'Unknown error';
+    if (
+      errorMessage.includes('Provider IA') ||
+      errorMessage.includes('fetch failed') ||
+      errorMessage.includes('Aucune URL')
+    ) {
+      return NextResponse.json(
+        { error: "Le Coach IA est en cours d'activation. Reviens dans quelques minutes !", pending: true },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: `Erreur coach IA: ${errorMessage}` },
       { status: 500 }
