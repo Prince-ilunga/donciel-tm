@@ -140,7 +140,12 @@ const DEFAULT_COMPAT_MODEL = 'gemini-flash-latest';
 // Replis essayés automatiquement quand le modèle configuré n'est
 // plus disponible. « gemini-flash-latest » est un alias maintenu par
 // Google qui pointe toujours vers le flash stable actuel.
-const FALLBACK_COMPAT_MODELS = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-2.5-flash'];
+const FALLBACK_COMPAT_MODELS = [
+  'gemini-flash-latest',
+  'gemini-2.5-flash-lite',
+  'gemini-3.5-flash-lite',
+  'gemini-3.8-flash',
+];
 // Dernier modèle ayant répondu (mémoire par instance serverless)
 let lastWorkingCompatModel: string | null = null;
 
@@ -157,7 +162,7 @@ export async function callOpenAICompat(
   const key = process.env.OPENAI_COMPAT_API_KEY;
   if (!base || !key) return null; // non configuré → stratégie suivante
 
-  const attempt = async (model: string) => {
+  const attempt = async (model: string, capMs: number) => {
     const res = await fetch(`${base}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -165,7 +170,7 @@ export async function callOpenAICompat(
         Authorization: `Bearer ${key}`,
       },
       body: JSON.stringify({ model, messages }),
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(capMs),
     });
     if (res.ok) return res.json();
     const errBody = await res.text();
@@ -184,11 +189,22 @@ export async function callOpenAICompat(
   ];
 
   const tried: string[] = [];
+  const started = Date.now();
+  let attemptsUsed = 0;
 
   const attemptCandidates = async (list: string[]) => {
     for (const model of list) {
+      // Garde-fou budget : au-delà de 70 % du temps imparti, on arrête
+      // le parcours des candidats (le 1er essai garde le timeout complet).
+      if (attemptsUsed > 0 && Date.now() - started > timeoutMs * 0.7) {
+        tried.push('⏱️ budget de temps dépassé — arrêt du parcours');
+        return null;
+      }
+      // 1er essai : timeout complet ; suivants : plafonnés à 90 s
+      const cap = attemptsUsed === 0 ? timeoutMs : Math.min(timeoutMs, 90000);
+      attemptsUsed++;
       try {
-        const json = await attempt(model);
+        const json = await attempt(model, cap);
         lastWorkingCompatModel = model;
         return json;
       } catch (e: any) {
@@ -197,10 +213,15 @@ export async function callOpenAICompat(
         const msg = String(e?.message || '');
         const unavailable =
           status === 404 || /no longer available|not found|does not exist|deprecat/i.test(msg);
+        const timedOut =
+          e?.name === 'TimeoutError' ||
+          e?.name === 'AbortError' ||
+          /abort|timeout|timed out/i.test(msg);
         const transient =
           status === 503 ||
           status === 429 ||
-          /high demand|overload|rate.?limit|resource.?exhaust/i.test(msg);
+          /high demand|overload|rate.?limit|resource.?exhaust/i.test(msg) ||
+          timedOut;
         // Clé invalide / requête invalide → les autres modèles n'aideront pas
         if (status === 401 || status === 403 || status === 400) {
           throw new Error(`Provider IA (${base}) → ${e?.message || e}`);
@@ -257,9 +278,10 @@ export async function discoverCompatModels(
       .filter(Boolean);
     return ids.sort((a, b) => {
       const score = (id: string) => {
-        if (/flash-latest$/i.test(id)) return 0; // alias toujours à jour
-        if (/flash/i.test(id) && !/preview|lite/i.test(id)) return 1;
-        if (/flash.*lite/i.test(id)) return 2;
+        const plain = id.replace(/^models\//, '');
+        if (/^gemini-flash-latest$/i.test(plain)) return 0; // alias toujours à jour
+        if (/flash.*lite/i.test(plain) && !/preview|image|tts/i.test(plain)) return 1; // lite = moins de demande
+        if (/flash/i.test(plain) && !/preview/i.test(plain)) return 2;
         return 3;
       };
       return score(a) - score(b);
