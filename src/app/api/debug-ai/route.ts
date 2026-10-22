@@ -19,8 +19,35 @@ export async function POST() {
     return NextResponse.json({ error: 'Réservé à l\'administrateur' }, { status: 403 });
   }
 
-  const { proxyBaseUrls } = await import('@/lib/zai');
+  const { proxyBaseUrls, callOpenAICompat } = await import('@/lib/zai');
   const bases = proxyBaseUrls();
+
+  // ─── Sonde du provider public OpenAI-compatible (si configuré) ───
+  const compatBase = process.env.OPENAI_COMPAT_BASE_URL || null;
+  let compatProbe: Record<string, unknown> | null = null;
+  if (compatBase && process.env.OPENAI_COMPAT_API_KEY) {
+    const start = Date.now();
+    try {
+      const completion = await callOpenAICompat(
+        [{ role: 'user', content: 'Réponds uniquement: PING' }],
+        60000
+      );
+      compatProbe = {
+        base: compatBase,
+        model: process.env.OPENAI_COMPAT_MODEL || 'gemini-2.0-flash',
+        ok: true,
+        ms: Date.now() - start,
+        content: String(completion?.choices?.[0]?.message?.content || '').slice(0, 80),
+      };
+    } catch (e: any) {
+      compatProbe = {
+        base: compatBase,
+        ok: false,
+        ms: Date.now() - start,
+        error: `${e?.name || 'Error'}: ${e?.message || String(e)}`,
+      };
+    }
+  }
 
   const probes = await Promise.all(
     bases.map(async (base) => {
@@ -59,12 +86,15 @@ export async function POST() {
     })
   );
 
+  const allProbes = [...(compatProbe ? [compatProbe] : []), ...probes];
+
   return NextResponse.json({
     zaiProxyUrlEnv: process.env.ZAI_PROXY_URL || null,
+    openaiCompatConfigured: Boolean(compatBase && process.env.OPENAI_COMPAT_API_KEY),
     isVercel: Boolean(process.env.VERCEL),
-    probes,
-    verdict: probes.some((p) => p.ok)
+    probes: allProbes,
+    verdict: allProbes.some((p) => p.ok)
       ? '✅ La chaîne IA fonctionne (au moins une URL répond)'
-      : '❌ Aucune URL de proxy ne répond — la chaîne IA est coupée',
+      : '❌ Aucune IA accessible — configure OPENAI_COMPAT_BASE_URL / OPENAI_COMPAT_API_KEY / OPENAI_COMPAT_MODEL dans Vercel (clé Gemini gratuite recommandée)',
   });
 }
