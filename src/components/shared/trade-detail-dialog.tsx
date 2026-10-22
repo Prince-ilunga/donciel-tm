@@ -42,6 +42,8 @@ import {
   Crosshair,
   Activity,
   ListOrdered,
+  Sparkles,
+  Loader2,
 } from "lucide-react";
 
 interface TradeDetail {
@@ -89,6 +91,37 @@ export function TradeDetailDialog() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const prevTradeIdRef = useRef<string | null>(null);
+
+  // ─── Analyse IA d'une capture (Coach IA vision) ───
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiContent, setAiContent] = useState("");
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  async function analyzeScreenshot(screenshotId: string) {
+    setAiOpen(true);
+    setAiLoading(true);
+    setAiContent("");
+    setAiError(null);
+    try {
+      const res = await fetch("/api/coach/vision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ screenshotId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setAiError(data?.error || "Analyse impossible pour le moment.");
+      } else {
+        setAiContent(data?.analysis || "Aucune analyse générée.");
+      }
+    } catch {
+      setAiError("Connexion impossible. Vérifie ta connexion internet.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
 
   const fetchTrade = useCallback(async (id: string) => {
     setLoading(true);
@@ -897,9 +930,24 @@ export function TradeDetailDialog() {
                               <span className="text-xs text-white font-medium uppercase tracking-wider">
                                 {typeLabel}
                               </span>
-                              {isVideo && (
-                                <span className="text-[9px] text-white/70 bg-white/20 rounded px-1">VID</span>
-                              )}
+                              <span className="flex items-center gap-1.5">
+                                {!isVideo && (
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label={language === "fr" ? "Analyser cette capture avec le Coach IA" : "Analyze this screenshot with AI Coach"}
+                                    onClick={(e) => { e.stopPropagation(); analyzeScreenshot(screenshot.id); }}
+                                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); analyzeScreenshot(screenshot.id); } }}
+                                    className="inline-flex items-center gap-1 rounded-md bg-sky-500/90 hover:bg-sky-400 text-white text-[10px] font-semibold px-2 py-1 transition-colors cursor-pointer"
+                                  >
+                                    <Sparkles className="w-3 h-3" />
+                                    Analyse IA
+                                  </span>
+                                )}
+                                {isVideo && (
+                                  <span className="text-[9px] text-white/70 bg-white/20 rounded px-1">VID</span>
+                                )}
+                              </span>
                             </div>
                           </button>
                         );
@@ -923,6 +971,47 @@ export function TradeDetailDialog() {
           </div>
         )}
       </DialogContent>
+
+      {/* ─── Analyse IA de la capture (Coach IA vision) ─── */}
+      <Dialog open={aiOpen} onOpenChange={setAiOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Sparkles className="w-4 h-4 text-sky-400" aria-hidden />
+              {language === "fr" ? "Analyse IA de la capture" : "AI screenshot analysis"}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {language === "fr" ? "Analyse du Coach IA" : "AI Coach analysis"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {aiLoading ? (
+            <div className="py-10 flex flex-col items-center gap-3 text-muted-foreground" aria-live="polite">
+              <Loader2 className="w-7 h-7 animate-spin text-sky-400" aria-hidden />
+              <p className="text-sm">{language === "fr" ? "Le Coach IA étudie ta capture…" : "AI Coach is studying your screenshot…"}</p>
+              <p className="text-xs text-muted-foreground/70">10 à 30 secondes</p>
+            </div>
+          ) : aiError ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive" role="alert">
+              {aiError}
+            </div>
+          ) : (
+            <div className="rounded-lg bg-muted/30 p-4">
+              <p className="text-sm text-foreground/85 whitespace-pre-wrap leading-relaxed" aria-live="polite">
+                {aiContent}
+              </p>
+            </div>
+          )}
+
+          {!aiLoading && !aiError && (
+            <p className="text-[11px] text-muted-foreground text-center">
+              {language === "fr"
+                ? "Le Coach IA peut se tromper — croise toujours avec ta propre lecture du marché."
+                : "The AI Coach can make mistakes — always cross-check with your own read of the market."}
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

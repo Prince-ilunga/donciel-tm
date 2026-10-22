@@ -5,6 +5,7 @@ import { useAppStore } from "@/stores/app-store";
 import { t } from "@/lib/i18n";
 import { useStats, useTrades } from "@/lib/hooks";
 import { MetricCard } from "@/components/shared/metric-card";
+import { OnboardingChecklist } from "@/components/onboarding/onboarding-checklist";
 import { cn, getContractSize } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
@@ -259,6 +260,7 @@ export function DashboardTab() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
+      <OnboardingChecklist />
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>

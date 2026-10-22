@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser, demoReadonlyGuard } from '@/lib/auth';
 
 export async function GET() {
   try {
@@ -8,6 +8,9 @@ export async function GET() {
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
+    // Compte démo : lecture seule
+    const demoGuard = demoReadonlyGuard(result.user?.email);
+    if (demoGuard) return demoGuard;
 
     const alerts = await db.alert.findMany({
       where: { userId: result.user.id },

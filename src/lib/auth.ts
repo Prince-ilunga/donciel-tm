@@ -1,8 +1,9 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { hash, compare } from 'bcryptjs';
 import { cookies } from 'next/headers';
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { isDemoAccount } from '@/lib/demo-data';
 
 // SECURITY: JWT_SECRET must be set in environment variables.
 // Never fall back to a hardcoded secret — anyone could forge tokens.
@@ -119,6 +120,26 @@ export async function getAuthUser(): Promise<{
 
 export function isAdmin(user: TokenPayload): boolean {
   return user.role === 'admin';
+}
+
+// ─── Compte démo public : lecture seule ─────────────────────
+/**
+ * À appeler au début de chaque route de mutation (POST/PUT/DELETE).
+ * Retourne une Response 403 si l'utilisateur est le compte démo,
+ * sinon null (continuer normalement).
+ */
+export function demoReadonlyGuard(email?: string | null): NextResponse | null {
+  if (isDemoAccount(email)) {
+    return NextResponse.json(
+      {
+        error:
+          'Mode démo : ce compte est en lecture seule. Crée un compte gratuit pour enregistrer tes propres trades !',
+        demo: true,
+      },
+      { status: 403 }
+    );
+  }
+  return null;
 }
 
 export const ADMIN_EMAIL = 'doncielkabwe@gmail.com';

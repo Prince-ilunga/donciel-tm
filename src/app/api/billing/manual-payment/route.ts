@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser, demoReadonlyGuard } from '@/lib/auth';
 import { PLANS, PlanId, PlanInterval } from '@/lib/plans';
 import { mobileMoneyConfig } from '@/lib/paddle';
 
@@ -15,6 +15,9 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthUser();
     if (auth.error || !auth.user) return NextResponse.json({ error: auth.error || 'Non autorisé' }, { status: 401 });
+    // Compte démo : lecture seule
+    const demoGuard = demoReadonlyGuard(auth.user?.email);
+    if (demoGuard) return demoGuard;
 
     const body = await request.json().catch(() => null);
     const plan = body?.plan as PlanId;

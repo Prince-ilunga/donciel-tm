@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { getAuthUser } from '@/lib/auth';
+import { getAuthUser, demoReadonlyGuard } from '@/lib/auth';
 import { getContractSize } from '@/lib/utils';
 import {
   checkTradeLimit,
@@ -72,6 +72,9 @@ export async function POST(request: NextRequest) {
     if (result.error || !result.user) {
       return NextResponse.json({ error: result.error ?? 'Non autorisé' }, { status: 401 });
     }
+    // Compte démo : lecture seule
+    const demoGuard = demoReadonlyGuard(result.user?.email);
+    if (demoGuard) return demoGuard;
     const user = result.user;
 
     // ─── Gating plan : import réservé PRO/ELITE ───

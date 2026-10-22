@@ -1,0 +1,382 @@
+[
+  {
+    "date": "2026-10-21T00:00:00.000Z",
+    "pair": "XAUUSD",
+    "direction": "LONG",
+    "session": "NEW YORK",
+    "marketCondition": "CONTINUATION",
+    "setup": "SETUP B",
+    "entryModel": "MARKET SHIFT",
+    "structure": "HAUSSIÈRE",
+    "confluence": "OB M15 + biais H1 haussier + macro très cher",
+    "timeframe": "M15",
+    "entryPrice": 4152.5,
+    "stopLoss": 4145.5,
+    "takeProfit": 4166.5,
+    "exitPrice": 4166.5,
+    "entryTime": "14:55",
+    "exitTime": "16:30",
+    "lotSize": 0.03,
+    "pnl": 42,
+    "rr": 2,
+    "result": "WIN",
+    "duration": "1h35",
+    "emotions": "Confiance retrouvée, plan suivi à la lettre",
+    "mistakes": null,
+    "lessons": "Ma semaine confirme : patience sur les sweeps, discipline sur les lots.",
+    "notes": "Dernier trade de la série démo — belle exécution.",
+    "newsEnabled": false,
+    "screenshots": [
+      {
+        "type": "analysis",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675618/screenshots/trade-tgi98oxv-analysis-1792675618483-7o2r8t.png"
+      },
+      {
+        "type": "entry",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675619/screenshots/trade-tgi98oxv-entry-1792675619794-68qnvw.png"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-20T00:00:00.000Z",
+    "pair": "EURUSD",
+    "direction": "LONG",
+    "session": "LONDON",
+    "marketCondition": "RETRACEMENT",
+    "setup": "SETUP C",
+    "entryModel": "LOT À 3 BOUGIES",
+    "structure": "RANGE",
+    "confluence": "FVG H1 mais contexte toujours en range",
+    "timeframe": "M15",
+    "entryPrice": 1.1572,
+    "stopLoss": 1.1552,
+    "takeProfit": 1.1622,
+    "exitPrice": 1.1584,
+    "entryTime": "09:50",
+    "exitTime": "11:05",
+    "lotSize": 0.05,
+    "pnl": 6,
+    "rr": 0.6,
+    "result": "BE",
+    "duration": "1h15",
+    "emotions": "Discipliné, SL respecté d'emblée",
+    "mistakes": null,
+    "lessons": "Sortie anticipée sur faiblesse du momentum : bonne gestion défensive.",
+    "notes": "Breakeven intelligent — le prix est retourné vers l'entrée après.",
+    "newsEnabled": false,
+    "screenshots": [
+      {
+        "type": "analysis",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675615/screenshots/trade-74fqx4ah-analysis-1792675615094-ptmjnf.png"
+      },
+      {
+        "type": "entry",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675616/screenshots/trade-74fqx4ah-entry-1792675616273-zc1fie.png"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-16T00:00:00.000Z",
+    "pair": "XAUUSD",
+    "direction": "SHORT",
+    "session": "OVERLAP",
+    "marketCondition": "CONTINUATION",
+    "setup": "SETUP A",
+    "entryModel": "ANGLOBANTE",
+    "structure": "BAISSIÈRE",
+    "confluence": "Sweep du high NY + FVG M5 + biais H4 baissier",
+    "timeframe": "M5",
+    "entryPrice": 4218,
+    "stopLoss": 4226,
+    "takeProfit": 4194,
+    "exitPrice": 4194,
+    "entryTime": "15:40",
+    "exitTime": "18:10",
+    "lotSize": 0.02,
+    "pnl": 48,
+    "rr": 3,
+    "result": "WIN",
+    "duration": "2h30",
+    "emotions": "Exécution propre, zéro hésitation",
+    "mistakes": null,
+    "lessons": "Le sweep de l'open NY reste mon modèle A+.",
+    "notes": "Runner laissé jusqu'au target sans toucher.",
+    "newsEnabled": false,
+    "screenshots": [
+      {
+        "type": "analysis",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675611/screenshots/trade-tlln9nf6-analysis-1792675610972-n3t1vn.png"
+      },
+      {
+        "type": "entry",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675612/screenshots/trade-tlln9nf6-entry-1792675612483-vlrjag.png"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-15T00:00:00.000Z",
+    "pair": "BTCUSD",
+    "direction": "SHORT",
+    "session": "NEW YORK",
+    "marketCondition": "RETRACEMENT",
+    "setup": "SETUP C",
+    "entryModel": "MARKET SHIFT",
+    "structure": "BAISSIÈRE",
+    "confluence": "FVG H1 + rejet de la zone premium",
+    "timeframe": "H1",
+    "entryPrice": 112400,
+    "stopLoss": 113600,
+    "takeProfit": 109400,
+    "exitPrice": 113600,
+    "entryTime": "16:05",
+    "exitTime": "17:30",
+    "lotSize": 0.01,
+    "pnl": -12,
+    "rr": -1,
+    "result": "LOSS",
+    "duration": "1h25",
+    "emotions": "Confiant mais le marché pensait autrement",
+    "mistakes": "SL placé sous un swing évident, chassé par le spread",
+    "lessons": "Sur BTC, élargir le SL au-delà du swing +10% et réduire le lot.",
+    "notes": "Le trade était bon, la gestion du risque non.",
+    "newsEnabled": false,
+    "screenshots": [
+      {
+        "type": "analysis",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675607/screenshots/trade-jv5yfzj1-analysis-1792675607468-2ugvdn.png"
+      },
+      {
+        "type": "entry",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675609/screenshots/trade-jv5yfzj1-entry-1792675609010-pfw5z9.png"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-14T00:00:00.000Z",
+    "pair": "GBPUSD",
+    "direction": "LONG",
+    "session": "LONDON",
+    "marketCondition": "CONTINUATION",
+    "setup": "SETUP B",
+    "entryModel": "LOT À 3 BOUGIES",
+    "structure": "HAUSSIÈRE",
+    "confluence": "Biais D1 haussier + BOS H4 + FVG M15 propre",
+    "timeframe": "M15",
+    "entryPrice": 1.334,
+    "stopLoss": 1.3315,
+    "takeProfit": 1.34025,
+    "exitPrice": 1.34025,
+    "entryTime": "08:20",
+    "exitTime": "09:55",
+    "lotSize": 0.04,
+    "pnl": 25,
+    "rr": 2.5,
+    "result": "WIN",
+    "duration": "1h35",
+    "emotions": "Calme et méthodique",
+    "mistakes": null,
+    "lessons": "Les BOS H4 + FVG M15 en London sont très fiables cette semaine.",
+    "notes": "Partial à 1R, reste laissé au TP.",
+    "newsEnabled": false,
+    "screenshots": [
+      {
+        "type": "analysis",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675604/screenshots/trade-2joe9a4y-analysis-1792675604389-qw48aa.png"
+      },
+      {
+        "type": "entry",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675605/screenshots/trade-2joe9a4y-entry-1792675605851-c7gz46.png"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-12T00:00:00.000Z",
+    "pair": "XAUUSD",
+    "direction": "LONG",
+    "session": "LONDON",
+    "marketCondition": "RETRACEMENT",
+    "setup": "SETUP C",
+    "entryModel": "ANGLOBANTE",
+    "structure": "RANGE",
+    "confluence": "OB M15 mais contexte global en range",
+    "timeframe": "M15",
+    "entryPrice": 4298,
+    "stopLoss": 4290,
+    "takeProfit": 4314,
+    "exitPrice": 4290,
+    "entryTime": "09:15",
+    "exitTime": "10:40",
+    "lotSize": 0.02,
+    "pnl": -16,
+    "rr": -1,
+    "result": "LOSS",
+    "duration": "1h25",
+    "emotions": "Impatient, j'ai forcé l'entrée",
+    "mistakes": "Trading en range sans direction claire du HTF",
+    "lessons": "En range : rester à l'écart ou attendre la sortie confirmée.",
+    "notes": "Violation de ma règle « pas de trade sans biais D1 ».",
+    "newsEnabled": false,
+    "screenshots": [
+      {
+        "type": "analysis",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675600/screenshots/trade-tfpl367j-analysis-1792675600739-8b3gqa.png"
+      },
+      {
+        "type": "entry",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675602/screenshots/trade-tfpl367j-entry-1792675602543-afqqhc.png"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-09T00:00:00.000Z",
+    "pair": "US30",
+    "direction": "LONG",
+    "session": "NEW YORK",
+    "marketCondition": "RETRACEMENT",
+    "setup": "SETUP B",
+    "entryModel": "MARKET SHIFT",
+    "structure": "HAUSSIÈRE",
+    "confluence": "Biais haussier + FVG non comblé + news avantageuses",
+    "timeframe": "M5",
+    "entryPrice": 47520,
+    "stopLoss": 47470,
+    "takeProfit": 47645,
+    "exitPrice": 47645,
+    "entryTime": "15:35",
+    "exitTime": "16:50",
+    "lotSize": 0.1,
+    "pnl": 62.5,
+    "rr": 2.5,
+    "result": "WIN",
+    "duration": "1h15",
+    "emotions": "Focus total, checklist validée",
+    "mistakes": null,
+    "lessons": "Les jours de news, le displacement NY donne les meilleurs R.",
+    "notes": "Entrée sur le retest du FVG après l'annonce.",
+    "newsEnabled": true,
+    "screenshots": [
+      {
+        "type": "analysis",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675597/screenshots/trade-8ow3c3i3-analysis-1792675597190-v692yw.png"
+      },
+      {
+        "type": "entry",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675599/screenshots/trade-8ow3c3i3-entry-1792675599069-aranie.png"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-08T00:00:00.000Z",
+    "pair": "EURUSD",
+    "direction": "SHORT",
+    "session": "OVERLAP",
+    "marketCondition": "CONTINUATION",
+    "setup": "SETUP A",
+    "entryModel": "MARKET SHIFT",
+    "structure": "BAISSIÈRE",
+    "confluence": "Biais D1 baissier + breaker M15 + macro peu cher",
+    "timeframe": "M15",
+    "entryPrice": 1.1625,
+    "stopLoss": 1.1645,
+    "takeProfit": 1.1555,
+    "exitPrice": 1.1555,
+    "entryTime": "15:10",
+    "exitTime": "17:45",
+    "lotSize": 0.05,
+    "pnl": 35,
+    "rr": 3.5,
+    "result": "WIN",
+    "duration": "2h35",
+    "emotions": "Neutre, exécution mécanique",
+    "mistakes": null,
+    "lessons": "Le market shift vers 15h reste mon meilleur signal.",
+    "notes": "Trail stop manuel jusqu'au TP final.",
+    "newsEnabled": false,
+    "screenshots": [
+      {
+        "type": "analysis",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675593/screenshots/trade-1adlymbj-analysis-1792675593638-1j918u.png"
+      },
+      {
+        "type": "entry",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675594/screenshots/trade-1adlymbj-entry-1792675594822-e1idws.png"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-06T00:00:00.000Z",
+    "pair": "XAUUSD",
+    "direction": "LONG",
+    "session": "NEW YORK",
+    "marketCondition": "CONTINUATION",
+    "setup": "SETUP C",
+    "entryModel": "LOT À 3 BOUGIES",
+    "structure": "HAUSSIÈRE",
+    "confluence": "OB H1 mais pas de confirmation M5",
+    "timeframe": "M5",
+    "entryPrice": 4362,
+    "stopLoss": 4355,
+    "takeProfit": 4376,
+    "exitPrice": 4355,
+    "entryTime": "14:30",
+    "exitTime": "15:05",
+    "lotSize": 0.02,
+    "pnl": -14,
+    "rr": -1,
+    "result": "LOSS",
+    "duration": "35min",
+    "emotions": "Léger FOMO après le gain de la veille",
+    "mistakes": "Entrée anticipée avant la clôture de confirmation",
+    "lessons": "Attendre la 3e bougie de confirmation sur M5 avant d'entrer.",
+    "notes": "Le prix a respecté la zone mais j'étais trop tôt.",
+    "newsEnabled": false,
+    "screenshots": [
+      {
+        "type": "analysis",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675590/screenshots/trade-vpyg3620-analysis-1792675590207-zg0k89.png"
+      },
+      {
+        "type": "entry",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675591/screenshots/trade-vpyg3620-entry-1792675591836-ly5uq1.png"
+      }
+    ]
+  },
+  {
+    "date": "2026-10-05T00:00:00.000Z",
+    "pair": "XAUUSD",
+    "direction": "SHORT",
+    "session": "LONDON",
+    "marketCondition": "RETRACEMENT",
+    "setup": "SETUP A",
+    "entryModel": "ANGLOBANTE",
+    "structure": "BAISSIÈRE",
+    "confluence": "Sweep du high asiatique + FVG H1 + biais D1 baissier",
+    "timeframe": "M15",
+    "entryPrice": 4385.5,
+    "stopLoss": 4393,
+    "takeProfit": 4363,
+    "exitPrice": 4363,
+    "entryTime": "08:45",
+    "exitTime": "11:20",
+    "lotSize": 0.02,
+    "pnl": 45,
+    "rr": 3,
+    "result": "WIN",
+    "duration": "2h35",
+    "emotions": "Confiant, plan clair depuis le matin",
+    "mistakes": null,
+    "lessons": "Exécution conforme au playbook — modèle à répéter.",
+    "notes": "Attendu le sweep avant d'entrer, pas d'anticipation.",
+    "newsEnabled": false,
+    "screenshots": [
+      {
+        "type": "analysis",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675586/screenshots/trade-2xsplda0-analysis-1792675586513-6y4p7b.png"
+      },
+      {
+        "type": "entry",
+        "url": "https://res.cloudinary.com/djwunonuf/image/upload/v1792675588/screenshots/trade-2xsplda0-entry-1792675588269-z3a207.png"
+      }
+    ]
+  }
+]

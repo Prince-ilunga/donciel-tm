@@ -135,3 +135,52 @@ export async function callZAI(messages: { role: string; content: string }[]): Pr
     thinking: { type: 'disabled' },
   });
 }
+
+// ─── Vision (analyse d'images) ──────────────────────────────
+// Message multimodal : content est un tableau de parts
+// {type:'text', text} / {type:'image_url', image_url:{url}}.
+export type VisionMessage = {
+  role: string;
+  content: Array<
+    | { type: 'text'; text: string }
+    | { type: 'image_url'; image_url: { url: string } }
+  >;
+};
+
+/**
+ * Appel LLM avec vision (analyse d'images), unifié sandbox/Vercel.
+ * - Sandbox : SDK direct via createVision()
+ * - Vercel  : proxy sandbox /api/llm-proxy avec mode:'vision'
+ */
+export async function callZAIVision(messages: VisionMessage[]): Promise<any> {
+  if (process.env.VERCEL) {
+    const proxyUrl = process.env.ZAI_PROXY_URL;
+    if (!proxyUrl) {
+      throw new Error('ZAI_PROXY_URL not configured');
+    }
+    const response = await fetch(`${proxyUrl}/api/llm-proxy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages,
+        mode: 'vision',
+        thinking: { type: 'disabled' },
+      }),
+      signal: AbortSignal.timeout(180000),
+    });
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Sandbox proxy error (${response.status}): ${errorBody}`);
+    }
+    return await response.json();
+  }
+
+  const zai = await getZAI();
+  if (!zai) {
+    throw new Error('ZAI SDK not initialized');
+  }
+  return await zai.chat.completions.createVision({
+    messages,
+    thinking: { type: 'disabled' },
+  });
+}
