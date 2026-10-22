@@ -103,7 +103,7 @@ export function RoleManagementTab() {
         <div className="flex items-center gap-2 text-xs text-muted-foreground p-3 bg-muted/30 rounded-lg">
           <Lock className="w-3 h-3" />
           {language === "fr"
-            ? "Lecture seule — Seuls les administrateurs peuvent modifier les vidéos et les paramètres"
+            ? "Lecture seule — Seuls les administrateurs peuvent modifier les paramètres et gérer les membres"
             : "Read only — Only admins can modify videos and settings"}
         </div>
       )}

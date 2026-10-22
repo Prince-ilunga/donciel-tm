@@ -21,7 +21,7 @@ import {
   CheckCircle2,
   Circle,
   Play,
-  Video,
+  BookOpen,
   Trophy,
 } from "lucide-react";
 
@@ -189,11 +189,11 @@ export function ExecutionTab() {
       <div className="space-y-3">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Video className="w-4 h-4 text-primary" />
+            <BookOpen className="w-4 h-4 text-primary" />
           </div>
           <div>
             <h3 className="text-base font-bold uppercase tracking-wider">
-              {t(language, "phaseInitiale")} — {t(language, "videosDuSetup")}
+              {t(language, "phaseInitiale")} — {language === "fr" ? "Playbook" : "Playbook"}
             </h3>
             <p className="text-xs text-muted-foreground">
               {t(language, "evolutionApprentissage")}
@@ -203,22 +203,22 @@ export function ExecutionTab() {
         <Card className="p-4">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center">
-              <Play className="w-8 h-8 text-primary/40" />
+              <BookOpen className="w-8 h-8 text-primary/40" />
             </div>
             <div className="flex-1">
               <p className="text-sm text-muted-foreground">
                 {language === "fr"
-                  ? "Regardez les vidéos du setup pour commencer votre apprentissage DONCIEL."
-                  : "Watch setup videos to start your DONCIEL learning journey."}
+                  ? "Étudie ton playbook et personnalise-le avec TES setups, TES règles d'entrée/sortie et TA checklist. C'est la base de ta discipline."
+                  : "Study your playbook and customize it with YOUR setups, YOUR entry/exit rules and YOUR checklist. It's the foundation of your discipline."}
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 className="mt-2 gap-2"
-                onClick={() => useAppStore.getState().setActiveTab("videos")}
+                onClick={() => useAppStore.getState().setActiveTab("playbook")}
               >
-                <Video className="w-3.5 h-3.5" />
-                {language === "fr" ? "Voir les vidéos" : "Watch videos"}
+                <BookOpen className="w-3.5 h-3.5" />
+                {language === "fr" ? "Ouvrir mon playbook" : "Open my playbook"}
               </Button>
             </div>
           </div>

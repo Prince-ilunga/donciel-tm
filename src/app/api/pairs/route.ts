@@ -11,7 +11,7 @@ const DEFAULT_PAIRS = [
 export async function GET() {
   try {
     const result = await getAuthUser();
-    if (result.error) {
+    if (result.error || !result.user) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
 
@@ -38,7 +38,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const result = await getAuthUser();
-    if (result.error) {
+    if (result.error || !result.user) {
       return NextResponse.json({ error: result.error }, { status: 401 });
     }
 
