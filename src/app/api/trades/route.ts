@@ -96,6 +96,9 @@ export async function POST(request: NextRequest) {
       mistakes,
       lessons,
       notes,
+      mfe,
+      mae,
+      accountName,
     } = body;
 
     if (!date || !pair || !direction || !session || !marketCondition || !timeframe || entryPrice === undefined || stopLoss === undefined || takeProfit === undefined) {
@@ -179,6 +182,9 @@ export async function POST(request: NextRequest) {
         mistakes: mistakes || null,
         lessons: lessons || null,
         notes: notes || null,
+        mfe: mfe !== undefined && mfe !== null && mfe !== '' ? parseFloat(mfe) : null,
+        mae: mae !== undefined && mae !== null && mae !== '' ? parseFloat(mae) : null,
+        accountName: accountName || null,
       },
       include: { screenshots: true },
     });

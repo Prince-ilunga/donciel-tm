@@ -40,6 +40,8 @@ model User {
   resetTokens   PasswordResetToken[]
   usageCounters UsageCounter[]
   paymentRequests PaymentRequest[]
+  riskProfile   RiskProfile?
+  goals         Goal[]
 }
 
 // Demandes de paiement mobile money (M-Pesa / Airtel / Orange)
@@ -121,6 +123,10 @@ model Trade {
   mistakes        String?  // Mistakes made
   lessons         String?  // Lessons learned
   notes           String?  // Additional notes
+  mfe             Float?   // Max Favorable Excursion (in R) — best price reached during the trade
+  mae             Float?   // Max Adverse Excursion (in R) — worst price reached during the trade
+  accountName     String?  // Multi-account tag (e.g. "Principal", "Funded")
+  importSource    String?  // MANUAL, MT5_HTML, CSV — how the trade was created
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   screenshots     Screenshot[]
@@ -255,6 +261,38 @@ model UploadSession {
   receivedChunks String   @default("[]") // JSON array of chunk indices
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+// ─── Risk profile & discipline (Pack 3) ─────────────────────
+// One risk profile per user: capital, per-trade risk and loss limits.
+// Violations are computed from trades + these rules (see lib/discipline.ts).
+model RiskProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  initialCapital  Float    // Starting capital (account size)
+  currency        String   @default("USD")
+  riskPerTradePct Float    @default(1)   // Planned risk per trade (% of capital)
+  maxDailyLossPct Float    @default(3)   // Max daily loss (% of capital)
+  maxWeeklyLossPct Float   @default(6)   // Max weekly loss (% of capital)
+  maxTradesPerDay Int?     // Max trades per day (overtrading guard)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// Monthly goals (Pack 3). One row per (user, period, metric).
+model Goal {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  period    String   // "YYYY-MM"
+  metric    String   // RR_TOTAL, WIN_RATE, PROFIT_FACTOR, NET_PNL, TRADES_COUNT, DISCIPLINE_SCORE
+  target    Float
+  status    String   @default("ACTIVE") // ACTIVE, ARCHIVED
+  createdAt DateTime @default(now())
+
+  @@unique([userId, period, metric])
+  @@index([userId, status])
 }
 
 // ─── Plan Document (self-contained plan editor, replaces Notion) ──

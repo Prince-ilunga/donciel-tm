@@ -64,9 +64,13 @@ import {
   Clock,
   Loader2,
   Eye,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { ImportDialog } from "@/components/import/import-dialog";
+import { ShareCardDialog } from "@/components/growth/share-card-dialog";
+import { WeeklyReviewCard } from "@/components/growth/weekly-review-card";
 
 // ─── Constants ───────────────────────────────────────────────
 const DEFAULT_PAIRS = ["XAUUSD", "VOLATILITÉ 75 1S", "VOLATILITE 50 1S"];
@@ -102,6 +106,9 @@ interface TradeFormData {
   mistakes: string;
   lessons: string;
   notes: string;
+  mfe: string;
+  mae: string;
+  accountName: string;
   analysisFile: File | null;
   entryFile: File | null;
   exitFile: File | null;
@@ -135,6 +142,9 @@ const initialFormData: TradeFormData = {
   mistakes: "",
   lessons: "",
   notes: "",
+  mfe: "",
+  mae: "",
+  accountName: "Principal",
   analysisFile: null,
   entryFile: null,
   exitFile: null,
@@ -244,6 +254,9 @@ export function DashboardTab() {
     refetchStats();
   }, [refetchTrades, refetchStats]);
 
+  const [showImport, setShowImport] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto overflow-x-hidden">
       {/* Header */}
@@ -256,14 +269,36 @@ export function DashboardTab() {
             {language === "fr" ? "Vue d'ensemble de vos performances" : "Overview of your performance"}
           </p>
         </div>
-        <Button
-          onClick={() => setShowTradeForm(true)}
-          className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300"
-          size="lg"
-        >
-          <Plus className="w-4 h-4" />
-          {t(language, "addTrade")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowImport(true)}
+            className="gap-2"
+            size="lg"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">{language === "fr" ? "Importer MT5/CSV" : "Import MT5/CSV"}</span>
+            <span className="sm:hidden">MT5</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShareOpen(true)}
+            className="gap-2 border-sky-400/40 text-sky-400 hover:bg-sky-400/10"
+            size="lg"
+          >
+            <Share2 className="w-4 h-4" />
+            <span className="hidden sm:inline">{language === "fr" ? "Partager mon bilan" : "Share my review"}</span>
+            <span className="sm:hidden">{language === "fr" ? "Partager" : "Share"}</span>
+          </Button>
+          <Button
+            onClick={() => setShowTradeForm(true)}
+            className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300"
+            size="lg"
+          >
+            <Plus className="w-4 h-4" />
+            {t(language, "addTrade")}
+          </Button>
+        </div>
       </div>
 
       {/* Metrics Grid */}
@@ -333,6 +368,9 @@ export function DashboardTab() {
           )}
         </div>
       )}
+
+      {/* Revue hebdomadaire IA */}
+      <WeeklyReviewCard />
 
       {/* Recent Trades */}
       <Card className="overflow-hidden">
@@ -503,6 +541,16 @@ export function DashboardTab() {
         language={language}
         onTradeCreated={handleTradeCreated}
       />
+
+      {/* Import MT5/CSV */}
+      <ImportDialog
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={handleTradeCreated}
+      />
+
+      {/* Carte de partage */}
+      <ShareCardDialog open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   );
 }
@@ -680,6 +728,9 @@ function TradeFormDialog({
         mistakes: formData.mistakes || null,
         lessons: formData.lessons || null,
         notes: formData.notes || null,
+        mfe: formData.mfe ? parseFloat(formData.mfe) : null,
+        mae: formData.mae ? parseFloat(formData.mae) : null,
+        accountName: formData.accountName?.trim() || "Principal",
       };
 
       const res = await fetch("/api/trades", {
@@ -1098,6 +1149,49 @@ function TradeFormDialog({
                     value={formData.amountToWin}
                     onChange={(e) => updateField("amountToWin", e.target.value)}
                     className="h-9 font-mono"
+                  />
+                </div>
+
+                {/* MFE */}
+                <div className="space-y-1.5 trade-field">
+                  <Label className="text-xs font-medium">
+                    {language === "fr" ? "MFE (R max favorable)" : "MFE (max favorable R)"}
+                  </Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder={language === "fr" ? "ex: 1.8 (optionnel)" : "e.g. 1.8 (optional)"}
+                    value={formData.mfe}
+                    onChange={(e) => updateField("mfe", e.target.value)}
+                    className="h-9 font-mono"
+                  />
+                </div>
+
+                {/* MAE */}
+                <div className="space-y-1.5 trade-field">
+                  <Label className="text-xs font-medium">
+                    {language === "fr" ? "MAE (R max adverse)" : "MAE (max adverse R)"}
+                  </Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder={language === "fr" ? "ex: -0.4 (optionnel)" : "e.g. -0.4 (optional)"}
+                    value={formData.mae}
+                    onChange={(e) => updateField("mae", e.target.value)}
+                    className="h-9 font-mono"
+                  />
+                </div>
+
+                {/* Compte */}
+                <div className="space-y-1.5 trade-field">
+                  <Label className="text-xs font-medium">
+                    {language === "fr" ? "Compte" : "Account"}
+                  </Label>
+                  <Input
+                    placeholder={language === "fr" ? "Principal, Financé…" : "Main, Funded…"}
+                    value={formData.accountName}
+                    onChange={(e) => updateField("accountName", e.target.value)}
+                    className="h-9"
                   />
                 </div>
               </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 interface Trade {
   id: string;
@@ -32,6 +32,11 @@ interface Trade {
   mistakes: string | null;
   lessons: string | null;
   notes: string | null;
+  mfe: number | null;
+  mae: number | null;
+  accountName: string | null;
+  importSource: string | null;
+  playbookId: string | null;
   createdAt: string;
   screenshots: { id: string; type: string; url: string }[];
 }
@@ -108,6 +113,27 @@ export function useTrades(filters?: TradeFilters) {
     setLoading(false);
   }, [filters]);
 
+  // Auto-fetch au montage / quand les filtres changent
+  // (setState uniquement après await pour respecter react-hooks/set-state-in-effect)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const qs = buildQueryString(filters as Record<string, string | undefined>);
+        const res = await fetch(`/api/trades?${qs}`);
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setTrades(data.trades || []);
+        }
+      } catch {
+        if (!cancelled) setTrades([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [filters]);
+
   return { trades, loading, refetch: fetchTrades };
 }
 
@@ -128,6 +154,26 @@ export function useStats(filters?: TradeFilters) {
       setStats(null);
     }
     setLoading(false);
+  }, [filters]);
+
+  // Auto-fetch au montage / quand les filtres changent
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const qs = buildQueryString(filters as Record<string, string | undefined>);
+        const res = await fetch(`/api/stats?${qs}`);
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setStats(data);
+        }
+      } catch {
+        if (!cancelled) setStats(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [filters]);
 
   return { stats, loading, refetch: fetchStats };

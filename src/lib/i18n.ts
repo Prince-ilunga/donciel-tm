@@ -17,6 +17,10 @@ export const translations = {
     adminVerification: "Vérification Admin",
     roleManagement: "Gestion des Rôles",
     moneyManagement: "Money Management",
+    calendarPnl: "Calendrier P&L",
+    analytics360: "Analytics 360\u00b0",
+    disciplineTab: "Discipline & Risque",
+    leaderboardTab: "Communaut\u00e9",
     
     // Auth
     login: "Connexion",
@@ -317,6 +321,10 @@ export const translations = {
     adminVerification: "Admin Verification",
     roleManagement: "Role Management",
     moneyManagement: "Money Management",
+    calendarPnl: "P&L Calendar",
+    analytics360: "360\u00b0 Analytics",
+    disciplineTab: "Discipline & Risk",
+    leaderboardTab: "Community",
     
     // Auth
     login: "Login",
