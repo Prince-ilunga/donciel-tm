@@ -40,6 +40,7 @@ model User {
   resetTokens   PasswordResetToken[]
   usageCounters UsageCounter[]
   paymentRequests PaymentRequest[]
+  saspaySessions SaspaySession[]
   riskProfile   RiskProfile?
   goals         Goal[]
 }
@@ -62,6 +63,29 @@ model PaymentRequest {
   reviewedAt DateTime?
   reviewedBy String?
   createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([status])
+}
+
+// Sessions de checkout SasPay (https://docs.saspay.me) — paiement
+// hébergé mobile money / carte bancaire. L'activation du plan se fait
+// soit par le webhook `transaction.success`, soit par le polling du
+// statut au retour du client. Paiement à l'acte (non récurrent).
+model SaspaySession {
+  id          String    @id @default(cuid())
+  sessionId   String    @unique // UUID de la session SasPay
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        String    // PRO, ELITE
+  interval    String    // monthly, yearly
+  amount      Float
+  currency    String    @default("USD")
+  status      String    @default("PENDING") // PENDING, PAID, CANCELED
+  transactionId String? // UUID de la transaction SasPay une fois payée
+  activatedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([userId])
   @@index([status])

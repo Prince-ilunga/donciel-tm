@@ -24,7 +24,7 @@ export interface Plan {
   id: PlanId;
   name: string;
   tagline: string;
-  /** Price in euros per month (display only) */
+  /** Price in US dollars (display only) */
   priceMonthly: number;
   priceYearly: number;
   limits: PlanLimits;
@@ -40,14 +40,14 @@ export const PLANS: Record<PlanId, Plan> = {
     priceMonthly: 0,
     priceYearly: 0,
     limits: {
-      maxTradesPerMonth: 30,
+      maxTradesPerMonth: 10,
       maxPlaybooks: 2,
       coachAiPerMonth: 5,
       canExport: false,
       advancedStats: false,
     },
     features: [
-      '30 trades / mois',
+      '10 trades / mois',
       'Journal de trading complet',
       'Stats essentielles (win rate, P&L, RR)',
       '2 playbooks',
@@ -59,8 +59,8 @@ export const PLANS: Record<PlanId, Plan> = {
     id: 'PRO',
     name: 'Pro',
     tagline: 'Pour les traders sérieux',
-    priceMonthly: 19,
-    priceYearly: 190,
+    priceMonthly: 14.99,
+    priceYearly: 149.99,
     highlight: true,
     limits: {
       maxTradesPerMonth: -1,

@@ -116,7 +116,7 @@ const FAQ = [
   },
   {
     q: "Comment fonctionne l'essai du plan gratuit ?",
-    a: "Le plan Découverte est gratuit pour toujours : 30 trades par mois, 2 playbooks et 5 analyses IA pour tester la méthode complète avant de passer au plan Pro.",
+    a: "Le plan Découverte est gratuit pour toujours : 10 trades par mois, 2 playbooks et 5 analyses IA pour tester la méthode complète avant de passer au plan Pro.",
   },
 ];
 
@@ -349,7 +349,7 @@ export default function LandingPage() {
             </DemoButton>
           </div>
           <p className="mt-5 text-sm text-neutral-500">
-            Sans carte bancaire · 30 trades/mois offerts · Résiliable en 1 clic
+            Sans carte bancaire · 10 trades/mois offerts · Résiliable en 1 clic
           </p>
         </div>
 
@@ -513,7 +513,7 @@ export default function LandingPage() {
                 <h3 className="text-xl font-bold text-white">{PLANS.FREE.name}</h3>
                 <p className="text-sm text-neutral-500 mt-1">{PLANS.FREE.tagline}</p>
                 <div className="mt-6 mb-7 flex items-baseline gap-2">
-                  <span className="text-4xl font-bold text-white tabular-nums">0 €</span>
+                  <span className="text-4xl font-bold text-white tabular-nums">0 $</span>
                   <span className="text-neutral-500 text-sm">/ pour toujours</span>
                 </div>
                 <ul className="space-y-3 text-sm text-neutral-300 flex-1">
@@ -540,10 +540,10 @@ export default function LandingPage() {
                 <h3 className="text-xl font-bold text-white">{pro.name}</h3>
                 <p className="text-sm text-neutral-500 mt-1">{pro.tagline}</p>
                 <div className="mt-6 mb-1 flex items-baseline gap-2">
-                  <span className="text-5xl font-bold tabular-nums"><span className="dct-text-sapphire">{pro.priceMonthly} €</span></span>
+                  <span className="text-5xl font-bold tabular-nums"><span className="dct-text-sapphire">{pro.priceMonthly} $</span></span>
                   <span className="text-neutral-500 text-sm">/ mois</span>
                 </div>
-                <p className="text-xs text-sky-300/80 mb-7">ou {pro.priceYearly} €/an — 2 mois offerts</p>
+                <p className="text-xs text-sky-300/80 mb-7">ou {pro.priceYearly} $/an — 2 mois offerts</p>
                 <ul className="space-y-3 text-sm text-neutral-200 flex-1">
                   {pro.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5">
@@ -567,10 +567,10 @@ export default function LandingPage() {
                 </div>
                 <p className="text-sm text-neutral-500 mt-1">{elite.tagline}</p>
                 <div className="mt-6 mb-1 flex items-baseline gap-2">
-                  <span className="text-4xl font-bold text-white tabular-nums">{elite.priceMonthly} €</span>
+                  <span className="text-4xl font-bold text-white tabular-nums">{elite.priceMonthly} $</span>
                   <span className="text-neutral-500 text-sm">/ mois</span>
                 </div>
-                <p className="text-xs text-neutral-600 mb-7">ou {elite.priceYearly} €/an — 2 mois offerts</p>
+                <p className="text-xs text-neutral-600 mb-7">ou {elite.priceYearly} $/an — 2 mois offerts</p>
                 <ul className="space-y-3 text-sm text-neutral-300 flex-1">
                   {elite.features.map((f) => (
                     <li key={f} className="flex items-start gap-2.5">
@@ -586,7 +586,7 @@ export default function LandingPage() {
             </div>
           </div>
           <p className="text-center text-xs text-neutral-500 mt-10">
-            Paiement sécurisé par carte (Paddle) · Mobile Money : M-Pesa, Airtel &amp; Orange · TVA applicable selon ton pays · Annulation en 1 clic
+            Paiement sécurisé par carte &amp; mobile money (SasPay) · Paddle pour l'international · TVA applicable selon ton pays · Annulation en 1 clic
           </p>
         </div>
       </section>

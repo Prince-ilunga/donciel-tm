@@ -42,7 +42,7 @@ Je viens de lancer *DONCIEL TM* — un journal de trading 100% en ligne :
 💰 Money management discipliné (ton capital te remerciera)
 📱 Abonnement payable en *M-Pesa, Airtel Money, Orange Money*
 
-🎁 Essai *GRATUIT* — 30 trades/mois, sans carte bancaire
+🎁 Essai *GRATUIT* — 10 trades/mois, sans carte bancaire
 👉 ${SITE}
 
 Ta discipline devient ta force. 💪`,
@@ -67,7 +67,7 @@ C'est exactement ce que résout *DONCIEL TM*, le journal de trading nouvelle gé
 ✅ Money management par paliers pour protéger ton capital
 ✅ Plan de trading écrit et réutilisable
 
-🎁 Essai gratuit : 30 trades/mois, aucune carte requise
+🎁 Essai gratuit : 10 trades/mois, aucune carte requise
 💳 Abonnement par Mobile Money (M-Pesa, Airtel, Orange)
 
 Essaie ici 👉 ${SITE}`,
@@ -106,7 +106,7 @@ Essai gratuit 👉 ${SITE}`,
 const OBJECTIONS = [
   {
     q: "C'est vraiment gratuit ?",
-    a: "Oui : 30 trades/mois offerts, sans carte bancaire. Si ça te plaît, l'abonnement se paie directement par Mobile Money (M-Pesa, Airtel, Orange) — 1 minute.",
+    a: "Oui : 10 trades/mois offerts, sans carte bancaire. Si ça te plaît, l'abonnement se paie directement par Mobile Money (M-Pesa, Airtel, Orange) — 1 minute.",
   },
   {
     q: "Je suis débutant, c'est pour moi ?",

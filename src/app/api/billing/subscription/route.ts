@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { getAuthUser } from '@/lib/auth';
 import { getPlan, stripeConfigured } from '@/lib/plans';
 import { paddleConfigured, paddlePublicConfig, mobileMoneyConfig } from '@/lib/paddle';
+import { saspayConfigured, saspayPublicConfig } from '@/lib/saspay';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,9 +48,10 @@ export async function GET(request: NextRequest) {
       currentPeriodEnd: user.currentPeriodEnd,
       isAdmin: user.role === 'admin',
       hasSubscription: Boolean(user.stripeSubscriptionId || user.paddleSubscriptionId),
-      billingConfigured: paddleConfigured() || stripeConfigured() || Boolean(mobileMoneyConfig()),
-      billingProvider: paddleConfigured() ? 'paddle' : stripeConfigured() ? 'stripe' : mobileMoneyConfig() ? 'mobile_money' : null,
+      billingConfigured: saspayConfigured() || paddleConfigured() || stripeConfigured() || Boolean(mobileMoneyConfig()),
+      billingProvider: saspayConfigured() ? 'saspay' : paddleConfigured() ? 'paddle' : stripeConfigured() ? 'stripe' : mobileMoneyConfig() ? 'mobile_money' : null,
       paddle: paddlePublicConfig(),
+      saspay: saspayPublicConfig(),
       mobileMoney: mobileMoneyConfig(),
       email: user.email,
       pendingRequest,

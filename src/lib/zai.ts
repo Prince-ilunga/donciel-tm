@@ -129,45 +129,134 @@ export async function callSandboxProxy(messages: { role: string; content: string
   });
 }
 
-// ─── Strategy 0 : provider public OpenAI-compatible ─────────
-// (Gemini API gratuite, Groq, OpenRouter…) — fonctionne
-// PARTOUT (Vercel inclus), sans dépendance au sandbox.
-// Env vars :
-//  - OPENAI_COMPAT_BASE_URL  ex: https://generativelanguage.googleapis.com/v1beta/openai
-//  - OPENAI_COMPAT_API_KEY   la clé API
-//  - OPENAI_COMPAT_MODEL     ex: gemini-3.8-flash (vision OK)
+// ─── Strategy 0 : pool multi-fournisseurs OpenAI-compatible ─
+// Fonctionne PARTOUT (Vercel inclus), sans dépendance au sandbox.
+//
+// Chaque clé est essayée dans l'ordre ; quand une clé atteint sa
+// limite (429/quota) ou est invalide (401/403), le système passe
+// automatiquement à la suivante (cooldown mémoire par instance).
+//
+// Variables d'environnement :
+//  - OPENAI_COMPAT_BASE_URL / OPENAI_COMPAT_API_KEY / OPENAI_COMPAT_MODEL
+//      → clé principale (Google Gemini via endpoint OpenAI-compatible)
+//  - GEMINI_API_KEY_1, GEMINI_API_KEY_2       → 2 clés Gemini supplémentaires
+//  - AGNES_API_KEY_1, AGNES_API_KEY_2         → 2 clés Agnes AI (agnes-ai.com)
+//  - MISTRAL_API_KEY_1                        → 1 clé Mistral AI
+//  - AGNES_MODEL (défaut agnes-2.5-flash), MISTRAL_MODEL (défaut mistral-small-latest)
 const DEFAULT_COMPAT_MODEL = 'gemini-flash-latest';
-// Replis essayés automatiquement quand le modèle configuré n'est
-// plus disponible. « gemini-flash-latest » est un alias maintenu par
-// Google qui pointe toujours vers le flash stable actuel.
+// Replis essayés automatiquement quand le modèle configuré n'est plus
+// disponible. « gemini-flash-latest » est un alias maintenu par Google
+// qui pointe toujours vers le flash stable actuel.
 const FALLBACK_COMPAT_MODELS = [
   'gemini-flash-latest',
   'gemini-2.5-flash-lite',
   'gemini-3.5-flash-lite',
   'gemini-3.8-flash',
 ];
-// Dernier modèle ayant répondu (mémoire par instance serverless)
-let lastWorkingCompatModel: string | null = null;
 
-/** Modèle effectivement utilisé (env → dernier qui marche → défaut) */
-export function openAICompatModel(): string {
-  return process.env.OPENAI_COMPAT_MODEL || lastWorkingCompatModel || DEFAULT_COMPAT_MODEL;
+const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
+const AGNES_BASE_URL = 'https://apihub.agnes-ai.com/v1';
+const MISTRAL_BASE_URL = 'https://api.mistral.ai/v1';
+
+interface ProviderKey {
+  /** Identifiant stable pour la mémoire de rotation */
+  label: string;
+  baseUrl: string;
+  apiKey: string;
+  /** Modèles candidats, dans l'ordre de préférence */
+  models: string[];
+  /** Le provider accepte les parts image_url (vision) */
+  vision: boolean;
 }
 
-export async function callOpenAICompat(
-  messages: unknown[],
-  timeoutMs = 180000
-): Promise<any | null> {
-  const base = process.env.OPENAI_COMPAT_BASE_URL?.replace(/\/+$/, '');
-  const key = process.env.OPENAI_COMPAT_API_KEY;
-  if (!base || !key) return null; // non configuré → stratégie suivante
+function geminiModels(): string[] {
+  return [process.env.OPENAI_COMPAT_MODEL, ...FALLBACK_COMPAT_MODELS].filter(
+    (m): m is string => Boolean(m)
+  );
+}
 
+function agnesModels(): string[] {
+  return [process.env.AGNES_MODEL || 'agnes-2.5-flash', 'agnes-3.0-flash'].filter(Boolean);
+}
+
+function mistralModels(): string[] {
+  const model = process.env.MISTRAL_MODEL || 'mistral-small-latest';
+  const list = [model];
+  if (!/pixtral/i.test(model)) list.push('pixtral-large-latest'); // secours vision
+  return list;
+}
+
+/** Pool ordonné des clés configurées (les clés vides sont ignorées). */
+export function providerKeyPool(): ProviderKey[] {
+  const pool: ProviderKey[] = [];
+  const compatBase = process.env.OPENAI_COMPAT_BASE_URL?.replace(/\/+$/, '');
+  const compatKey = process.env.OPENAI_COMPAT_API_KEY;
+  if (compatBase && compatKey) {
+    pool.push({ label: 'compat-primary', baseUrl: compatBase, apiKey: compatKey, models: geminiModels(), vision: true });
+  }
+  if (process.env.GEMINI_API_KEY_1) {
+    pool.push({ label: 'gemini-1', baseUrl: GEMINI_BASE_URL, apiKey: process.env.GEMINI_API_KEY_1, models: geminiModels(), vision: true });
+  }
+  if (process.env.GEMINI_API_KEY_2) {
+    pool.push({ label: 'gemini-2', baseUrl: GEMINI_BASE_URL, apiKey: process.env.GEMINI_API_KEY_2, models: geminiModels(), vision: true });
+  }
+  if (process.env.AGNES_API_KEY_1) {
+    pool.push({ label: 'agnes-1', baseUrl: AGNES_BASE_URL, apiKey: process.env.AGNES_API_KEY_1, models: agnesModels(), vision: true });
+  }
+  if (process.env.AGNES_API_KEY_2) {
+    pool.push({ label: 'agnes-2', baseUrl: AGNES_BASE_URL, apiKey: process.env.AGNES_API_KEY_2, models: agnesModels(), vision: true });
+  }
+  if (process.env.MISTRAL_API_KEY_1) {
+    pool.push({ label: 'mistral-1', baseUrl: MISTRAL_BASE_URL, apiKey: process.env.MISTRAL_API_KEY_1, models: mistralModels(), vision: false });
+  }
+  return pool;
+}
+
+// ─── Mémoire de rotation (par instance serverless) ──────────
+// Cooldown par clé : une clé en erreur n'est retestée qu'après
+// expiration, sauf si toutes les autres sont indisponibles.
+const COOLDOWNS: Record<string, number> = {
+  RATE_LIMIT: 5 * 60 * 1000,   // 429 / quota atteint → 5 min
+  AUTH: 30 * 60 * 1000,        // 401/403 clé invalide → 30 min
+  TRANSIENT: 60 * 1000,        // 5xx / réseau / timeout → 1 min
+};
+const cooldownUntil = new Map<string, number>();
+// Dernière clé ayant répondu (stickiness : on ne la reteste en premier)
+let lastWorkingKeyLabel: string | null = null;
+
+type FailureKind = keyof typeof COOLDOWNS | 'FATAL';
+
+function classifyFailure(status: number | undefined, message: string): FailureKind {
+  const msg = String(message || '');
+  if (status === 401 || status === 403) return 'AUTH';
+  if (status === 429 || /rate.?limit|quota|resource.?exhaust|high demand|overload/i.test(msg)) return 'RATE_LIMIT';
+  if (status === 400) return 'FATAL'; // requête invalide → inutile de retenter
+  return 'TRANSIENT';
+}
+
+/** Modèle effectivement utilisé (env → dernière clé qui marche → défaut) */
+export function openAICompatModel(): string {
+  return process.env.OPENAI_COMPAT_MODEL || DEFAULT_COMPAT_MODEL;
+}
+
+function isVisionMessage(messages: unknown[]): boolean {
+  return messages.some((m: any) =>
+    Array.isArray(m?.content) &&
+    m.content.some((p: any) => p?.type === 'image_url')
+  );
+}
+
+async function callProviderKey(
+  key: ProviderKey,
+  messages: unknown[],
+  timeoutMs: number
+): Promise<any> {
   const attempt = async (model: string, capMs: number) => {
-    const res = await fetch(`${base}/chat/completions`, {
+    const res = await fetch(`${key.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
+        Authorization: `Bearer ${key.apiKey}`,
       },
       body: JSON.stringify({ model, messages }),
       signal: AbortSignal.timeout(capMs),
@@ -179,82 +268,121 @@ export async function callOpenAICompat(
     throw err;
   };
 
-  // Candidats : dernier qui marchait → modèle configuré → replis
-  const candidates = [
-    ...new Set(
-      [lastWorkingCompatModel, process.env.OPENAI_COMPAT_MODEL, ...FALLBACK_COMPAT_MODELS].filter(
-        (m): m is string => Boolean(m)
-      )
-    ),
-  ];
-
+  // Candidats : modèle configuré/env → replis du provider
+  const candidates = [...new Set(key.models)].filter(Boolean);
   const tried: string[] = [];
   const started = Date.now();
   let attemptsUsed = 0;
 
-  const attemptCandidates = async (list: string[]) => {
-    for (const model of list) {
-      // Garde-fou budget : au-delà de 70 % du temps imparti, on arrête
-      // le parcours des candidats (le 1er essai garde le timeout complet).
-      if (attemptsUsed > 0 && Date.now() - started > timeoutMs * 0.7) {
-        tried.push('⏱️ budget de temps dépassé — arrêt du parcours');
-        return null;
+  for (const model of candidates) {
+    // Garde-fou budget : au-delà de 70 % du temps imparti, on arrête
+    // le parcours des modèles (le 1er essai garde le timeout complet).
+    if (attemptsUsed > 0 && Date.now() - started > timeoutMs * 0.7) {
+      tried.push('budget de temps dépassé — arrêt du parcours');
+      break;
+    }
+    // 1er essai : timeout complet ; suivants : plafonnés à 90 s
+    const cap = attemptsUsed === 0 ? timeoutMs : Math.min(timeoutMs, 90000);
+    attemptsUsed++;
+    try {
+      const json = await attempt(model, cap);
+      lastWorkingKeyLabel = key.label;
+      cooldownUntil.delete(key.label);
+      return json;
+    } catch (e: any) {
+      const status = e?.status;
+      const msg = String(e?.message || '');
+      tried.push(`${model} → ${msg}`);
+      const kind = classifyFailure(status, msg);
+      if (kind === 'AUTH' || kind === 'FATAL') {
+        // Clé invalide ou requête invalide → les modèles suivants de ce
+        // provider n'aideront pas : propager vers la clé suivante.
+        throw new Error(`Provider IA ${key.label} (${key.baseUrl}) → ${msg}`);
       }
-      // 1er essai : timeout complet ; suivants : plafonnés à 90 s
-      const cap = attemptsUsed === 0 ? timeoutMs : Math.min(timeoutMs, 90000);
-      attemptsUsed++;
-      try {
-        const json = await attempt(model, cap);
-        lastWorkingCompatModel = model;
-        return json;
-      } catch (e: any) {
-        tried.push(`${model} → ${e?.message || e}`);
-        const status = e?.status;
-        const msg = String(e?.message || '');
-        const unavailable =
-          status === 404 || /no longer available|not found|does not exist|deprecat/i.test(msg);
-        const timedOut =
-          e?.name === 'TimeoutError' ||
-          e?.name === 'AbortError' ||
-          /abort|timeout|timed out/i.test(msg);
-        const transient =
-          status === 503 ||
-          status === 429 ||
-          /high demand|overload|rate.?limit|resource.?exhaust/i.test(msg) ||
-          timedOut;
-        // Clé invalide / requête invalide → les autres modèles n'aideront pas
-        if (status === 401 || status === 403 || status === 400) {
-          throw new Error(`Provider IA (${base}) → ${e?.message || e}`);
-        }
-        // Modèle retiré OU surchargé → candidat suivant
-        if (!unavailable && !transient) {
-          throw new Error(`Provider IA (${base}) → ${e?.message || e}`);
-        }
+      if (model !== candidates[candidates.length - 1]) {
+        continue; // modèle suivant de CE provider (modèle indisponible, etc.)
+      }
+      // Dernier modèle du provider en échec transitoire → propager
+      throw new Error(`Provider IA ${key.label} (${key.baseUrl}) → ${msg}`);
+    }
+  }
+  throw new Error(`Provider IA ${key.label} (${key.baseUrl}) → aucun modèle disponible [${tried.slice(0, 4).join(' | ')}]`);
+}
+
+/**
+ * Appel LLM via le pool de clés OpenAI-compatible, avec rotation
+ * automatique : chaque clé est essayée dans l'ordre ; en cas de
+ * limite atteinte (429/quota), d'erreur d'authentification ou de
+ * panne, le système bascule sur la clé suivante du pool.
+ *
+ * opts.vision : filtrer les providers qui n'acceptent pas les images.
+ */
+export async function callOpenAICompat(
+  messages: unknown[],
+  timeoutMs = 180000,
+  opts?: { vision?: boolean }
+): Promise<any | null> {
+  const pool = providerKeyPool();
+  if (pool.length === 0) return null; // non configuré → stratégie suivante
+
+  const wantsVision = opts?.vision || isVisionMessage(messages);
+  const usable = wantsVision ? pool.filter((k) => k.vision) : pool;
+  const candidates = usable.length > 0 ? usable : pool; // si seul Mistral est configuré, tenter quand même
+
+  const now = Date.now();
+  const fresh = candidates.filter((k) => (cooldownUntil.get(k.label) ?? 0) <= now);
+  const ordered = [...new Set([
+    ...fresh.filter((k) => k.label === lastWorkingKeyLabel), // sticky : dernière clé qui marche
+    ...fresh.filter((k) => k.label !== lastWorkingKeyLabel),
+    ...(fresh.length === 0 ? candidates : []), // tout est en cooldown → tenter quand même
+  ])];
+
+  let lastError: any = null;
+  for (const key of ordered) {
+    try {
+      return await callProviderKey(key, messages, timeoutMs);
+    } catch (e: any) {
+      lastError = e;
+      const status = e?.status;
+      const msg = String(e?.message || '');
+      const kind = classifyFailure(status, msg);
+      if (kind !== 'FATAL') {
+        cooldownUntil.set(key.label, Date.now() + COOLDOWNS[kind]);
+        console.warn(`[AI POOL] ${key.label} en cooldown (${kind}) : ${msg.slice(0, 120)}`);
+      } else {
+        console.error(`[AI POOL] ${key.label} échec fatal : ${msg.slice(0, 120)}`);
       }
     }
-    return null;
-  };
-
-  const direct = await attemptCandidates(candidates);
-  if (direct) return direct;
-
-  // Tous les candidats sont indisponibles/surchargés → découverte automatique
-  const discovered = await discoverCompatModels(base, key);
-  const pool = discovered
-    .filter((id) => !/tts|embed|audio|imagen|veo|native|live/i.test(id))
-    .slice(0, 8);
-  const variants: string[] = [];
-  for (const id of pool) {
-    variants.push(id);
-    if (id.startsWith('models/')) variants.push(id.slice('models/'.length));
   }
-  const unique = [...new Set(variants)].filter((m) => !candidates.includes(m));
-  const auto = await attemptCandidates(unique.slice(0, 8));
-  if (auto) return auto;
 
-  throw new Error(
-    `Provider IA (${base}) → aucun modèle disponible pour le moment [${tried.slice(0, 6).join(' | ')}]`
-  );
+  // Toutes les clés ont échoué → découverte automatique des modèles
+  // disponibles (GET /models) sur chaque provider, puis dernière chance.
+  for (const key of ordered.slice(0, 3)) {
+    const discovered = await discoverCompatModels(key.baseUrl, key.apiKey);
+    const poolIds = discovered
+      .filter((id) => !/tts|embed|audio|imagen|veo|native|live/i.test(id))
+      .slice(0, 8);
+    const variants: string[] = [];
+    for (const id of poolIds) {
+      variants.push(id);
+      if (id.startsWith('models/')) variants.push(id.slice('models/'.length));
+    }
+    const unique = [...new Set(variants)]
+      .filter((m) => !key.models.includes(m))
+      .slice(0, 8);
+    const retryKey: ProviderKey = { ...key, models: unique };
+    for (const model of unique) {
+      try {
+        const json = await callProviderKey(retryKey, messages, Math.min(timeoutMs, 90000));
+        lastWorkingKeyLabel = key.label;
+        return json;
+      } catch {
+        // on continue sur le modèle/provider suivant
+      }
+    }
+  }
+
+  throw lastError ?? new Error('Aucune clé IA disponible dans le pool');
 }
 
 /**
@@ -341,8 +469,8 @@ export type VisionMessage = {
  * - Vercel  : proxy sandbox /api/llm-proxy avec mode:'vision'
  */
 export async function callZAIVision(messages: VisionMessage[]): Promise<any> {
-  // Strategy 0 : provider public OpenAI-compatible (si configuré)
-  const compat = await callOpenAICompat(messages);
+  // Strategy 0 : pool de clés public OpenAI-compatible (si configuré)
+  const compat = await callOpenAICompat(messages, 180000, { vision: true });
   if (compat) return compat;
 
   if (process.env.VERCEL) {

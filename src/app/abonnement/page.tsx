@@ -35,6 +35,10 @@ interface PaddleConfig {
   priceIds: Record<string, string | null>;
 }
 
+interface SaspayConfig {
+  environment: "sandbox" | "production";
+}
+
 interface MobileMoneyConfig {
   number: string;
   name: string;
@@ -61,8 +65,9 @@ interface SubscriptionInfo {
   isAdmin: boolean;
   hasSubscription: boolean;
   billingConfigured: boolean;
-  billingProvider: "paddle" | "stripe" | "mobile_money" | null;
+  billingProvider: "paddle" | "stripe" | "mobile_money" | "saspay" | null;
   paddle: PaddleConfig | null;
+  saspay: SaspayConfig | null;
   mobileMoney: MobileMoneyConfig | null;
   email: string;
   pendingRequest: PendingRequest | null;
@@ -97,6 +102,43 @@ function AbonnementContent() {
   const [mmSubmitting, setMmSubmitting] = useState(false);
 
   const paddleInitStarted = useRef(false);
+
+  // ─── Retour de paiement SasPay : polling du statut ────────
+  useEffect(() => {
+    if (searchParams.get("saspay") !== "return") return;
+    // Nettoie l'URL pour éviter un re-polling au refresh
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("saspay");
+      url.searchParams.delete("session");
+      window.history.replaceState({}, "", url.toString());
+    } catch {}
+
+    let cancelled = false;
+    let attempts = 0;
+    const poll = async () => {
+      if (cancelled) return;
+      attempts++;
+      try {
+        const res = await fetch("/api/billing/saspay/status");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.paid) {
+            toast.success("Paiement confirmé ! Ton plan est activé.");
+            setTimeout(() => window.location.reload(), 1500);
+            return;
+          }
+        }
+      } catch {}
+      if (attempts < 30) setTimeout(poll, 4000);
+      else if (!cancelled) toast.info("Le paiement n'est pas encore confirmé — rafraîchis la page dans quelques instants.");
+    };
+    toast.info("Vérification de ton paiement SasPay en cours…");
+    setTimeout(poll, 3000);
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,9 +251,33 @@ function AbonnementContent() {
     setMmSubmitting(false);
   };
 
-  // ─── Upgrade dispatcher ────────────────────────────────────
+  // ─── Checkout SasPay (carte bancaire & mobile money, USD) ──
+  const handleSaspayCheckout = async (plan: PlanId) => {
+    try {
+      const res = await fetch("/api/billing/saspay/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan, interval }),
+      });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.assign(data.url);
+        return;
+      }
+      toast.error(data.error || "Erreur lors de la création du paiement SasPay");
+    } catch {
+      toast.error("Erreur de connexion");
+    }
+    setPendingPlan(null);
+  };
+
+  // ─── Upgrade dispatcher ──────────────────────────────────────
   const handleUpgrade = async (plan: PlanId) => {
     setPendingPlan(plan);
+    if (info?.saspay) {
+      await handleSaspayCheckout(plan);
+      return;
+    }
     if (info?.paddle) {
       await handlePaddleCheckout(plan);
       return;
@@ -263,6 +329,7 @@ function AbonnementContent() {
   };
 
   const providerLabel = () => {
+    if (info?.billingProvider === "saspay") return "géré par SasPay";
     if (info?.billingProvider === "paddle") return "géré par Paddle";
     if (info?.billingProvider === "stripe") return "géré par Stripe";
     return "paiement mobile money";
@@ -473,6 +540,12 @@ function AbonnementContent() {
               Moyens de paiement acceptés
             </h2>
             <div className="flex flex-wrap gap-2 mt-3">
+              {info?.saspay && (
+                <Badge variant="outline" className="border-sky-500/30 text-sky-400 bg-sky-500/5">
+                  <CreditCard className="w-3 h-3 mr-1" />
+                  Carte bancaire &amp; Mobile money (via SasPay) — en dollars ($)
+                </Badge>
+              )}
               {info?.paddle && (
                 <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/5">
                   Carte bancaire internationale (via Paddle)
@@ -486,7 +559,7 @@ function AbonnementContent() {
               )}
               {!info?.billingConfigured && (
                 <span className="text-xs text-neutral-500">
-                  Le paiement n&apos;est pas encore activé. Configure Paddle (carte bancaire) ou Mobile Money.
+                  Le paiement n&apos;est pas encore activé. Configure SasPay (carte &amp; mobile money), Paddle ou Mobile Money.
                 </span>
               )}
             </div>

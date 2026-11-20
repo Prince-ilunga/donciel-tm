@@ -63,7 +63,7 @@ export default function LegalPage() {
           </p>
           <h3>2. Accès au Service</h3>
           <ul>
-            <li>Le plan « Découverte » est gratuit, avec des limites d&apos;usage (30 trades/mois, 2 playbooks, 5 analyses IA/mois).</li>
+            <li>Le plan « Découverte » est gratuit, avec des limites d&apos;usage (10 trades/mois, 2 playbooks, 5 analyses IA/mois).</li>
             <li>Les plans payants (Pro, Elite) sont proposés par abonnement mensuel ou annuel, payable via notre prestataire de paiement agréé Paddle (carte bancaire internationale) ou par mobile money (M-Pesa, Airtel Money, Orange Money) avec validation manuelle.</li>
             <li>L&apos;abonnement est reconduit tacitement jusqu&apos;à résiliation. Tu peux annuler à tout moment depuis ton espace ; l&apos;accès au plan reste actif jusqu&apos;à la fin de la période payée.</li>
           </ul>
